@@ -63,6 +63,11 @@ async function openCounterparties(page: Page) {
 test("counterparty workspace creates, edits, searches and deletes online records", async ({ page }) => {
   await openCounterparties(page);
   await expect(page.getByRole("heading", { name: "طرف‌حساب‌ها", level: 1 })).toBeVisible();
+  const resultAndSearchWidths = await page.locator(".counterparty-results").evaluate((results) => ({
+    results: results.getBoundingClientRect().width,
+    search: results.querySelector<HTMLElement>(".counterparty-search")!.getBoundingClientRect().width,
+  }));
+  expect(Math.abs(resultAndSearchWidths.results - resultAndSearchWidths.search)).toBeLessThanOrEqual(1);
   await page.getByLabel("نوع طرف‌حساب").click();
   await page.getByRole("option", { name: "مجموعه" }).click();
   await page.getByLabel("نام طرف‌حساب").fill("فروشگاه سپهر");

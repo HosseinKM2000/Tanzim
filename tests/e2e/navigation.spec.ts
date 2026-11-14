@@ -2,9 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 
 type Role = "USER" | "ADMIN";
 
-async function seedAuthenticatedUser(page: Page, role: Role) {
-  await page.addInitScript(({ seededRole }) => {
-    Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => false });
+async function seedAuthenticatedUser(page: Page, role: Role, online = false) {
+  await page.addInitScript(({ seededRole, seededOnline }) => {
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => seededOnline });
     const now = new Date().toISOString();
     const user = {
       id: seededRole === "ADMIN" ? 7102 : 7101,
@@ -55,7 +55,7 @@ async function seedAuthenticatedUser(page: Page, role: Role) {
       },
       limits: { inventory_items: null },
     }));
-  }, { seededRole: role });
+  }, { seededRole: role, seededOnline: online });
   await page.route("http://localhost:8000/api/**", (route) => route.abort());
 }
 
@@ -141,6 +141,14 @@ test("standard navigation separates Settings and Tools with contextual back beha
   await expect(page.getByRole("link", { name: /دسته‌ها/ })).toHaveAttribute("href", "/tools/categories");
   await expect(page.getByRole("link", { name: /بازیابی/ })).toHaveAttribute("href", "/tools/recovery");
   await expect(page.getByRole("button", { name: "بازگشت" })).toBeVisible();
+
+  await page.goto("/tools/recovery");
+  await expect(page.locator(".recovery-refresh-panel")).toBeVisible();
+  const recoveryWidths = await page.evaluate(() => ({
+    guide: document.querySelector<HTMLElement>(".page-guide")!.getBoundingClientRect().width,
+    panel: document.querySelector<HTMLElement>(".recovery-refresh-panel")!.getBoundingClientRect().width,
+  }));
+  expect(Math.abs(recoveryWidths.guide - recoveryWidths.panel)).toBeLessThanOrEqual(1);
 
   await page.goto("/setting/categories");
   await expect(page).toHaveURL(/\/tools\/categories$/);
@@ -296,6 +304,24 @@ test("application navigation has no horizontal overflow at narrow and desktop wi
       scrollWidth: document.documentElement.scrollWidth,
     }));
     expect(dimensions.scrollWidth, `${viewport.width}px`).toBeLessThanOrEqual(dimensions.clientWidth);
+  }
+});
+
+test("management catalog filters use the full guided content width", async ({ page }) => {
+  await seedAuthenticatedUser(page, "ADMIN", true);
+
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/management/catalogs");
+
+    const guide = page.locator(".page-guide");
+    const filters = page.locator(".catalog-filter-grid");
+    await expect(guide).toBeVisible();
+    await expect(filters).toBeVisible();
+
+    const [guideBox, filtersBox] = await Promise.all([guide.boundingBox(), filters.boundingBox()]);
+    expect(Math.abs(guideBox!.width - filtersBox!.width), `${viewport.width}px width`).toBeLessThanOrEqual(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   }
 });
 

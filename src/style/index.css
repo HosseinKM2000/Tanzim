@@ -5493,6 +5493,21 @@ html[data-keyboard-open="true"] .app-bottom-navigation {
   background: color-mix(in srgb, var(--color-panel-solid) 94%, var(--accent-a2));
 }
 
+.catalog-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(10rem, .85fr) minmax(16rem, 1.65fr) minmax(11rem, 1fr) auto;
+  align-items: center;
+  gap: .75rem;
+  width: 100%;
+}
+.catalog-filter-control { min-width: 0; width: 100%; }
+.catalog-filter-progress { min-width: max-content; }
+
+@media (max-width: 800px) {
+  .catalog-filter-grid { grid-template-columns: minmax(0, 1fr); }
+  .catalog-filter-progress { min-width: 0; }
+}
+
 .settings-form-panel,
 .settings-choice-panel {
   padding: clamp(1rem, 2.5vw, 1.5rem);
@@ -5545,6 +5560,14 @@ html[data-keyboard-open="true"] .app-bottom-navigation {
     radial-gradient(circle at 100% 0, var(--accent-a3), transparent 35%),
     color-mix(in srgb, var(--color-panel-solid) 96%, var(--accent-a2));
   box-shadow: 0 14px 36px color-mix(in srgb, var(--app-overlay) 7%, transparent);
+}
+.industry-selector-shell[data-mode="settings"],
+.industry-selector-shell[data-mode="settings"] .industry-selector-form,
+.industry-selector-shell[data-mode="settings"] .industry-selector-panel {
+  width: 100%;
+}
+.industry-selector-shell[data-mode="settings"] {
+  justify-content: stretch;
 }
 .industry-selector-heading { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .8rem; }
 .industry-selector-heading h2,
@@ -5924,7 +5947,7 @@ html[data-keyboard-open="true"] .app-bottom-navigation {
 .counterparty-form-grid { display: grid; gap: .85rem; }
 .counterparty-address { grid-column: 1 / -1; }
 .counterparty-results { display: grid; min-width: 0; gap: .75rem; }
-.counterparty-search { width: min(100%, 30rem); }
+.counterparty-search { width: 100%; }
 .counterparty-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: .7rem; }
 .counterparty-card { min-width: 0; border: 1px solid var(--gray-a5) !important; border-radius: 14px !important; }
 .counterparty-avatar { display: grid; flex: 0 0 auto; width: 2.65rem; height: 2.65rem; place-items: center; color: var(--accent-11); border-radius: 12px; background: var(--accent-a3); }
