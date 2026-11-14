@@ -119,6 +119,27 @@ test("invoice editor keeps the mobile card layout without horizontal overflow", 
   expect(geometry.summaryTop).toBeGreaterThanOrEqual(geometry.productsBottom);
 });
 
+test("invoice history follows the redesigned responsive card hierarchy", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name.includes("mobile");
+  await page.setViewportSize(mobile ? { width: 355, height: 750 } : { width: 1667, height: 869 });
+  await seed(page, [
+    { id: 701, invoice_type: "purchase", title: "سیستم سپهر", counterparty: "فروشگاه سپهر", status: "posted", total_amount: 13, actor_user_id: owner.id, actor_membership_id: owner.membership_id, post_operation_id: "history-701", posted_at: now, lines: [] },
+    { id: 702, invoice_type: "sale", title: "پیکسل", counterparty: "علی رضایی", status: "posted", total_amount: 210000, actor_user_id: owner.id, actor_membership_id: owner.membership_id, post_operation_id: "history-702", posted_at: now, lines: [] },
+  ]);
+  await page.evaluate(() => localStorage.setItem("inventory-appearance", "dark"));
+  await page.reload();
+  const history = page.locator(".invoice-history");
+  await history.scrollIntoViewIfNeeded();
+  await expect(history.getByRole("heading", { name: "تاریخچه فاکتورها" })).toBeVisible();
+  await expect(history.locator(".invoice-history-card")).toHaveCount(2);
+  await expect(history.getByText("تأییدشده", { exact: true })).toHaveCount(2);
+  await expect(history.getByRole("button", { name: "دریافت PDF" }).first()).toBeVisible();
+  await expect(history.getByRole("button", { name: "لغو کامل فاکتور" })).toHaveCount(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  const cards = await history.locator(".invoice-history-card").evaluateAll((items) => items.map((item) => item.getBoundingClientRect()));
+  expect(cards[1].top).toBeGreaterThanOrEqual(cards[0].bottom);
+});
+
 test("invoice form posts one atomic command and remains responsive", async ({ page }) => {
   await page.setViewportSize({ width: 1667, height: 869 });
   await seed(page);
@@ -206,7 +227,7 @@ test("cancelled purchase snapshot produces a multipage PDF without current produ
   const lines = Array.from({ length: 44 }, (_, index) => ({ id: index + 1, product_id: 9000 + index, product_name: `نام تاریخی بسیار بلند کالای خریداری‌شده ردیف ${index + 1} که دیگر در فهرست جاری وجود ندارد`, quantity: index + 1, unit: "عدد", pack_size: null, base_quantity: index + 1, unit_price: 1234567, line_total: (index + 1) * 1234567, before_quantity: 0, after_quantity: index + 1 }));
   await seed(page, [{ id: 999, invoice_type: "purchase", title: "خرید چندصفحه‌ای باطل‌شده", counterparty: "تأمین‌کننده تاریخی", status: "cancelled", total_amount: lines.reduce((sum, line) => sum + line.line_total, 0), actor_user_id: owner.id, actor_membership_id: owner.membership_id, post_operation_id: "snapshot-reference", cancel_operation_id: "cancel-reference", posted_at: now, cancelled_at: now, lines }]);
   await expect(page.getByText("خرید چندصفحه‌ای باطل‌شده", { exact: true })).toBeVisible(); await context.setOffline(true);
-  const card = page.getByText("خرید چندصفحه‌ای باطل‌شده", { exact: true }).locator("xpath=ancestor::div[contains(@class,'rt-Card')]");
+  const card = page.getByText("خرید چندصفحه‌ای باطل‌شده", { exact: true }).locator("xpath=ancestor::*[contains(@class,'invoice-history-card')]");
   const downloadPromise = page.waitForEvent("download"); await card.getByRole("button", { name: "دریافت PDF" }).click();
   const path = await (await downloadPromise).path(); const bytes = await import("node:fs/promises").then((fs) => fs.readFile(path!));
   expect(bytes.toString("latin1").match(/\/Type \/Page\b/g)?.length).toBeGreaterThan(1);

@@ -15,7 +15,7 @@ import { Form } from "@/shared/ui/form/form";
 import { CheckIcon, CubeIcon, FileTextIcon, MinusIcon, PlusIcon, ReaderIcon, Share2Icon, TrashIcon } from "@radix-ui/react-icons";
 import { Badge, Box, Card, Dialog, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
-import { Boxes, Calculator, Database, Package, Printer, Save, ScanLine, Settings2, ShoppingCart, UserRound, X, Zap } from "lucide-react";
+import { Boxes, Calculator, CalendarDays, Check, CircleAlert, Clock3, Coins, Database, FileDown, Layers3, Package, Printer, Save, ScanLine, Settings2, Share2, ShoppingCart, Trash2, UserRound, X, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { lookupInvoiceBarcode } from "./invoice-barcode-selection";
@@ -32,6 +32,15 @@ const toman = (value: number | null) => value == null ? "قابل مشاهده �
 const canUseInvoiceOutput = (invoice: Invoice) => accessState.canUse(`invoices.${invoice.invoice_type}`)
   && accessState.hasStorePermission(invoice.invoice_type === "purchase" ? "products.purchase_price.view" : "products.sale_price.view")
   && (invoice.status === "accepted" || invoice.status === "cancelled" || (invoice.status === "pending" && accessState.user()?.store_operating_mode === "solo"));
+
+const INVOICE_STATUS_META = {
+  accepted: { label: "تأییدشده", icon: Check },
+  cancelled: { label: "باطل‌شده", icon: X },
+  pending: { label: "ذخیره‌شده", icon: Clock3 },
+  cancel_pending: { label: "لغو در انتظار", icon: Clock3 },
+  rejected: { label: "پذیرفته‌نشده", icon: CircleAlert },
+  conflict: { label: "نیازمند بررسی", icon: CircleAlert },
+} as const;
 
 function InvoiceProductThumb({ product }: { product?: Product }) {
   const imagePath = product?.image_url?.startsWith("local://")
@@ -245,15 +254,39 @@ function InvoiceHistory({ invoices, canOutput, outputBusy, onOutput, onReload, o
   onError: (error: unknown) => void;
 }) {
   return <section className="invoice-history">
-    <Heading as="h2" size="5">تاریخچه فاکتورها</Heading>
-    <div className="invoice-history-grid">{invoices.map((invoice) => <Card key={invoice.id} className="invoice-history-card">
-      <Flex justify="between" gap="2"><Box><Text weight="bold">{invoice.title}</Text><Text as="div" size="2" color="gray">{invoice.invoice_type === "purchase" ? "خرید" : "فروش"} · {formatJalaliDateTime(invoice.posted_at)}</Text></Box><Badge color={invoice.status === "accepted" ? "green" : invoice.status === "cancelled" ? "gray" : invoice.status === "rejected" || invoice.status === "conflict" ? "red" : "orange"}>{{ accepted: "تأییدشده", cancelled: "باطل‌شده", pending: "ذخیره‌شده روی این دستگاه", cancel_pending: "لغو در انتظار تأیید", rejected: "پذیرفته‌نشده", conflict: "نیازمند بررسی" }[invoice.status]}</Badge></Flex>
-      {invoice.counterparty ? <Text as="p" mt="2">طرف‌حساب: {invoice.counterparty}</Text> : null}
-      <Text as="div" weight="bold" mt="2">جمع: {toman(invoice.total_amount)}</Text>
-      <Flex mt="3" gap="2" wrap="wrap">
-        {canOutput && canUseInvoiceOutput(invoice) ? <><Button type="button" variant="soft" loading={outputBusy === invoice.id} onClick={() => void onOutput(invoice, "download")}>دریافت PDF</Button><Button type="button" variant="soft" onClick={() => void onOutput(invoice, "print")}>چاپ</Button><Button type="button" variant="soft" onClick={() => void onOutput(invoice, "share")}>اشتراک‌گذاری</Button></> : null}
-        {accessState.hasStorePermission("invoices.cancel") && accessState.canUse(`invoices.${invoice.invoice_type}`) && !["cancelled", "cancel_pending", "rejected", "conflict"].includes(invoice.status) ? <Button color="red" variant="soft" onClick={() => void invoiceService.cancel(invoice.id).then(onReload).catch(onError)}>لغو کامل فاکتور</Button> : null}
-      </Flex>
-    </Card>)}</div>
+    <div className="invoice-history-heading"><Layers3 /><Heading as="h2" size="5">تاریخچه فاکتورها</Heading></div>
+    <div className="invoice-history-grid">{invoices.length ? invoices.map((invoice) => <InvoiceHistoryCard key={invoice.id} invoice={invoice} canOutput={canOutput} outputBusy={outputBusy} onOutput={onOutput} onReload={onReload} onError={onError} />) : <div className="invoice-history-empty"><FileTextIcon /><strong>هنوز فاکتوری ثبت نشده است</strong><span>فاکتورهای ثبت‌شده در این بخش نمایش داده می‌شوند.</span></div>}</div>
   </section>;
+}
+
+function InvoiceHistoryCard({ invoice, canOutput, outputBusy, onOutput, onReload, onError }: {
+  invoice: Invoice;
+  canOutput: boolean;
+  outputBusy: number | null;
+  onOutput: (invoice: Invoice, action: "download" | "print" | "share") => Promise<void>;
+  onReload: () => Promise<void>;
+  onError: (error: unknown) => void;
+}) {
+  const status = INVOICE_STATUS_META[invoice.status] ?? { label: "در انتظار", icon: Clock3 };
+  const StatusIcon = status.icon;
+  const dateTime = formatJalaliDateTime(invoice.posted_at).split(" ");
+  const date = dateTime[0] ?? "—";
+  const time = dateTime[1] ?? "—";
+  const mayOutput = canOutput && canUseInvoiceOutput(invoice);
+  const mayCancel = accessState.hasStorePermission("invoices.cancel")
+    && accessState.canUse(`invoices.${invoice.invoice_type}`)
+    && !["cancelled", "cancel_pending", "rejected", "conflict"].includes(invoice.status);
+
+  return <article className="invoice-history-card" data-status={invoice.status}>
+    <div className="invoice-history-card-main">
+      <div className="invoice-history-identity"><strong>{invoice.title}</strong><span><ShoppingCart />{invoice.invoice_type === "purchase" ? "خرید" : "فروش"}</span></div>
+      <div className="invoice-history-meta"><span><CalendarDays />{date}<b>{time}</b></span><span><UserRound />طرف حساب: {invoice.counterparty || "بدون طرف حساب"}</span></div>
+      <div className="invoice-history-amount"><span><Coins />جمع:</span><strong>{toman(invoice.total_amount)}</strong></div>
+      <div className="invoice-history-status"><StatusIcon />{status.label}</div>
+    </div>
+    {(mayOutput || mayCancel) ? <div className="invoice-history-actions">
+      {mayOutput ? <><Button className="invoice-history-download" type="button" loading={outputBusy === invoice.id} onClick={() => void onOutput(invoice, "download")}><FileDown /> دریافت PDF</Button><Button type="button" variant="soft" onClick={() => void onOutput(invoice, "print")}><Printer /> چاپ</Button><Button type="button" variant="soft" onClick={() => void onOutput(invoice, "share")}><Share2 /> اشتراک‌گذاری</Button></> : null}
+      {mayCancel ? <Button className="invoice-history-cancel" color="red" variant="soft" onClick={() => void invoiceService.cancel(invoice.id).then(onReload).catch(onError)}><Trash2 /> لغو کامل فاکتور</Button> : null}
+    </div> : null}
+  </article>;
 }
