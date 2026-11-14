@@ -168,7 +168,7 @@ html { font-size: 16px; }
   }
 
   .app-shell-body {
-    flex-direction: row-reverse;
+    flex-direction: row;
   }
 
   .app-shell-main {
@@ -201,11 +201,11 @@ html { font-size: 16px; }
     overflow: hidden;
     padding: 1rem .85rem .85rem;
     color: var(--gray-12);
-    border-inline-start: 1px solid var(--gray-a6);
+    border-inline-end: 1px solid var(--gray-a6);
     background:
       radial-gradient(circle at 90% 2%, color-mix(in srgb, var(--accent-5) 20%, transparent), transparent 12rem),
       color-mix(in srgb, var(--color-panel-solid) 97%, var(--accent-2));
-    box-shadow: 10px 0 32px color-mix(in srgb, var(--app-overlay) 12%, transparent);
+    box-shadow: -10px 0 32px color-mix(in srgb, var(--app-overlay) 12%, transparent);
     transition: width 260ms var(--app-motion-ease-out), min-width 260ms var(--app-motion-ease-out), flex-basis 260ms var(--app-motion-ease-out);
   }
 
@@ -378,8 +378,10 @@ html { font-size: 16px; }
   .desktop-sidebar-navigation {
     min-height: 0;
     flex: 1 1 auto;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding-inline: .1rem;
+    scrollbar-width: thin;
   }
 
   .desktop-sidebar-group + .desktop-sidebar-group {
@@ -1669,8 +1671,8 @@ body:has(.inventory-filter-dialog) .rt-DialogOverlay {
 @media (min-width: 1024px) {
   .inventory-list-workspace {
     direction: ltr;
-    grid-template-areas: "results filters";
-    grid-template-columns: minmax(0, 1fr) minmax(18rem, 21rem);
+    grid-template-areas: "filters results";
+    grid-template-columns: minmax(18rem, 21rem) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     gap: 1rem;
   }

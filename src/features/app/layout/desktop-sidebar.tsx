@@ -112,7 +112,7 @@ export default function DesktopSidebar() {
       <div className="desktop-sidebar-brand-row">
         <Link to="/dashboard" className="desktop-sidebar-brand" aria-label="تنظیم؛ داشبورد">
           <span className="desktop-sidebar-logo" aria-hidden="true">
-            <img src="/tanzim-cube-logo.svg" alt="" />
+            <img src="/favicon-48.png" alt="" />
           </span>
           <span className="desktop-sidebar-brand-copy">
             <strong>تنظیم</strong>
@@ -127,7 +127,7 @@ export default function DesktopSidebar() {
           aria-label={collapsed ? "باز کردن منوی کناری" : "جمع کردن منوی کناری"}
           title={collapsed ? "باز کردن منو" : "جمع کردن منو"}
         >
-          {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+          {collapsed ? <ChevronLeftIcon /> : <ChevronRightIcon />}
         </button>
       </div>
 
