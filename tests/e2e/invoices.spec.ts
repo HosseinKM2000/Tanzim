@@ -114,9 +114,14 @@ test("invoice editor keeps the mobile card layout without horizontal overflow", 
   const geometry = await page.evaluate(() => {
     const products = document.querySelector<HTMLElement>(".invoice-products-panel")!;
     const summary = document.querySelector<HTMLElement>(".invoice-summary-card")!;
-    return { productsBottom: products.getBoundingClientRect().bottom, summaryTop: summary.getBoundingClientRect().top };
+    const quantity = products.querySelector<HTMLElement>(".invoice-line-quantity")!;
+    const unit = products.querySelector<HTMLElement>(".invoice-line-unit")!;
+    const price = products.querySelector<HTMLElement>(".invoice-line-price")!;
+    return { productsBottom: products.getBoundingClientRect().bottom, summaryTop: summary.getBoundingClientRect().top, quantityTop: quantity.getBoundingClientRect().top, unitTop: unit.getBoundingClientRect().top, priceTop: price.getBoundingClientRect().top };
   });
   expect(geometry.summaryTop).toBeGreaterThanOrEqual(geometry.productsBottom);
+  expect(geometry.unitTop).toBeGreaterThan(geometry.quantityTop);
+  expect(geometry.priceTop).toBeGreaterThan(geometry.unitTop);
 });
 
 test("invoice history follows the redesigned responsive card hierarchy", async ({ page }, testInfo) => {
@@ -146,6 +151,7 @@ test("invoice form posts one atomic command and remains responsive", async ({ pa
   await page.evaluate(() => localStorage.setItem("inventory-appearance", "dark"));
   await page.reload();
   await expect(page.getByRole("heading", { name: "فاکتورها", level: 1 })).toBeVisible();
+  await expect(page.locator(".invoice-count-desktop")).toContainText("قلم کالا");
   const stepperGeometry = await page.getByRole("button", { name: "یک واحد بیشتر برای ردیف 1" }).evaluate((button) => {
     const input = button.parentElement?.querySelector("input");
     const icon = button.querySelector("svg");
