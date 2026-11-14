@@ -288,6 +288,9 @@ html { font-size: 16px; }
     transition:
       color var(--app-motion-fast) ease,
       background var(--app-motion-fast) ease,
+      width 180ms var(--app-motion-ease-out),
+      height 180ms var(--app-motion-ease-out),
+      flex-basis 180ms var(--app-motion-ease-out),
       opacity 140ms ease,
       transform 180ms var(--app-motion-ease-out),
       visibility 0s linear;
@@ -518,14 +521,22 @@ html { font-size: 16px; }
   .app-desktop-sidebar[data-collapsed="true"] .desktop-sidebar-brand {
     flex: 0 0 3rem;
     justify-content: center;
+    gap: 0;
   }
 
   .app-desktop-sidebar[data-collapsed="true"] .desktop-sidebar-collapse {
+    width: 0;
+    min-width: 0;
+    height: 0;
+    flex-basis: 0;
+    overflow: hidden;
+    padding: 0;
+    border-width: 0;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
     transform: scale(.78);
-    transition-delay: 0s, 0s, 0s, 0s, 140ms;
+    transition-delay: 0s, 0s, 0s, 0s, 0s, 0s, 0s, 180ms;
   }
 
   .app-desktop-sidebar[data-collapsed="true"] .desktop-sidebar-logo {
@@ -545,6 +556,7 @@ html { font-size: 16px; }
     min-height: 3rem;
     margin-inline: auto;
     justify-content: center;
+    gap: 0;
     padding: 0;
     border-radius: .65rem;
   }
@@ -573,6 +585,7 @@ html { font-size: 16px; }
 
   .app-desktop-sidebar[data-collapsed="true"] .desktop-sidebar-account {
     justify-content: center;
+    gap: 0;
   }
 
   .app-desktop-sidebar[data-collapsed="true"] .desktop-sidebar-user {
@@ -580,7 +593,13 @@ html { font-size: 16px; }
   }
 
   .desktop-sidebar-navigation::-webkit-scrollbar {
-    width: 6px;
+    width: 3px;
+  }
+
+  .desktop-sidebar-navigation::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
   }
 
   .desktop-sidebar-navigation::-webkit-scrollbar-track {
@@ -589,7 +608,7 @@ html { font-size: 16px; }
   }
 
   .desktop-sidebar-navigation::-webkit-scrollbar-thumb {
-    border: 1px solid transparent;
+    border: 0;
     border-radius: 999px;
     background: linear-gradient(180deg, color-mix(in srgb, var(--accent-9) 72%, var(--sidebar-accent)), color-mix(in srgb, var(--sidebar-accent) 78%, var(--amber-7))) padding-box;
   }

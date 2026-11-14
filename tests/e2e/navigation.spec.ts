@@ -252,6 +252,35 @@ test("desktop sidebar collapses smoothly while tablet keeps bottom navigation", 
   for (const tile of collapsedTiles) {
     expect(Math.abs(tile.width - tile.height)).toBeLessThanOrEqual(1);
   }
+  const collapsedAlignment = await sidebar.evaluate((element) => {
+    const sidebarBox = element.getBoundingClientRect();
+    const sidebarCenter = sidebarBox.x + sidebarBox.width / 2;
+    const pairs = [
+      [".desktop-sidebar-logo", ".desktop-sidebar-logo img"],
+      [".desktop-sidebar-store", ".desktop-sidebar-store-icon"],
+      [".desktop-sidebar-add", ".desktop-sidebar-add > svg"],
+      [".desktop-sidebar-link", ".desktop-sidebar-link-icon"],
+      [".desktop-sidebar-user", ".desktop-sidebar-user-avatar"],
+    ];
+    return pairs.map(([tileSelector, iconSelector]) => {
+      const tile = element.querySelector<HTMLElement>(tileSelector)!.getBoundingClientRect();
+      const icon = element.querySelector<HTMLElement>(iconSelector)!.getBoundingClientRect();
+      return {
+        tileFromSidebarCenter: Math.abs(tile.x + tile.width / 2 - sidebarCenter),
+        iconFromTileCenterX: Math.abs(icon.x + icon.width / 2 - (tile.x + tile.width / 2)),
+        iconFromTileCenterY: Math.abs(icon.y + icon.height / 2 - (tile.y + tile.height / 2)),
+      };
+    });
+  });
+  for (const alignment of collapsedAlignment) {
+    expect(alignment.tileFromSidebarCenter).toBeLessThanOrEqual(1);
+    expect(alignment.iconFromTileCenterX).toBeLessThanOrEqual(1);
+    expect(alignment.iconFromTileCenterY).toBeLessThanOrEqual(1);
+  }
+  const sidebarScrollbarWidth = await sidebar.locator(".desktop-sidebar-navigation").evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element, "::-webkit-scrollbar").width),
+  );
+  expect(sidebarScrollbarWidth).toBeLessThanOrEqual(3);
   const separators = await sidebar.evaluate((element) => {
     const footer = getComputedStyle(element.querySelector<HTMLElement>(".desktop-sidebar-footer")!);
     const account = getComputedStyle(element.querySelector<HTMLElement>(".desktop-sidebar-account")!);
