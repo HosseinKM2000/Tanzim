@@ -95,7 +95,7 @@ describe("quick-access navigation", () => {
     );
 
     expect(screen.queryByText("نیازمند اینترنت")).not.toBeInTheDocument();
-    expect(screen.getByText("اطلاعات حساب و تصویر پروفایل")).toBeVisible();
+    expect(screen.getByText("اطلاعات حساب و نام مجموعه")).toBeVisible();
     expect(screen.getAllByText("آنلاین").length).toBeGreaterThan(0);
     expect(screen.getAllByText("روی دستگاه").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /ظاهر/ })).toBeVisible();

@@ -92,8 +92,8 @@ const Catalogs = ({ hideHeading = false }: { hideHeading?: boolean }) => {
         </Callout.Root>
       )}
 
-      <Flex gap="3" direction={{ initial: "column", sm: "row" }}>
-        <Box className="w-full sm:max-w-52">
+      <div className="catalog-filter-grid">
+        <Box className="catalog-filter-control">
           <SelectInput
             aria-label="وضعیت محصولات کاتالوگ"
             options={[
@@ -106,7 +106,7 @@ const Catalogs = ({ hideHeading = false }: { hideHeading?: boolean }) => {
             }
           />
         </Box>
-        <Box className="w-full sm:max-w-md">
+        <Box className="catalog-filter-control catalog-filter-search">
           <TextInput
             aria-label="جستجوی محصولات کاتالوگ"
             placeholder="جستجو در نام، برند یا توضیحات..."
@@ -115,7 +115,7 @@ const Catalogs = ({ hideHeading = false }: { hideHeading?: boolean }) => {
             onChange={(event) => setSearch(event.target.value)}
           />
         </Box>
-        <Box className="w-full sm:max-w-64">
+        <Box className="catalog-filter-control">
           <SelectInput
             disabled={industriesLoading}
             aria-label="فیلتر حوزه کاری"
@@ -126,12 +126,12 @@ const Catalogs = ({ hideHeading = false }: { hideHeading?: boolean }) => {
           />
         </Box>
         {isFetching && !catalogLoading && (
-          <Flex align="center" gap="2">
+          <Flex align="center" gap="2" className="catalog-filter-progress">
             <Spinner size="1" />
             <Text size="1" color="gray">در حال به‌روزرسانی</Text>
           </Flex>
         )}
-      </Flex>
+      </div>
 
       {catalogLoading && (
         <Flex justify="center" align="center" height="300px"><Spinner size="3" /></Flex>
