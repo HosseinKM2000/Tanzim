@@ -110,7 +110,18 @@ export default function DesktopSidebar() {
       aria-label="ناوبری دسکتاپ"
     >
       <div className="desktop-sidebar-brand-row">
-        <Link to="/dashboard" className="desktop-sidebar-brand" aria-label="تنظیم؛ داشبورد">
+        <Link
+          to="/dashboard"
+          className="desktop-sidebar-brand"
+          aria-label={collapsed ? "باز کردن منوی کناری" : "تنظیم؛ داشبورد"}
+          aria-expanded={collapsed ? false : undefined}
+          title={collapsed ? "باز کردن منو" : undefined}
+          onClick={(event) => {
+            if (!collapsed) return;
+            event.preventDefault();
+            toggleCollapsed();
+          }}
+        >
           <span className="desktop-sidebar-logo" aria-hidden="true">
             <img src="/favicon-48.png" alt="" />
           </span>

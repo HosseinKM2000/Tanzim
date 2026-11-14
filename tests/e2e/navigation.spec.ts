@@ -229,13 +229,41 @@ test("desktop sidebar collapses smoothly while tablet keeps bottom navigation", 
 
   const expandedSidebar = (await sidebar.boundingBox())!;
   const expandedMain = (await main.boundingBox())!;
+  const sidebarMotion = await sidebar.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return style.transitionDuration.split(",").map((value) => Number.parseFloat(value));
+  });
+  expect(Math.max(...sidebarMotion)).toBeGreaterThanOrEqual(.2);
+  expect(Math.max(...sidebarMotion)).toBeLessThanOrEqual(.3);
   await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(sidebar).toHaveAttribute("data-collapsed", "true");
+  await expect(toggle).toBeHidden();
   await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeLessThan(expandedSidebar.width - 100);
   const collapsedMain = (await main.boundingBox())!;
   expect(collapsedMain.width).toBeGreaterThan(expandedMain.width + 100);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("tanzim:desktop-sidebar-collapsed"))).toBe("true");
+
+  const collapsedTiles = await sidebar.locator(".desktop-sidebar-store, .desktop-sidebar-add, .desktop-sidebar-link, .desktop-sidebar-user").evaluateAll((elements) =>
+    elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return { width: box.width, height: box.height };
+    }),
+  );
+  for (const tile of collapsedTiles) {
+    expect(Math.abs(tile.width - tile.height)).toBeLessThanOrEqual(1);
+  }
+  const separators = await sidebar.evaluate((element) => {
+    const footer = getComputedStyle(element.querySelector<HTMLElement>(".desktop-sidebar-footer")!);
+    const account = getComputedStyle(element.querySelector<HTMLElement>(".desktop-sidebar-account")!);
+    return [footer.borderTopWidth, account.borderTopWidth];
+  });
+  expect(separators).toEqual(["1px", "0px"]);
+
+  await sidebar.locator(".desktop-sidebar-brand").click();
+  await expect(sidebar).toHaveAttribute("data-collapsed", "false");
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  await expect(sidebar).toHaveAttribute("data-collapsed", "true");
 
   await page.reload();
   await expect(sidebar).toHaveAttribute("data-collapsed", "true");
