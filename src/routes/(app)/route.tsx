@@ -3,6 +3,7 @@
 import Header from "@/features/app/layout/header";
 import NavMenu from "@/features/app/layout/nav-menu";
 import ConnectionStatus from "@/features/app/layout/connection-status";
+import DesktopSidebar from "@/features/app/layout/desktop-sidebar";
 
 import { isAuthenticated } from "@/shared/api/token-store";
 import { Outlet, createFileRoute, redirect, useRouterState } from "@tanstack/react-router";
@@ -27,21 +28,23 @@ function ProtectedLayout() {
   const hideLayout = pathname === "/industry";
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
-      {!hideLayout && <Header />}
-      {!hideLayout && <NavMenu />}
+    <div className="app-shell-frame h-dvh min-h-0 overflow-hidden">
+      {!hideLayout && <DesktopSidebar />}
       {hideLayout && (
         <div className="fixed left-3 top-3 z-50">
           <ConnectionStatus />
         </div>
       )}
-
-      <main
-        data-scroll-restoration-id="app-shell"
-        className="app-shell-content app-route-transition min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
-      >
-        <Outlet />
-      </main>
+      <div className="app-shell-main min-h-0 min-w-0">
+        {!hideLayout && <Header />}
+        <main
+          data-scroll-restoration-id="app-shell"
+          className="app-shell-content app-route-transition min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
+        >
+          <Outlet />
+        </main>
+      </div>
+      {!hideLayout && <NavMenu />}
     </div>
   );
 }
