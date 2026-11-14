@@ -63,22 +63,31 @@ async function openCounterparties(page: Page) {
 test("counterparty workspace creates, edits, searches and deletes online records", async ({ page }) => {
   await openCounterparties(page);
   await expect(page.getByRole("heading", { name: "طرف‌حساب‌ها", level: 1 })).toBeVisible();
-  const resultAndSearchWidths = await page.locator(".counterparty-results").evaluate((results) => ({
-    results: results.getBoundingClientRect().width,
-    search: results.querySelector<HTMLElement>(".counterparty-search")!.getBoundingClientRect().width,
-  }));
-  expect(Math.abs(resultAndSearchWidths.results - resultAndSearchWidths.search)).toBeLessThanOrEqual(1);
-  await page.getByLabel("نوع طرف‌حساب").click();
-  await page.getByRole("option", { name: "مجموعه" }).click();
+  await expect(page.locator(".counterparty-directory")).toBeVisible();
+
+  await page.getByRole("button", { name: "افزودن طرف‌حساب" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "افزودن طرف‌حساب" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "مجموعه" }).click();
+  if ((page.viewportSize()?.width ?? 0) <= 760) {
+    const dialogBox = (await dialog.boundingBox())!;
+    expect(Math.abs(dialogBox.width - page.viewportSize()!.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(dialogBox.y + dialogBox.height - page.viewportSize()!.height)).toBeLessThanOrEqual(1);
+  }
   await page.getByLabel("نام طرف‌حساب").fill("فروشگاه سپهر");
   await page.getByLabel("تلفن طرف‌حساب").fill("02112345678");
   await page.getByLabel("نشانی طرف‌حساب").fill("تهران");
-  await page.getByRole("button", { name: "افزودن" }).click();
+  await dialog.getByRole("button", { name: "افزودن" }).click();
   await expect(page.getByText("فروشگاه سپهر", { exact: true })).toBeVisible();
 
+  await page.getByRole("button", { name: "فرد", exact: true }).click();
+  await expect(page.getByText("موردی پیدا نشد")).toBeVisible();
+  await page.getByRole("button", { name: "همه", exact: true }).click();
+
   await page.getByLabel("ویرایش فروشگاه سپهر").click();
+  await expect(page.getByRole("dialog", { name: "ویرایش طرف‌حساب" })).toBeVisible();
   await page.getByLabel("نام طرف‌حساب").fill("فروشگاه سپهر نو");
-  await page.getByRole("button", { name: "ذخیره" }).click();
+  await page.getByRole("button", { name: "ذخیره تغییرات" }).click();
   await page.getByPlaceholder("جست‌وجوی نام یا تلفن").fill("سپهر نو");
   await expect(page.getByText("فروشگاه سپهر نو", { exact: true })).toBeVisible();
 
