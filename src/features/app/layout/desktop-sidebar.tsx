@@ -3,26 +3,15 @@ import {
   ChevronRightIcon,
   CubeIcon,
   ExitIcon,
-  GearIcon,
   PersonIcon,
   PlusIcon,
-  QuestionMarkCircledIcon,
-  ReloadIcon,
-  StarIcon,
 } from "@radix-ui/react-icons";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { isAdmin } from "@/shared/access/authorization";
-import { useEntitlementAccess } from "@/shared/access/use-entitlement";
 import { useAuth } from "@/shared/auth/use-auth";
 import { isPathActive, isPrimaryNavigationActive } from "@/shared/lib/navigation/is-path-active";
-import {
-  useOnline,
-  useSyncStatus,
-} from "@/shared/lib/infrastructure/sync/use-sync-status";
-
-import { getSyncIndicator, SyncStateIcon } from "./connection-status";
 import {
   managementNavigationItems,
   primaryNavigationItems,
@@ -94,10 +83,6 @@ export default function DesktopSidebar() {
   const [collapsed, setCollapsed] = useState(initialCollapsedState);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { user, logout } = useAuth();
-  const access = useEntitlementAccess();
-  const online = useOnline();
-  const syncStatus = useSyncStatus();
-  const syncIndicator = getSyncIndicator(syncStatus, online);
 
   const primaryItems = primaryNavigationItems(user);
   const operationItems = visibleNavigationItems(toolsNavigationItems, user).filter((item) =>
@@ -108,7 +93,6 @@ export default function DesktopSidebar() {
     : [];
   const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.username || "کاربر تنظیم";
   const storeName = user?.store_name?.trim() || "مجموعه من";
-  const planLabel = access.entitlement?.label || user?.plan || "طرح فعلی";
 
   const toggleCollapsed = () => {
     setCollapsed((current) => {
@@ -128,7 +112,7 @@ export default function DesktopSidebar() {
       <div className="desktop-sidebar-brand-row">
         <Link to="/dashboard" className="desktop-sidebar-brand" aria-label="تنظیم؛ داشبورد">
           <span className="desktop-sidebar-logo" aria-hidden="true">
-            <img src="/favicon.svg" alt="" />
+            <img src="/tanzim-cube-logo.svg" alt="" />
           </span>
           <span className="desktop-sidebar-brand-copy">
             <strong>تنظیم</strong>
@@ -143,7 +127,7 @@ export default function DesktopSidebar() {
           aria-label={collapsed ? "باز کردن منوی کناری" : "جمع کردن منوی کناری"}
           title={collapsed ? "باز کردن منو" : "جمع کردن منو"}
         >
-          {collapsed ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+          {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
         </button>
       </div>
 
@@ -171,42 +155,6 @@ export default function DesktopSidebar() {
       </nav>
 
       <div className="desktop-sidebar-footer">
-        <Link
-          to="/setting/sync"
-          className="desktop-sidebar-sync"
-          data-status={syncIndicator.kind}
-          aria-label={`وضعیت همگام‌سازی: ${syncIndicator.label}`}
-          title={collapsed ? syncIndicator.label : syncIndicator.tooltip}
-        >
-          <span className="desktop-sidebar-sync-icon" aria-hidden="true">
-            <SyncStateIcon kind={syncIndicator.kind} />
-          </span>
-          <span className="desktop-sidebar-sync-copy">
-            <strong>{syncIndicator.label}</strong>
-            <small>{online ? "وضعیت همگام‌سازی" : "اتصال برقرار نیست"}</small>
-          </span>
-          <ReloadIcon className="desktop-sidebar-sync-reload" aria-hidden="true" />
-        </Link>
-
-        <Link to="/setting/subscription" className="desktop-sidebar-plan" title={collapsed ? planLabel : undefined}>
-          <StarIcon aria-hidden="true" />
-          <span className="desktop-sidebar-plan-copy">
-            <small>اشتراک فعال</small>
-            <strong>{planLabel}</strong>
-          </span>
-        </Link>
-
-        <div className="desktop-sidebar-utility-links">
-          <Link to="/tools/help" aria-label="راهنما و پشتیبانی" title={collapsed ? "راهنما و پشتیبانی" : undefined}>
-            <QuestionMarkCircledIcon aria-hidden="true" />
-            <span className="desktop-sidebar-label">راهنما و پشتیبانی</span>
-          </Link>
-          <Link to="/setting/appearance" aria-label="تنظیم ظاهر" title={collapsed ? "تنظیم ظاهر" : undefined}>
-            <GearIcon aria-hidden="true" />
-            <span className="desktop-sidebar-label">تنظیم ظاهر</span>
-          </Link>
-        </div>
-
         <div className="desktop-sidebar-account">
           <Link to="/setting/profile" className="desktop-sidebar-user" aria-label={`پروفایل ${displayName}`} title={collapsed ? displayName : undefined}>
             <span className="desktop-sidebar-user-avatar" aria-hidden="true"><PersonIcon /></span>

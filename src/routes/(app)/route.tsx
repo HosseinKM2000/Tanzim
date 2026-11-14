@@ -29,20 +29,22 @@ function ProtectedLayout() {
 
   return (
     <div className="app-shell-frame h-dvh min-h-0 overflow-hidden">
-      {!hideLayout && <DesktopSidebar />}
       {hideLayout && (
         <div className="fixed left-3 top-3 z-50">
           <ConnectionStatus />
         </div>
       )}
-      <div className="app-shell-main min-h-0 min-w-0">
-        {!hideLayout && <Header />}
-        <main
-          data-scroll-restoration-id="app-shell"
-          className="app-shell-content app-route-transition min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
-        >
-          <Outlet />
-        </main>
+      {!hideLayout && <Header />}
+      <div className="app-shell-body min-h-0 min-w-0">
+        {!hideLayout && <DesktopSidebar />}
+        <div className="app-shell-main min-h-0 min-w-0">
+          <main
+            data-scroll-restoration-id="app-shell"
+            className="app-shell-content app-route-transition min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
+          >
+            <Outlet />
+          </main>
+        </div>
       </div>
       {!hideLayout && <NavMenu />}
     </div>

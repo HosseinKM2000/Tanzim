@@ -199,10 +199,38 @@ test("desktop sidebar collapses smoothly while tablet keeps bottom navigation", 
 
   const sidebar = page.locator(".app-desktop-sidebar");
   const main = page.locator(".app-shell-main");
+  const header = page.locator(".app-header");
   const toggle = sidebar.locator(".desktop-sidebar-collapse");
   await expect(sidebar).toBeVisible();
   await expect(page.locator(".app-bottom-navigation")).toBeHidden();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+  const [headerBox, sidebarBox] = await Promise.all([header.boundingBox(), sidebar.boundingBox()]);
+  expect(headerBox!.x).toBeLessThanOrEqual(1);
+  expect(headerBox!.width).toBeGreaterThanOrEqual(1439);
+  expect(sidebarBox!.x).toBeLessThanOrEqual(1);
+  expect(sidebarBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 1);
+  await expect(sidebar.locator('.desktop-sidebar-logo img')).toHaveAttribute("src", "/tanzim-cube-logo.svg");
+  await expect(sidebar.locator('a[href="/setting/sync"]')).toHaveCount(0);
+  await expect(sidebar.locator('a[href="/setting/subscription"]')).toHaveCount(0);
+  await expect(sidebar.locator('a[href="/tools/help"]')).toHaveCount(0);
+  await expect(sidebar.locator('a[href="/setting/appearance"]')).toHaveCount(0);
+  const sidebarOverflow = await sidebar.evaluate((element) => {
+    const navigation = element.querySelector<HTMLElement>(".desktop-sidebar-navigation")!;
+    return {
+      sidebar: element.scrollHeight - element.clientHeight,
+      navigation: navigation.scrollHeight - navigation.clientHeight,
+    };
+  });
+  expect(sidebarOverflow.sidebar).toBeLessThanOrEqual(1);
+  expect(sidebarOverflow.navigation).toBeLessThanOrEqual(1);
+  const dashboardSurface = await page.locator(".dashboard-card").first().evaluate((element) => {
+    const card = getComputedStyle(element);
+    const value = getComputedStyle(element.querySelector<HTMLElement>(".dashboard-card__value")!);
+    return { radius: Number.parseFloat(card.borderRadius), fontFamily: value.fontFamily };
+  });
+  expect(dashboardSurface.radius).toBeLessThanOrEqual(11);
+  expect(dashboardSurface.fontFamily).toContain("Rokh");
 
   const expandedSidebar = (await sidebar.boundingBox())!;
   const expandedMain = (await main.boundingBox())!;
@@ -222,6 +250,24 @@ test("desktop sidebar collapses smoothly while tablet keeps bottom navigation", 
   await expect(sidebar).toBeHidden();
   await expect(page.locator(".app-bottom-navigation")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});
+
+test("desktop inventory keeps search filters on the right of product results", async ({ page }) => {
+  await seedAuthenticatedUser(page, "USER");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/inventory/list");
+
+  const filters = page.locator(".inventory-filter-sidebar");
+  const results = page.locator(".inventory-list-results");
+  await expect(filters).toBeVisible();
+  await expect(results).toBeVisible();
+  const [filtersBox, resultsBox] = await Promise.all([filters.boundingBox(), results.boundingBox()]);
+  expect(filtersBox!.x).toBeGreaterThan(resultsBox!.x + resultsBox!.width - 1);
+
+  const scrollbarColor = await page.locator("main.app-shell-content").evaluate((element) =>
+    getComputedStyle(element).scrollbarColor,
+  );
+  expect(scrollbarColor).not.toBe("auto");
 });
 
 test("contextual back uses safe fallbacks for direct descendants and access pages", async ({ page }) => {
