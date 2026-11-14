@@ -28,10 +28,12 @@ describe("IndustryForm presentation", () => {
   });
 
   it("uses a save-only presentation in settings", () => {
-    render(<Theme><IndustryForm mode="settings" /></Theme>);
+    const { container } = render(<Theme><IndustryForm mode="settings" /></Theme>);
 
     expect(screen.getByRole("heading", { name: "تغییر حوزه کاری" })).toBeVisible();
     expect(screen.queryByRole("link", { name: "فعلاً رد کردن" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "ذخیره تغییرات" })).toBeVisible();
+    expect(container.querySelector(".industry-selector-shell")).toHaveAttribute("data-mode", "settings");
+    expect(container.querySelector(".industry-selector-form")).toHaveClass("w-full");
   });
 });

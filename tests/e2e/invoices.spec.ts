@@ -99,25 +99,78 @@ test("downgraded Free account keeps historical read-only evidence without paid a
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
-test("invoice form posts one atomic command and remains responsive", async ({ page }) => {
+test("invoice editor keeps the mobile card layout without horizontal overflow", async ({ page }) => {
+  await page.setViewportSize({ width: 661, height: 941 });
   await seed(page);
+  await page.evaluate(() => localStorage.setItem("inventory-appearance", "dark"));
+  await page.reload();
+  await page.getByRole("button", { name: "افزودن ردیف جدید" }).click();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const firstLine = page.locator("[data-invoice-line='0']");
+  const summary = page.locator(".invoice-summary-card");
+  await expect(firstLine).toBeVisible();
+  await expect(summary).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  const geometry = await page.evaluate(() => {
+    const products = document.querySelector<HTMLElement>(".invoice-products-panel")!;
+    const summary = document.querySelector<HTMLElement>(".invoice-summary-card")!;
+    const quantity = products.querySelector<HTMLElement>(".invoice-line-quantity")!;
+    const unit = products.querySelector<HTMLElement>(".invoice-line-unit")!;
+    const price = products.querySelector<HTMLElement>(".invoice-line-price")!;
+    return { productsBottom: products.getBoundingClientRect().bottom, summaryTop: summary.getBoundingClientRect().top, quantityTop: quantity.getBoundingClientRect().top, unitTop: unit.getBoundingClientRect().top, priceTop: price.getBoundingClientRect().top };
+  });
+  expect(geometry.summaryTop).toBeGreaterThanOrEqual(geometry.productsBottom);
+  expect(geometry.unitTop).toBeGreaterThan(geometry.quantityTop);
+  expect(geometry.priceTop).toBeGreaterThan(geometry.unitTop);
+});
+
+test("invoice history follows the redesigned responsive card hierarchy", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name.includes("mobile");
+  await page.setViewportSize(mobile ? { width: 355, height: 750 } : { width: 1667, height: 869 });
+  await seed(page, [
+    { id: 701, invoice_type: "purchase", title: "سیستم سپهر", counterparty: "فروشگاه سپهر", status: "posted", total_amount: 13, actor_user_id: owner.id, actor_membership_id: owner.membership_id, post_operation_id: "history-701", posted_at: now, lines: [] },
+    { id: 702, invoice_type: "sale", title: "پیکسل", counterparty: "علی رضایی", status: "posted", total_amount: 210000, actor_user_id: owner.id, actor_membership_id: owner.membership_id, post_operation_id: "history-702", posted_at: now, lines: [] },
+  ]);
+  await page.evaluate(() => localStorage.setItem("inventory-appearance", "dark"));
+  await page.reload();
+  const history = page.locator(".invoice-history");
+  await history.scrollIntoViewIfNeeded();
+  await expect(history.getByRole("heading", { name: "تاریخچه فاکتورها" })).toBeVisible();
+  await expect(history.locator(".invoice-history-card")).toHaveCount(2);
+  await expect(history.getByText("تأییدشده", { exact: true })).toHaveCount(2);
+  await expect(history.getByRole("button", { name: "دریافت PDF" }).first()).toBeVisible();
+  await expect(history.getByRole("button", { name: "لغو کامل فاکتور" })).toHaveCount(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  const cards = await history.locator(".invoice-history-card").evaluateAll((items) => items.map((item) => item.getBoundingClientRect()));
+  expect(cards[1].top).toBeGreaterThanOrEqual(cards[0].bottom);
+});
+
+test("invoice form posts one atomic command and remains responsive", async ({ page }) => {
+  await page.setViewportSize({ width: 1667, height: 869 });
+  await seed(page);
+  await page.evaluate(() => localStorage.setItem("inventory-appearance", "dark"));
+  await page.reload();
   await expect(page.getByRole("heading", { name: "فاکتورها", level: 1 })).toBeVisible();
+  await expect(page.locator(".invoice-count-desktop")).toContainText("قلم کالا");
   const stepperGeometry = await page.getByRole("button", { name: "یک واحد بیشتر برای ردیف 1" }).evaluate((button) => {
     const input = button.parentElement?.querySelector("input");
     const icon = button.querySelector("svg");
     const buttonBox = button.getBoundingClientRect();
     const inputBox = input?.getBoundingClientRect();
     const iconBox = icon?.getBoundingClientRect();
+    const controlBox = button.parentElement?.getBoundingClientRect();
     return {
       buttonWidth: buttonBox.width,
       buttonHeight: buttonBox.height,
       inputHeight: inputBox?.height ?? 0,
+      controlHeight: controlBox?.height ?? 0,
       iconOffsetX: iconBox ? Math.abs((iconBox.left + iconBox.width / 2) - (buttonBox.left + buttonBox.width / 2)) : 99,
       iconOffsetY: iconBox ? Math.abs((iconBox.top + iconBox.height / 2) - (buttonBox.top + buttonBox.height / 2)) : 99,
     };
   });
-  expect(Math.abs(stepperGeometry.buttonWidth - stepperGeometry.buttonHeight)).toBeLessThanOrEqual(1);
-  expect(Math.abs(stepperGeometry.buttonHeight - stepperGeometry.inputHeight)).toBeLessThanOrEqual(1);
+  expect(stepperGeometry.buttonWidth).toBeGreaterThanOrEqual(24);
+  expect(stepperGeometry.buttonHeight).toBeGreaterThanOrEqual(20);
+  expect(Math.abs(stepperGeometry.controlHeight - stepperGeometry.inputHeight)).toBeLessThanOrEqual(1);
   expect(stepperGeometry.iconOffsetX).toBeLessThanOrEqual(1);
   expect(stepperGeometry.iconOffsetY).toBeLessThanOrEqual(1);
   await page.getByLabel("عنوان فاکتور").fill("فروش آزمایشی");
@@ -180,7 +233,7 @@ test("cancelled purchase snapshot produces a multipage PDF without current produ
   const lines = Array.from({ length: 44 }, (_, index) => ({ id: index + 1, product_id: 9000 + index, product_name: `نام تاریخی بسیار بلند کالای خریداری‌شده ردیف ${index + 1} که دیگر در فهرست جاری وجود ندارد`, quantity: index + 1, unit: "عدد", pack_size: null, base_quantity: index + 1, unit_price: 1234567, line_total: (index + 1) * 1234567, before_quantity: 0, after_quantity: index + 1 }));
   await seed(page, [{ id: 999, invoice_type: "purchase", title: "خرید چندصفحه‌ای باطل‌شده", counterparty: "تأمین‌کننده تاریخی", status: "cancelled", total_amount: lines.reduce((sum, line) => sum + line.line_total, 0), actor_user_id: owner.id, actor_membership_id: owner.membership_id, post_operation_id: "snapshot-reference", cancel_operation_id: "cancel-reference", posted_at: now, cancelled_at: now, lines }]);
   await expect(page.getByText("خرید چندصفحه‌ای باطل‌شده", { exact: true })).toBeVisible(); await context.setOffline(true);
-  const card = page.getByText("خرید چندصفحه‌ای باطل‌شده", { exact: true }).locator("xpath=ancestor::div[contains(@class,'rt-Card')]");
+  const card = page.getByText("خرید چندصفحه‌ای باطل‌شده", { exact: true }).locator("xpath=ancestor::*[contains(@class,'invoice-history-card')]");
   const downloadPromise = page.waitForEvent("download"); await card.getByRole("button", { name: "دریافت PDF" }).click();
   const path = await (await downloadPromise).path(); const bytes = await import("node:fs/promises").then((fs) => fs.readFile(path!));
   expect(bytes.toString("latin1").match(/\/Type \/Page\b/g)?.length).toBeGreaterThan(1);

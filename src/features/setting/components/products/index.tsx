@@ -24,7 +24,7 @@ export default function ProductSettings() {
         </Callout.Root>
       )}
 
-      <Card className="max-w-2xl">
+      <Card className="recovery-refresh-panel w-full">
         <Flex
           direction={{ initial: "column", sm: "row" }}
           justify="between"

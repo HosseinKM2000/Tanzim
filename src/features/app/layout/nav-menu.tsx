@@ -59,7 +59,6 @@ const NavMenu = ({ hidden = false }: Props) => {
         fixed
         w-full
         bottom-0
-        block!
         overflow-visible
       "
       data-hidden={hidden || keyboardOpen}
