@@ -11,7 +11,8 @@ from .config import settings
 from sqlalchemy import text
 from .database import engine
 from .exceptions import global_exception_handler
-from .routers import admin, auth, categories, dashboard, plans, backup, industries, products, inventory, export, transactions, custom_products, catalog_products, sync, labels, personnel, files, media, invoices, counterparties
+from .services.logging_service import send_telewhat_alert
+from .routers import admin, auth, categories, dashboard, plans, backup, industries, products, inventory, export, transactions, custom_products, catalog_products, sync, labels, personnel, files, media, invoices, counterparties, logs
 
 
 logger = logging.getLogger("tanzim.api")
@@ -43,14 +44,25 @@ async def release_context(request, call_next):
     response.headers["X-Tanzim-Build"] = settings.APP_BUILD_ID
     response.headers["X-Tanzim-Schema"] = settings.DATABASE_SCHEMA_VERSION
     if response.status_code >= 400:
+        duration_ms = round((time.perf_counter() - started) * 1000)
         logger.warning(
             "API request failed request_id=%s method=%s path=%s status=%s duration_ms=%s",
             request_id,
             request.method,
             request.url.path,
             response.status_code,
-            round((time.perf_counter() - started) * 1000),
+            duration_ms,
         )
+        if response.status_code >= 500:
+            send_telewhat_alert(
+                level="error",
+                source="backend",
+                event="http_5xx",
+                message=f"{request.method} {request.url.path} ({duration_ms}ms)",
+                request_id=request_id,
+                path=request.url.path,
+                status_code=response.status_code,
+            )
     return response
 
 
@@ -96,6 +108,7 @@ app.include_router(files.router, prefix=api)
 app.include_router(media.router, prefix=api)
 app.include_router(invoices.router, prefix=api)
 app.include_router(counterparties.router, prefix=api)
+app.include_router(logs.router, prefix=api)
 
 
 @app.get("/api/health")

@@ -53,12 +53,24 @@ def plan_payload(plan: SubscriptionPlan) -> dict[str, Any]:
         validate_policy(features, limits)
     except HTTPException as error:
         configuration_errors.append(str(error.detail))
+    catalog_entry = PLAN_CATALOG.get(plan.id, {})
+    first_month_minor = catalog_entry.get("first_month_price_minor")
+    price_toman = plan.price_minor // 10 if plan.price_minor is not None and plan.price_minor % 10 == 0 else None
+    first_month_toman = first_month_minor // 10 if first_month_minor is not None and first_month_minor % 10 == 0 else None
+    discount_percent = (
+        round((price_toman - first_month_toman) * 100 / price_toman)
+        if price_toman and first_month_toman and first_month_toman < price_toman
+        else None
+    )
     return {
         "id": plan.id,
         "name": plan.name,
         "description": plan.description,
         "price_minor": plan.price_minor,
-        "price_toman": plan.price_minor // 10 if plan.price_minor is not None and plan.price_minor % 10 == 0 else None,
+        "price_toman": price_toman,
+        "first_month_price_minor": first_month_minor,
+        "first_month_price_toman": first_month_toman,
+        "discount_percent": discount_percent,
         "currency": plan.currency,
         "duration": plan.duration,
         "duration_unit": plan.duration_unit,

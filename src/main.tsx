@@ -18,6 +18,9 @@ import { accountScrollRestorationKey } from "@/shared/lib/navigation/scroll-rest
 import { startBackupAutomation } from "@/features/backup/services/backup-bootstrap";
 import { appUpdateService } from "@/features/app-update/services/app-update.service";
 import { db } from "@/shared/lib/infrastructure/storage/db";
+import { installRemoteErrorHandlers } from "@/shared/lib/diagnostics/remote-logger";
+
+installRemoteErrorHandlers();
 
 const router = createRouter({
   routeTree,

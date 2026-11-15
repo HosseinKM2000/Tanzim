@@ -787,6 +787,9 @@ class PlanDefinitionOut(BaseModel):
     description: str | None = None
     price_minor: int | None = None
     price_toman: int | None = None
+    first_month_price_minor: int | None = None
+    first_month_price_toman: int | None = None
+    discount_percent: int | None = None
     currency: str
     duration: int | None = None
     duration_unit: Literal["day", "month", "year"] | None = None

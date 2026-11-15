@@ -10,6 +10,7 @@ PLAN_CATALOG: dict[str, dict[str, Any]] = {
     "free": {
         "label": "رایگان",
         "price_minor": 0,
+        "first_month_price_minor": None,
         "currency": "IRR",
         "duration_days": None,
         "limits": {"inventory_items": 200, "catalog_items": 100, "devices": None, "active_personnel": 0},
@@ -23,6 +24,7 @@ PLAN_CATALOG: dict[str, dict[str, Any]] = {
     "starter": {
         "label": "Starter",
         "price_minor": None,
+        "first_month_price_minor": None,
         "currency": "IRR",
         "duration_days": 30,
         "limits": {"inventory_items": 500, "catalog_items": 500, "devices": None, "active_personnel": 0},
@@ -34,8 +36,9 @@ PLAN_CATALOG: dict[str, dict[str, Any]] = {
             "sync": True},
     },
     "personal": {
-        "label": "شخصی",
-        "price_minor": 4_900_000,
+        "label": "پلاس",
+        "price_minor": 9_950_000,
+        "first_month_price_minor": 5_550_000,
         "currency": "IRR",
         "duration_days": 30,
         "limits": {"inventory_items": 3000, "catalog_items": 1000, "devices": None, "active_personnel": 0},
@@ -47,8 +50,9 @@ PLAN_CATALOG: dict[str, dict[str, Any]] = {
             "sync": True},
     },
     "pro": {
-        "label": "حرفه‌ای",
-        "price_minor": 9_900_000,
+        "label": "پرو",
+        "price_minor": 24_900_000,
+        "first_month_price_minor": 18_500_000,
         "currency": "IRR",
         "duration_days": 30,
         "limits": {"inventory_items": 15000, "catalog_items": 5000, "devices": None, "active_personnel": 0},
@@ -60,8 +64,9 @@ PLAN_CATALOG: dict[str, dict[str, Any]] = {
             "sync": True},
     },
     "vip": {
-        "label": "تیم",
-        "price_minor": 18_900_000,
+        "label": "بیزینس",
+        "price_minor": 49_500_000,
+        "first_month_price_minor": 38_500_000,
         "currency": "IRR",
         "duration_days": 30,
         "limits": {"inventory_items": 50000, "catalog_items": 15000, "devices": None, "active_personnel": 9},

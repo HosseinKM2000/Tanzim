@@ -99,6 +99,9 @@ export type SubscriptionPlan = {
   description: string | null;
   price_minor: number | null;
   price_toman: number | null;
+  first_month_price_minor?: number | null;
+  first_month_price_toman?: number | null;
+  discount_percent?: number | null;
   currency: string;
   duration: number | null;
   duration_unit: "day" | "month" | "year" | null;

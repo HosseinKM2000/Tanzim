@@ -41,7 +41,17 @@ class Settings:
     ]
     SYSTEM_ADMIN_PASSWORD: str | None = os.getenv("SYSTEM_ADMIN_PASSWORD")
     APP_BUILD_ID: str = os.getenv("APP_BUILD_ID", "development").strip() or "development"
-    DATABASE_SCHEMA_VERSION: str = "20261110_0018"
+    DATABASE_SCHEMA_VERSION: str = "20261115_0019"
+    APP_ORIGIN: str = os.getenv("APP_ORIGIN", "https://app.tanzimapp.ir").strip().rstrip("/")
+    DONGIPAY_BASE_URL: str = os.getenv(
+        "DONGIPAY_BASE_URL", "https://api.chat.dongigpt.ir/api/v1/dongipay"
+    ).strip().rstrip("/")
+    DONGIPAY_TOKEN: str = os.getenv("DONGIPAY_TOKEN", "").strip()
+    TELEWHAT_RELAY_URL: str = os.getenv(
+        "TELEWHAT_RELAY_URL", "http://127.0.0.1:8100/api/send"
+    ).strip()
+    TELEWHAT_TG_TARGET: str = os.getenv("TELEWHAT_TG_TARGET", "09192472218").strip()
+    TELEWHAT_ENABLED: bool = os.getenv("TELEWHAT_ENABLED", "1").strip().lower() not in {"0", "false", "no"}
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
     # Product media must survive application/database replacement. Production
     # deployments provide an absolute durable mount; tests/development use an

@@ -1032,3 +1032,42 @@ class Industry(Base):
     users: Mapped[list["User"]] = relationship(
         back_populates="industry"
     )
+
+
+class AppLog(Base):
+    __tablename__ = "app_logs"
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, index=True)
+    level: Mapped[str] = mapped_column(String(20), index=True)
+    source: Mapped[str] = mapped_column(String(32), index=True)
+    event: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    store_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    message: Mapped[str] = mapped_column(Text)
+    details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+
+class SubscriptionPayment(Base):
+    __tablename__ = "subscription_payments"
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    order_ref: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    dp_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    store_id: Mapped[int | None] = mapped_column(ForeignKey("stores.id"), nullable=True, index=True)
+    plan_id: Mapped[str] = mapped_column(String(40), index=True)
+    amount_toman: Mapped[int] = mapped_column(BigInteger)
+    is_first_month_discount: Mapped[bool] = mapped_column(Boolean, default=False)
+    gateway: Mapped[str] = mapped_column(String(32), default="dongipay")
+    status: Mapped[str] = mapped_column(String(32), default="created", index=True)
+    pay_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ref_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, index=True)
+    verified_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)

@@ -3,6 +3,7 @@ import { clearToken, getToken } from "./token-store";
 import { getDeviceFingerprint } from "@/shared/lib/device/fingerprint";
 import { accessState } from "@/shared/access/access-state";
 import { recordDiagnostic } from "@/shared/lib/diagnostics/diagnostic-buffer";
+import { networkService } from "@/shared/lib/infrastructure/network/network-service";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
@@ -69,6 +70,7 @@ export async function apiFetch<T>(
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, { method, headers, body, signal });
+    networkService.markOnline();
   } catch (error) {
     recordDiagnostic({ kind: "network_error", summary: "NETWORK_UNAVAILABLE", requestId: headers["X-Request-ID"], path });
     throw error;
