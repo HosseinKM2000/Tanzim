@@ -106,18 +106,16 @@ export function recordDiagnostic(input: DiagnosticInput) {
     details: input.details == null ? undefined : sanitizeDiagnosticValue(input.details),
   };
   write([...read(), entry]);
-  if (entry.kind !== "network_error") {
-    enqueueRemoteLog({
-      level: entry.httpStatus && entry.httpStatus >= 500 ? "error" : "warn",
-      source: "frontend",
-      event: `diagnostic.${entry.kind}`,
-      message: entry.summary,
-      request_id: entry.requestId,
-      path: entry.path,
-      status_code: entry.httpStatus,
-      details: entry.details && typeof entry.details === "object" ? entry.details as Record<string, unknown> : undefined,
-    });
-  }
+  enqueueRemoteLog({
+    level: entry.httpStatus && entry.httpStatus >= 500 ? "error" : "warn",
+    source: "frontend",
+    event: `diagnostic.${entry.kind}`,
+    message: entry.summary,
+    request_id: entry.requestId,
+    path: entry.path,
+    status_code: entry.httpStatus,
+    details: entry.details && typeof entry.details === "object" ? entry.details as Record<string, unknown> : undefined,
+  });
   return entry;
 }
 

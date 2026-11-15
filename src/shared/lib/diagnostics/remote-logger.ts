@@ -27,7 +27,6 @@ function scheduleFlush() {
 
 export async function flushRemoteLogs() {
   if (flushing || queue.length === 0 || typeof fetch === "undefined") return;
-  if (typeof navigator !== "undefined" && !navigator.onLine) return;
   flushing = true;
   const batch = queue.splice(0, 20);
   try {
