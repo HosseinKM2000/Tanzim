@@ -13,6 +13,11 @@ export const syncMetadataStorage = {
     return typeof item?.value === "number" ? item.value : fallback;
   },
 
+  async getString(key: string, fallback: string | null = null) {
+    const item = await db.syncMetadata.get(scopedKey(key));
+    return typeof item?.value === "string" ? item.value : fallback;
+  },
+
   async set(key: string, value: number | string | null) {
     const storageKey = scopedKey(key);
     await db.syncMetadata.put({ key: storageKey, value, updatedAt: Date.now() });

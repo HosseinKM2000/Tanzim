@@ -57,6 +57,7 @@ EXPECTED_TABLES = {
     "store_plan_grants",
     "media_assets",
     "invoices", "invoice_lines", "counterparties",
+    "reference_sectors", "reference_categories", "barcode_reservations",
 }
 MIGRATION_EVIDENCE = {}
 
@@ -288,6 +289,17 @@ def migrated_empty_database():
             "SELECT id,features_json,price_minor,duration,duration_unit,is_offer_available "
             "FROM subscription_plans WHERE id IN ('personal','pro','vip') ORDER BY id"
         )).all())
+        MIGRATION_EVIDENCE["taxonomy_reference"] = (
+            connection.scalar(text("SELECT count(*) FROM reference_sectors")),
+            connection.scalar(text("SELECT count(*) FROM reference_categories")),
+            connection.scalar(text("SELECT count(*) FROM reference_categories WHERE approval_status='approved'")),
+            connection.scalar(text("SELECT count(*) FROM reference_categories WHERE approval_status='proposed'")),
+            connection.scalar(text("SELECT count(*) FROM industries WHERE taxonomy_version='scb-2026-11-14-v1'")),
+        )
+        MIGRATION_EVIDENCE["taxonomy_legacy"] = connection.execute(text(
+            "SELECT c.origin,c.is_active,s.taxonomy_version,s.has_historical_inventory_usage "
+            "FROM categories c JOIN stores s ON s.id=c.store_id WHERE c.id=9101"
+        )).one()
     with SessionLocal() as db:
         stored = db.get(SyncOperation, 9101)
         replay = _duplicate_result(stored, legacy_operation, legacy_fingerprint)
@@ -346,7 +358,7 @@ def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database
     assert MIGRATION_EVIDENCE["mode_rollback"] == ("20261101_0009", True)
     assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261110_0018"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261116_0019"
         assert "MOBILE_PHONE_PREFLIGHT" in MIGRATION_EVIDENCE["mobile_preflight"]
         assert "malformed_count=1:user_ids=9401" in MIGRATION_EVIDENCE["mobile_preflight"]
         assert "duplicate_groups=1:user_ids=9101,9201" in MIGRATION_EVIDENCE["mobile_preflight"]
@@ -371,6 +383,8 @@ def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database
         assert {"store_id", "actor_user_id", "transfer_id", "content_sha256", "storage_key", "available_at"} <= media_columns
         operation_columns = {column["name"] for column in inspect(engine).get_columns("sync_operations")}
         assert {"request_fingerprint", "execution_mode", "policy_version"} <= operation_columns
+        assert MIGRATION_EVIDENCE["taxonomy_reference"] == (24, 281, 25, 256, 24)
+        assert tuple(MIGRATION_EVIDENCE["taxonomy_legacy"]) == ("legacy", True, None, True)
         assert next(column for column in inspect(engine).get_columns("inventory_items") if column["name"] == "store_id")["nullable"] is False
         assert tuple(MIGRATION_EVIDENCE["legacy_mode"]) == ("team", 1, 9101)
         assert tuple(MIGRATION_EVIDENCE["legacy_solo_mode"]) == ("solo", 1, 9201)

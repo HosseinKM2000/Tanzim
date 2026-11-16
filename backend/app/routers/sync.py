@@ -16,8 +16,10 @@ from ..config import settings
 from ..inventory_policy import MAX_PRODUCT_QUANTITY, PRODUCT_QUANTITY_LIMIT_ERROR, validate_product_quantity
 from ..deps import CurrentProductReader, DbSession
 from ..models import (
+    BarcodeReservation,
     CatalogProduct,
     Category,
+    Industry,
     InventoryItem,
     InventoryMovement,
     InventoryTransaction,
@@ -25,8 +27,10 @@ from ..models import (
     Label,
     MediaAsset,
     ProductBarcode,
+    ReferenceSector,
     SyncChange,
     SyncOperation,
+    Store,
     User,
 )
 from ..services.subscription_service import entitlement_for_user, locked_inventory_capacity
@@ -37,6 +41,13 @@ from ..services.store_authorization import StorePermission, effective_permission
 from ..services.store_service import active_store_context
 from ..services.store_mode_policy import validate_sync_acceptance
 from ..services.invoice_service import cancel_invoice, post_invoice
+from ..services.taxonomy_service import (
+    TAXONOMY_VERSION,
+    custom_category_code,
+    issue_internal_barcode,
+    reserve_external_barcode,
+    validate_category_for_new_intent,
+)
 
 
 logger = logging.getLogger("tanzim.sync")
@@ -46,6 +57,7 @@ from ..schemas import (
     InventoryMovementOut,
     BarcodeOut,
     BarcodeSnapshot,
+    CategoryOut,
     SyncBatchRequest,
     SyncBatchResponse,
     SyncChangeOut,
@@ -511,15 +523,13 @@ def _apply_label(db: DbSession, user: User, operation: SyncOperationIn) -> SyncO
 
 def _apply_category(db: DbSession, user: User, operation: SyncOperationIn) -> SyncOperationResult:
     category = db.scalar(select(Category).where(Category.id == operation.entity_id, Category.store_id == user.store_id))
+    created = category is None
     if operation.operation == "DELETE":
         if category is not None:
-            for item in list(db.scalars(select(InventoryItem).where(
-                InventoryItem.store_id == user.store_id, InventoryItem.category_id == category.id
-            ))):
-                item.category_id = None
-                db.flush()
-                _record_change(db, user, item.id, "UPSERT", _serialize(item))
-            db.delete(category)
+            if category.origin == "system":
+                raise ValueError("SYSTEM_CATEGORY_IMMUTABLE")
+            category.is_active = False
+            category.version += 1
         return SyncOperationResult(operation_id=operation.operation_id, status="applied", entity_id=operation.entity_id)
     payload = operation.payload or {}
     name = payload.get("name")
@@ -533,21 +543,49 @@ def _apply_category(db: DbSession, user: User, operation: SyncOperationIn) -> Sy
     if category is None:
         if operation.operation == "UPDATE":
             raise ValueError("CATEGORY_NOT_FOUND")
+        store = db.get(Store, user.store_id)
+        if store is None:
+            raise ValueError("STORE_NOT_FOUND")
+        adopted = store.taxonomy_version == TAXONOMY_VERSION
+        sector = db.get(Industry, store.industry_id) if adopted and store.industry_id is not None else None
+        if adopted and (sector is None or not sector.sector_code):
+            raise ValueError("STORE_SECTOR_MAPPING_INVALID")
+        if adopted and sector.reference_sector_id is not None:
+            reference_sector = db.get(ReferenceSector, sector.reference_sector_id)
+            if reference_sector is None or not reference_sector.custom_categories_allowed:
+                raise ValueError("CUSTOM_CATEGORY_FORBIDDEN_FOR_SECTOR")
+        requested_code = payload.get("code")
+        if adopted and (not isinstance(requested_code, str) or re.fullmatch(r"C[A-Z0-9]{13,23}", requested_code) is None):
+            raise ValueError("CUSTOM_CATEGORY_CODE_INVALID")
+        if adopted and payload.get("sector_code") != sector.sector_code:
+            raise ValueError("CATEGORY_SECTOR_MISMATCH")
         category = Category(
             id=operation.entity_id, store_id=user.store_id,
             user_id=user.data_owner_id, name=name.strip(),
+            code=requested_code if adopted else None,
+            sector_code=sector.sector_code if sector else None,
+            origin="custom" if adopted else "legacy",
+            approval_status="approved" if adopted else "legacy",
+            is_active=True, taxonomy_version=TAXONOMY_VERSION if adopted else None,
         )
         db.add(category)
+    elif category.origin == "system":
+        raise ValueError("SYSTEM_CATEGORY_IMMUTABLE")
     category.name = name.strip()
     description = payload.get("description")
     if description is not None and not isinstance(description, str):
         raise ValueError("CATEGORY_DESCRIPTION_INVALID")
     category.description = description
+    if "is_active" in payload:
+        if category.origin != "custom" or not isinstance(payload["is_active"], bool):
+            raise ValueError("CATEGORY_LIFECYCLE_INVALID")
+        category.is_active = payload["is_active"]
+    if not created:
+        category.version += 1
     db.flush()
     return SyncOperationResult(
         operation_id=operation.operation_id, status="applied", entity_id=category.id,
-        record={"id": category.id, "name": category.name, "description": category.description,
-                "created_at": category.created_at, "updated_at": category.updated_at},
+        record=CategoryOut.model_validate(category).model_dump(mode="json"),
     )
 
 
@@ -602,6 +640,63 @@ def _validate_barcode(value: object, symbology: object) -> tuple[str, str]:
     return value, symbology
 
 
+def _create_embedded_external_barcodes(
+    db: DbSession,
+    *,
+    store: Store,
+    product: InventoryItem,
+    category: Category | None,
+    payload: object,
+) -> None:
+    if not isinstance(payload, list) or not payload or len(payload) > 20:
+        raise ValueError("EMBEDDED_BARCODES_INVALID")
+    seen_ids: set[int] = set()
+    seen_values: set[str] = set()
+    for index, raw in enumerate(payload):
+        if not isinstance(raw, dict):
+            raise ValueError("EMBEDDED_BARCODE_INVALID")
+        barcode_id = raw.get("id")
+        if isinstance(barcode_id, bool) or not isinstance(barcode_id, int) or barcode_id <= 0 or barcode_id in seen_ids:
+            raise ValueError("EMBEDDED_BARCODE_ID_INVALID")
+        if raw.get("source") != "manufacturer":
+            raise ValueError("EMBEDDED_BARCODE_SOURCE_INVALID")
+        value, symbology = _validate_barcode(raw.get("value"), raw.get("symbology", "code128"))
+        if value in seen_values:
+            raise ValueError("BARCODE_ALREADY_RESERVED")
+        meaning = raw.get("meaning")
+        scan_quantity = raw.get("scan_quantity")
+        if meaning not in {"unit", "package"}:
+            raise ValueError("BARCODE_MEANING_INVALID")
+        if isinstance(scan_quantity, bool) or not isinstance(scan_quantity, int) or scan_quantity < 1:
+            raise ValueError("BARCODE_SCAN_QUANTITY_INVALID")
+        if meaning == "unit" and scan_quantity != 1:
+            raise ValueError("UNIT_BARCODE_QUANTITY_INVALID")
+        reservation = reserve_external_barcode(
+            db,
+            store_id=store.id,
+            product_id=product.id,
+            value=value,
+            category_reference_key=category.reference_key if category else None,
+        )
+        db.add(ProductBarcode(
+            id=barcode_id,
+            store_id=store.id,
+            product_id=product.id,
+            value=value,
+            source="manufacturer",
+            symbology=symbology,
+            meaning=meaning,
+            scan_quantity=scan_quantity,
+            is_active=True,
+            is_default=index == 0,
+            lifecycle_status="active",
+            reservation_id=reservation.id,
+            category_reference_key=category.reference_key if category else None,
+        ))
+        seen_ids.add(barcode_id)
+        seen_values.add(value)
+
+
 def _apply_barcode(db: DbSession, user: User, operation: SyncOperationIn) -> SyncOperationResult:
     barcode = db.scalar(select(ProductBarcode).where(
         ProductBarcode.id == operation.entity_id,
@@ -609,7 +704,14 @@ def _apply_barcode(db: DbSession, user: User, operation: SyncOperationIn) -> Syn
     ))
     if operation.operation == "DELETE":
         if barcode is not None:
-            db.delete(barcode)
+            barcode.is_active = False
+            barcode.is_default = False
+            barcode.lifecycle_status = "retired"
+            barcode.version += 1
+            reservation = db.get(BarcodeReservation, barcode.reservation_id)
+            if reservation is not None:
+                reservation.status = "retired"
+                reservation.retired_at = datetime.now(timezone.utc)
         return SyncOperationResult(operation_id=operation.operation_id, status="applied", entity_id=operation.entity_id)
 
     payload = operation.payload or {}
@@ -624,13 +726,6 @@ def _apply_barcode(db: DbSession, user: User, operation: SyncOperationIn) -> Syn
     ))
     if product is None:
         raise ValueError("BARCODE_PRODUCT_NOT_FOUND")
-    duplicate = db.scalar(select(ProductBarcode).where(
-        ProductBarcode.store_id == user.store_id,
-        ProductBarcode.value.in_(_barcode_candidates(value, symbology)),
-        ProductBarcode.id != operation.entity_id,
-    ))
-    if duplicate is not None:
-        return SyncOperationResult(operation_id=operation.operation_id, status="conflict", entity_id=operation.entity_id, error="BARCODE_ALREADY_ASSIGNED")
     created = barcode is None
     if created:
         if operation.operation == "UPDATE":
@@ -651,8 +746,24 @@ def _apply_barcode(db: DbSession, user: User, operation: SyncOperationIn) -> Syn
         raise ValueError("BARCODE_SCAN_QUANTITY_INVALID")
     if meaning == "unit" and scan_quantity != 1:
         raise ValueError("UNIT_BARCODE_QUANTITY_INVALID")
-    if source == "tanzim" and (symbology != "code128" or not value.startswith("TZ-")):
-        raise ValueError("INTERNAL_BARCODE_INVALID")
+    if source == "tanzim":
+        raise ValueError("INTERNAL_BARCODE_SERVER_ISSUED_ONLY")
+
+    if created:
+        product_category = db.get(Category, product.category_id) if product.category_id is not None else None
+        try:
+            reservation = reserve_external_barcode(
+                db,
+                store_id=user.store_id,
+                product_id=product.id,
+                value=value,
+                category_reference_key=(product_category.reference_key if product_category else None),
+            )
+        except ValueError as error:
+            return SyncOperationResult(operation_id=operation.operation_id, status="conflict", entity_id=operation.entity_id, error=str(error))
+        barcode.reservation_id = reservation.id
+    elif barcode.value != value:
+        raise ValueError("BARCODE_VALUE_IMMUTABLE")
 
     barcode.product_id = product.id
     barcode.value = value
@@ -660,9 +771,17 @@ def _apply_barcode(db: DbSession, user: User, operation: SyncOperationIn) -> Syn
     barcode.symbology = symbology
     barcode.meaning = meaning
     barcode.scan_quantity = scan_quantity
-    barcode.is_active = bool(payload.get("is_active", True))
+    requested_active = bool(payload.get("is_active", True))
+    if not created and barcode.lifecycle_status != "active" and requested_active:
+        raise ValueError("BARCODE_REACTIVATION_FORBIDDEN")
+    barcode.is_active = requested_active
     barcode.is_default = bool(payload.get("is_default", False))
     barcode.version = 1 if created else barcode.version + 1
+    barcode.lifecycle_status = "active" if barcode.is_active else "retired"
+    reservation = db.get(BarcodeReservation, barcode.reservation_id)
+    if reservation is not None and not barcode.is_active:
+        reservation.status = "retired"
+        reservation.retired_at = datetime.now(timezone.utc)
     if barcode.is_default:
         for current in db.scalars(select(ProductBarcode).where(
             ProductBarcode.store_id == user.store_id,
@@ -897,6 +1016,13 @@ async def _apply_product_operation(
             private_catalog = item.catalog_product if not item.catalog_product.is_shared else None
             if item.image_url and item.image_url.startswith("/uploads/"):
                 (settings.UPLOAD_DIR / Path(item.image_url).name).unlink(missing_ok=True)
+            for reservation in db.scalars(select(BarcodeReservation).where(
+                BarcodeReservation.store_id == current_user.store_id,
+                BarcodeReservation.target_type == "product",
+                BarcodeReservation.target_id == item.id,
+            )):
+                reservation.status = "deleted"
+                reservation.retired_at = accepted_at
             db.delete(item)
             db.flush()
             if private_catalog is not None:
@@ -922,6 +1048,24 @@ async def _apply_product_operation(
         )
 
     created = item is None
+    store = db.scalar(
+        select(Store)
+        .where(Store.id == current_user.store_id)
+        .with_for_update()
+    )
+    if store is None:
+        raise ValueError("STORE_NOT_FOUND")
+    requested_category_id = payload.get("category_id")
+    if created:
+        category = validate_category_for_new_intent(db, store, requested_category_id)
+    else:
+        category = None
+        if (
+            store.taxonomy_version == TAXONOMY_VERSION
+            and "category_id" in payload
+            and requested_category_id != item.category_id
+        ):
+            raise ValueError("CATEGORY_CHANGE_REQUIRES_PREVIEW")
     if item is None:
         limit = None if is_admin(current_user) else locked_inventory_capacity(
             db, current_user, as_of=accepted_at
@@ -977,6 +1121,44 @@ async def _apply_product_operation(
         item.media_asset_id = None
     item.version = 1 if created else (item.version or 1) + 1
     db.flush()
+    if created:
+        external_barcodes = payload.get("external_barcodes")
+        internal_barcode = payload.get("internal_barcode")
+        if external_barcodes is not None and internal_barcode is not None:
+            raise ValueError("PRODUCT_BARCODE_INTENT_AMBIGUOUS")
+        if external_barcodes is not None:
+            _create_embedded_external_barcodes(
+                db, store=store, product=item, category=category, payload=external_barcodes,
+            )
+        elif store.taxonomy_version == TAXONOMY_VERSION:
+            assert category is not None
+            if internal_barcode is not None:
+                if (
+                    not isinstance(internal_barcode, dict)
+                    or internal_barcode.get("source") != "tanzim"
+                    or isinstance(internal_barcode.get("id"), bool)
+                    or not isinstance(internal_barcode.get("id"), int)
+                    or internal_barcode["id"] <= 0
+                ):
+                    raise ValueError("INTERNAL_BARCODE_COMMAND_INVALID")
+                try:
+                    issue_internal_barcode(
+                        db,
+                        store,
+                        item,
+                        category,
+                        requested_value=internal_barcode.get("value"),
+                        requested_barcode_id=internal_barcode["id"],
+                    )
+                except HTTPException as error:
+                    raise ValueError(str(error.detail)) from error
+            elif operation.execution_mode == "solo":
+                raise ValueError("INTERNAL_BARCODE_COMMAND_REQUIRED")
+            else:
+                issue_internal_barcode(db, store, item, category)
+        elif internal_barcode is not None:
+            raise ValueError("TAXONOMY_ADOPTION_REQUIRED")
+    store.has_historical_inventory_usage = True
     db.refresh(item)
     record = _serialize(item)
     _record_change(db, current_user, item.id, "UPSERT", record)

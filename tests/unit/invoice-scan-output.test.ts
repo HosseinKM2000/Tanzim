@@ -61,6 +61,19 @@ describe("invoice barcode selection and immutable output", () => {
     await expect(pending).rejects.toThrow("SYNC_ACCOUNT_CHANGED"); get.mockRestore();
   });
 
+  it("keeps exact external values and never selects a retired code", async () => {
+    const products = await inventoryStorage.getAll();
+    await db.barcodes.bulkPut([
+      { local_key: "607:707:11", local_user_id: 607, local_store_id: 707, store_id: 707, id: 11, product_id: 91, value: " 001AbC ", source: "manufacturer", symbology: "code128", meaning: "unit", scan_quantity: 1, is_active: true, is_default: true, lifecycle_status: "active", created_at: "2026-01-01", updated_at: "2026-01-01" },
+      { local_key: "607:707:12", local_user_id: 607, local_store_id: 707, store_id: 707, id: 12, product_id: 91, value: "OLD-001", source: "tanzim", symbology: "code128", meaning: "unit", scan_quantity: 1, is_active: false, is_default: false, lifecycle_status: "retired", created_at: "2026-01-01", updated_at: "2026-01-01" },
+    ]);
+    await expect(lookupInvoiceBarcode(" 001AbC ", products, "sale")).resolves.toMatchObject({ kind: "unique", product: { id: 91 } });
+    await expect(lookupInvoiceBarcode("001AbC", products, "sale")).resolves.toEqual({ kind: "unknown" });
+    await expect(lookupInvoiceBarcode("OLD-001", products, "sale")).resolves.toEqual({ kind: "retired" });
+    expect(await db.inventoryMovements.count()).toBe(0);
+    expect(await db.syncQueue.count()).toBe(0);
+  });
+
   it("builds only from immutable snapshots, labels Solo pending, and refuses unknown or cross-account output", () => {
     const source = invoice(); const document = buildInvoiceDocument(source);
     expect(document).toMatchObject({ storeName: "فروشگاه تنظیم", title: "عنوان ذخیره‌شده", total: 1200, lines: [{ product: "نام ذخیره‌شده", unitPrice: 600 }] });

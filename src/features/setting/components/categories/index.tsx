@@ -1,10 +1,11 @@
 import { Button } from "@/shared/ui/button/button";
 import { LayersIcon, PlusIcon } from "@radix-ui/react-icons";
-import { Box, Callout, Card, Flex, Spinner, Text } from "@radix-ui/themes";
+import { Badge, Box, Callout, Card, Flex, Spinner, Text } from "@radix-ui/themes";
 import CategoryFormDialog from "./category-form-dialog";
 import DeleteCategoryDialog from "./delete-category-dialog";
 import {
   useCategories,
+  useReactivateCategory,
   useRefreshCategoriesFromServer,
 } from "../../mutations/use-categories";
 import { useOnline } from "@/shared/lib/infrastructure/sync/use-sync-status";
@@ -19,6 +20,7 @@ const CategoriesCards = () => {
   const online = useOnline();
   const [refreshOpen, setRefreshOpen] = useState(false);
   const refreshMutation = useRefreshCategoriesFromServer();
+  const reactivateMutation = useReactivateCategory();
 
   const refresh = async () => {
     try {
@@ -117,6 +119,9 @@ const CategoriesCards = () => {
                   <Text as="div" size="2" weight="bold">
                     {category.name}
                   </Text>
+                  <Badge color={category.is_active === false ? "gray" : category.origin === "system" ? "violet" : "amber"}>
+                    {category.is_active === false ? "غیرفعال" : category.origin === "system" ? "سیستمی" : category.origin === "legacy" ? "قدیمی" : "اختصاصی"}
+                  </Badge>
                 </Flex>
                 <Text
                   as="div"
@@ -129,16 +134,30 @@ const CategoriesCards = () => {
                 </Text>
               </Box>
               <Flex mt={"3"} align={"center"} gapX={"3"} justify={"end"}>
-                <CategoryFormDialog
-                  mode="edit"
-                  category={category}
-                  trigger={
-                    <Button size={"2"} color="amber" variant="surface">
-                      ویرایش
-                    </Button>
-                  }
-                />
-                <DeleteCategoryDialog category={category} />
+                {category.origin !== "system" ? (
+                  <>
+                    <CategoryFormDialog
+                      mode="edit"
+                      category={category}
+                      trigger={<Button size={"2"} color="amber" variant="surface">ویرایش</Button>}
+                    />
+                    {category.is_active !== false ? (
+                      <DeleteCategoryDialog category={category} />
+                    ) : category.origin === "custom" ? (
+                      <Button
+                        size="2"
+                        variant="soft"
+                        loading={reactivateMutation.isPending}
+                        onClick={() => reactivateMutation.mutate(category.id, {
+                          onSuccess: () => toast.success(`دسته «${category.name}» دوباره فعال شد`),
+                          onError: (cause) => toast.error(cause instanceof Error ? cause.message : "فعال‌سازی دسته ناموفق بود"),
+                        })}
+                      >
+                        فعال‌سازی دوباره
+                      </Button>
+                    ) : null}
+                  </>
+                ) : <Text size="1" color="gray">عنوان و کد ثابت است</Text>}
               </Flex>
             </Card>
           ))}

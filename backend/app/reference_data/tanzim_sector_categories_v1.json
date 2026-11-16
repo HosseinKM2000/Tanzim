@@ -1,0 +1,3944 @@
+{
+  "schema_version": "1.1.0",
+  "status": "mixed_approval_not_a_deployment_authorization",
+  "scope": "seed-data-and-selection-guidance",
+  "sector_count": 24,
+  "parent_category_count": 281,
+  "classification_level": "parent_only",
+  "sectors": [
+    {
+      "code": "01",
+      "name_fa": "قطعات، لوازم و تجهیزات خودرو",
+      "custom_categories_allowed": false,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "موتور و قطعات داخلی",
+          "examples_fa": [
+            "پیستون",
+            "میل‌لنگ",
+            "سوپاپ",
+            "سرسیلندر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:01",
+          "approval_status": "approved"
+        },
+        {
+          "code": "02",
+          "name_fa": "تسمه، زنجیر و متعلقات",
+          "examples_fa": [
+            "تسمه تایم",
+            "تسمه دینام",
+            "هرزگرد"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:02",
+          "approval_status": "approved"
+        },
+        {
+          "code": "03",
+          "name_fa": "سوخت‌رسانی و هوارسانی",
+          "examples_fa": [
+            "پمپ بنزین",
+            "انژکتور",
+            "دریچه گاز"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:03",
+          "approval_status": "approved"
+        },
+        {
+          "code": "04",
+          "name_fa": "اگزوز و آلایندگی",
+          "examples_fa": [
+            "منیفولد دود",
+            "کاتالیزور",
+            "منبع اگزوز"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:04",
+          "approval_status": "approved"
+        },
+        {
+          "code": "05",
+          "name_fa": "خنک‌کاری موتور",
+          "examples_fa": [
+            "رادیاتور",
+            "واترپمپ",
+            "ترموستات"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:05",
+          "approval_status": "approved"
+        },
+        {
+          "code": "06",
+          "name_fa": "گیربکس و انتقال قدرت",
+          "examples_fa": [
+            "گیربکس",
+            "پلوس",
+            "دیفرانسیل",
+            "گاردان"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:06",
+          "approval_status": "approved"
+        },
+        {
+          "code": "07",
+          "name_fa": "کلاچ و متعلقات",
+          "examples_fa": [
+            "دیسک و صفحه",
+            "بلبرینگ کلاچ"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:07",
+          "approval_status": "approved"
+        },
+        {
+          "code": "08",
+          "name_fa": "جلوبندی و تعلیق",
+          "examples_fa": [
+            "طبق",
+            "سیبک",
+            "کمک‌فنر",
+            "بوش"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:08",
+          "approval_status": "approved"
+        },
+        {
+          "code": "09",
+          "name_fa": "فرمان و هیدرولیک",
+          "examples_fa": [
+            "جعبه فرمان",
+            "قرقری",
+            "پمپ هیدرولیک"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:09",
+          "approval_status": "approved"
+        },
+        {
+          "code": "10",
+          "name_fa": "ترمز و متعلقات",
+          "examples_fa": [
+            "لنت",
+            "دیسک",
+            "کالیپر",
+            "بوستر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:10",
+          "approval_status": "approved"
+        },
+        {
+          "code": "11",
+          "name_fa": "برق و الکترونیک",
+          "examples_fa": [
+            "دینام",
+            "استارت",
+            "باتری",
+            "سیم‌کشی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:11",
+          "approval_status": "approved"
+        },
+        {
+          "code": "12",
+          "name_fa": "سنسورها و یونیت‌ها",
+          "examples_fa": [
+            "سنسور اکسیژن",
+            "ECU",
+            "یونیت‌ها"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:12",
+          "approval_status": "approved"
+        },
+        {
+          "code": "13",
+          "name_fa": "چراغ و روشنایی",
+          "examples_fa": [
+            "چراغ جلو",
+            "چراغ خطر",
+            "مه‌شکن"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:13",
+          "approval_status": "approved"
+        },
+        {
+          "code": "14",
+          "name_fa": "بدنه و شاسی",
+          "examples_fa": [
+            "سپر",
+            "گلگیر",
+            "درب",
+            "کاپوت",
+            "شاسی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:14",
+          "approval_status": "approved"
+        },
+        {
+          "code": "15",
+          "name_fa": "شیشه، آینه و برف‌پاک‌کن",
+          "examples_fa": [
+            "شیشه",
+            "آینه",
+            "تیغه و موتور برف‌پاک‌کن"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:15",
+          "approval_status": "approved"
+        },
+        {
+          "code": "16",
+          "name_fa": "داخل کابین و اتاق",
+          "examples_fa": [
+            "داشبورد",
+            "رودری",
+            "کنسول",
+            "صندلی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:16",
+          "approval_status": "approved"
+        },
+        {
+          "code": "17",
+          "name_fa": "کولر، بخاری و تهویه",
+          "examples_fa": [
+            "کمپرسور",
+            "کندانسور",
+            "بخاری"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:17",
+          "approval_status": "approved"
+        },
+        {
+          "code": "18",
+          "name_fa": "چرخ، رینگ و لاستیک",
+          "examples_fa": [
+            "تایر",
+            "رینگ",
+            "توپی",
+            "والف"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:18",
+          "approval_status": "approved"
+        },
+        {
+          "code": "19",
+          "name_fa": "پیچ، مهره و اتصالات",
+          "examples_fa": [
+            "پیچ",
+            "مهره",
+            "واشر فلزی",
+            "استادبولت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:19",
+          "approval_status": "approved"
+        },
+        {
+          "code": "20",
+          "name_fa": "خار، بست و خارجات",
+          "examples_fa": [
+            "خار رودری",
+            "کلیپس",
+            "بست پلاستیکی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:20",
+          "approval_status": "approved"
+        },
+        {
+          "code": "21",
+          "name_fa": "واشر، اورینگ و آب‌بندی",
+          "examples_fa": [
+            "کاسه‌نمد",
+            "اورینگ",
+            "واشر موتور"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:21",
+          "approval_status": "approved"
+        },
+        {
+          "code": "22",
+          "name_fa": "روغن، مایعات و مواد مصرفی",
+          "examples_fa": [
+            "روغن موتور",
+            "ضدیخ",
+            "گریس",
+            "مکمل"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:22",
+          "approval_status": "approved"
+        },
+        {
+          "code": "23",
+          "name_fa": "فیلترها و اقلام سرویس",
+          "examples_fa": [
+            "فیلتر روغن",
+            "هوا",
+            "کابین و سوخت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:23",
+          "approval_status": "approved"
+        },
+        {
+          "code": "24",
+          "name_fa": "لوازم لوکس، جانبی و تزئیناتی",
+          "examples_fa": [
+            "کفپوش",
+            "روکش",
+            "مانیتور",
+            "دزدگیر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:24",
+          "approval_status": "approved"
+        },
+        {
+          "code": "25",
+          "name_fa": "ابزار و تجهیزات تعمیرگاهی",
+          "examples_fa": [
+            "آچار",
+            "جک",
+            "دیاگ",
+            "ابزار تخصصی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:01:25",
+          "approval_status": "approved"
+        }
+      ],
+      "reference_key": "sector:01",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "approved",
+      "reference_seed_eligible": true,
+      "customer_default_enabled": true,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "02",
+      "name_fa": "ابزارآلات و تجهیزات صنعتی",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "ابزار دستی",
+          "examples_fa": [
+            "آچار",
+            "پیچ‌گوشتی",
+            "انبردست",
+            "چکش"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:02:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "ابزار برقی",
+          "examples_fa": [
+            "دریل",
+            "فرز",
+            "اره",
+            "پیچ‌بند"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:02:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "ابزار شارژی",
+          "examples_fa": [
+            "دریل شارژی",
+            "بکس شارژی",
+            "باتری ابزار"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:02:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "ابزار بادی و پنوماتیک",
+          "examples_fa": [
+            "بکس بادی",
+            "میخکوب",
+            "کمپرسور"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:02:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "ابزار اندازه‌گیری و دقیق",
+          "examples_fa": [
+            "کولیس",
+            "میکرومتر",
+            "تراز لیزری"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:02:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "ابزار برش، سوراخ‌کاری و سایش",
+          "examples_fa": [
+            "مته",
+            "تیغ اره",
+            "صفحه برش",
+            "سنگ سنباده"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:02:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "تجهیزات جوشکاری و برشکاری",
+          "examples_fa": [
+            "اینورتر",
+            "تورچ",
+            "الکترود",
+            "سیم جوش"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:02:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "ابزار و تجهیزات کارگاهی",
+          "examples_fa": [
+            "گیره",
+            "میز کار",
+            "پرس",
+            "جک"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:02:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "تجهیزات انتقال و جابه‌جایی",
+          "examples_fa": [
+            "جرثقیل کارگاهی",
+            "پولیفت",
+            "بالابر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:02:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "تجهیزات ایمنی و حفاظت",
+          "examples_fa": [
+            "دستکش",
+            "عینک",
+            "کفش ایمنی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:02:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "متعلقات و قطعات ابزار",
+          "examples_fa": [
+            "سه‌نظام",
+            "زغال",
+            "باتری",
+            "شارژر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:02:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "مواد و ملزومات صنعتی",
+          "examples_fa": [
+            "چسب صنعتی",
+            "روان‌کننده",
+            "اسپری صنعتی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:02:12",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:02",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "03",
+      "name_fa": "برق، روشنایی و تجهیزات الکتریکی",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "سیم و کابل",
+          "examples_fa": [
+            "سیم ساختمانی",
+            "کابل قدرت",
+            "کابل افشان"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:03:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "کلید، پریز و تجهیزات نصب",
+          "examples_fa": [
+            "کلید و پریز",
+            "قاب",
+            "قطعات توکار"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:03:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "لامپ و منابع روشنایی",
+          "examples_fa": [
+            "LED",
+            "کم‌مصرف",
+            "هالوژن"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:03:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "چراغ و تجهیزات روشنایی",
+          "examples_fa": [
+            "پنل",
+            "پروژکتور",
+            "چراغ سقفی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:03:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "تجهیزات تابلو برق",
+          "examples_fa": [
+            "کلید اتوماتیک",
+            "کنتاکتور",
+            "شینه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:03:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "حفاظت و کنترل برق",
+          "examples_fa": [
+            "فیوز",
+            "محافظ جان",
+            "رله حفاظتی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:03:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "اتصالات و ملزومات سیم‌کشی",
+          "examples_fa": [
+            "ترمینال",
+            "سرسیم",
+            "وایرشو"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:03:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "لوله، داکت و کانال کابل",
+          "examples_fa": [
+            "لوله برق",
+            "داکت",
+            "سینی کابل"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:03:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "تجهیزات برق صنعتی",
+          "examples_fa": [
+            "اینورتر صنعتی",
+            "PLC",
+            "سافت‌استارتر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:03:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "منابع تغذیه و باتری",
+          "examples_fa": [
+            "آداپتور",
+            "ترانس",
+            "UPS",
+            "باتری"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:03:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "تجهیزات اندازه‌گیری الکتریکی",
+          "examples_fa": [
+            "مولتی‌متر",
+            "آمپرمتر",
+            "تستر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:03:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "برق اضطراری و انرژی خورشیدی",
+          "examples_fa": [
+            "پنل خورشیدی",
+            "شارژکنترلر",
+            "اینورتر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:03:12",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:03",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "04",
+      "name_fa": "تأسیسات و تجهیزات ساختمانی",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "لوله و اتصالات",
+          "examples_fa": [
+            "لوله پنج‌لایه",
+            "اتصالات پلیمری",
+            "فلزی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:04:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "شیرآلات و کنترل جریان",
+          "examples_fa": [
+            "شیر توپی",
+            "شیر یک‌طرفه",
+            "شیر فشارشکن"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:04:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "پمپ و تجهیزات آبرسانی",
+          "examples_fa": [
+            "پمپ آب",
+            "منبع تحت فشار",
+            "ست کنترل"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:04:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "تجهیزات گرمایشی",
+          "examples_fa": [
+            "پکیج",
+            "رادیاتور",
+            "مشعل",
+            "دیگ"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:04:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "تجهیزات سرمایشی",
+          "examples_fa": [
+            "کولر",
+            "چیلر",
+            "فن‌کویل"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:04:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "تهویه و کانال‌کشی",
+          "examples_fa": [
+            "فن",
+            "هواکش",
+            "کانال و دریچه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:04:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "تجهیزات بهداشتی ساختمان",
+          "examples_fa": [
+            "فلاش‌تانک",
+            "سیفون",
+            "اتصالات بهداشتی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:04:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "تصفیه و فیلتراسیون آب",
+          "examples_fa": [
+            "فیلتر",
+            "دستگاه تصفیه",
+            "سختی‌گیر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:04:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "ابزار و ملزومات نصب تأسیسات",
+          "examples_fa": [
+            "لوله‌بر",
+            "دستگاه جوش لوله",
+            "آچار"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:04:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "عایق‌کاری و آب‌بندی",
+          "examples_fa": [
+            "عایق لوله",
+            "نوار تفلون",
+            "چسب آب‌بندی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:04:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "کنترل و اتوماسیون تأسیسات",
+          "examples_fa": [
+            "ترموستات",
+            "سنسور",
+            "کنترلر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:04:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "قطعات یدکی تجهیزات تأسیساتی",
+          "examples_fa": [
+            "برد پکیج",
+            "مبدل حرارتی",
+            "شیر سه‌طرفه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:04:12",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:04",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "05",
+      "name_fa": "یراق‌آلات، پیچ و اتصالات",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "پیچ",
+          "examples_fa": [
+            "پیچ متری",
+            "خودکار",
+            "آلنی",
+            "سرمته"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:05:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "مهره",
+          "examples_fa": [
+            "مهره شش‌گوش",
+            "قفلی",
+            "خروسکی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:05:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "واشر و اتصالات فلزی",
+          "examples_fa": [
+            "واشر تخت",
+            "فنری",
+            "خار فلزی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:05:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "پرچ، پین و میخ",
+          "examples_fa": [
+            "پرچ",
+            "اشپیل",
+            "پین",
+            "میخ صنعتی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:05:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "رول‌پلاک و اتصالات نصب",
+          "examples_fa": [
+            "رول‌پلاک",
+            "انکر",
+            "بولت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:05:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "بست، گیره و نگهدارنده",
+          "examples_fa": [
+            "بست کمربندی",
+            "بست فلزی",
+            "گیره"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:05:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "یراق درب و پنجره",
+          "examples_fa": [
+            "لولا",
+            "قفل",
+            "دستگیره",
+            "جک"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:05:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "یراق کابینت و مبلمان",
+          "examples_fa": [
+            "ریل",
+            "لولا",
+            "پایه",
+            "دستگیره"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:05:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "زنجیر، سیم‌بکسل و اتصالات",
+          "examples_fa": [
+            "قلاب",
+            "شگل",
+            "سیم‌بکسل"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:05:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "چسب، آب‌بند و اتصال شیمیایی",
+          "examples_fa": [
+            "چسب رزوه",
+            "چسب صنعتی",
+            "درزگیر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:05:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "قطعات اتصال تخصصی",
+          "examples_fa": [
+            "اتصال سازه‌ای",
+            "بست صنعتی",
+            "مهار"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:05:11",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:05",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "06",
+      "name_fa": "مصالح و ملزومات ساختمانی",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "سیمان، گچ و مصالح پودری",
+          "examples_fa": [
+            "سیمان",
+            "گچ",
+            "ملات خشک"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:06:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "آجر، بلوک و مصالح دیواری",
+          "examples_fa": [
+            "بلوک",
+            "آجر",
+            "هبلکس"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:06:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "فولاد و مقاطع ساختمانی",
+          "examples_fa": [
+            "میلگرد",
+            "تیرآهن",
+            "نبشی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:06:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "کاشی، سرامیک و سنگ",
+          "examples_fa": [
+            "سرامیک",
+            "سنگ نما",
+            "کاشی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:06:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "رنگ و پوشش ساختمانی",
+          "examples_fa": [
+            "رنگ",
+            "پرایمر",
+            "پوشش محافظ"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:06:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "عایق‌های رطوبتی و حرارتی",
+          "examples_fa": [
+            "ایزوگام",
+            "پشم سنگ",
+            "فوم"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:06:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "چسب، ملات و افزودنی",
+          "examples_fa": [
+            "چسب کاشی",
+            "گروت",
+            "افزودنی بتن"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:06:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "درب، پنجره و پروفیل",
+          "examples_fa": [
+            "پروفیل",
+            "پنجره",
+            "فریم"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:06:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "پوشش کف و دیوار",
+          "examples_fa": [
+            "پارکت",
+            "لمینت",
+            "دیوارپوش"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:06:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "سقف و پوشش‌های ساختمانی",
+          "examples_fa": [
+            "ورق سقفی",
+            "تایل",
+            "سقف کاذب"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:06:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "تجهیزات و ملزومات نصب",
+          "examples_fa": [
+            "توری",
+            "نبشی نصب",
+            "ابزار مصرفی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:06:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "مصالح دکوراتیو",
+          "examples_fa": [
+            "آجر دکوراتیو",
+            "پنل",
+            "قرنیز"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:06:12",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:06",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "07",
+      "name_fa": "موبایل و لوازم جانبی",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "گوشی موبایل",
+          "examples_fa": [
+            "گوشی هوشمند",
+            "ساده",
+            "صنعتی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:07:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "تبلت و دستگاه‌های همراه",
+          "examples_fa": [
+            "تبلت",
+            "کتاب‌خوان"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:07:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "قاب و محافظ بدنه",
+          "examples_fa": [
+            "قاب",
+            "کاور",
+            "بامپر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:07:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "گلس و محافظ نمایشگر",
+          "examples_fa": [
+            "گلس",
+            "محافظ لنز"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:07:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "شارژر و تجهیزات شارژ",
+          "examples_fa": [
+            "آداپتور",
+            "شارژر بی‌سیم"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:07:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "کابل و مبدل",
+          "examples_fa": [
+            "USB-C",
+            "Lightning",
+            "OTG"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:07:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "باتری و پاوربانک",
+          "examples_fa": [
+            "باتری گوشی",
+            "پاوربانک"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:07:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "هندزفری و تجهیزات صوتی",
+          "examples_fa": [
+            "هندزفری",
+            "هدست",
+            "ایرباد"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:07:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "قطعات تعمیر موبایل",
+          "examples_fa": [
+            "نمایشگر",
+            "فلت",
+            "سوکت شارژ"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:07:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "ابزار و تجهیزات تعمیر موبایل",
+          "examples_fa": [
+            "هیتر",
+            "لوپ",
+            "هویه",
+            "ابزار بازکردن"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:07:10",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:07",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "08",
+      "name_fa": "کامپیوتر و تجهیزات شبکه",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "کامپیوتر و سیستم آماده",
+          "examples_fa": [
+            "کیس",
+            "مینی‌پی‌سی",
+            "آل‌این‌وان"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:08:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "لپ‌تاپ و تجهیزات همراه",
+          "examples_fa": [
+            "لپ‌تاپ",
+            "کروم‌بوک"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:08:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "پردازنده و مادربرد",
+          "examples_fa": [
+            "CPU",
+            "مادربرد"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:08:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "رم و تجهیزات ذخیره‌سازی",
+          "examples_fa": [
+            "RAM",
+            "SSD",
+            "HDD"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:08:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "کارت گرافیک و قطعات داخلی",
+          "examples_fa": [
+            "GPU",
+            "پاور",
+            "فن"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:08:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "مانیتور و نمایشگر",
+          "examples_fa": [
+            "مانیتور",
+            "نمایشگر حرفه‌ای"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:08:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "لوازم جانبی کامپیوتر",
+          "examples_fa": [
+            "ماوس",
+            "کیبورد",
+            "وب‌کم"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:08:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "تجهیزات شبکه",
+          "examples_fa": [
+            "روتر",
+            "سوئیچ",
+            "اکسس‌پوینت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:08:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "کابل و اتصالات شبکه",
+          "examples_fa": [
+            "کابل LAN",
+            "پچ‌پنل",
+            "کیستون"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:08:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "سرور و تجهیزات رک",
+          "examples_fa": [
+            "سرور",
+            "رک",
+            "تجهیزات دیتاسنتر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:08:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "برق اضطراری و خنک‌کننده",
+          "examples_fa": [
+            "UPS",
+            "فن",
+            "خنک‌کننده"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:08:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "قطعات و ابزار تعمیر",
+          "examples_fa": [
+            "آداپتور",
+            "قطعات لپ‌تاپ",
+            "تستر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:08:12",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:08",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "09",
+      "name_fa": "لوازم الکترونیکی و دیجیتال",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "تلویزیون و نمایشگر",
+          "examples_fa": [
+            "تلویزیون",
+            "نمایشگر دیجیتال"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:09:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "تجهیزات صوتی",
+          "examples_fa": [
+            "اسپیکر",
+            "آمپلی‌فایر",
+            "میکسر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:09:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "دوربین عکاسی و فیلم‌برداری",
+          "examples_fa": [
+            "دوربین",
+            "لنز",
+            "تجهیزات تصویربرداری"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:09:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "تجهیزات نظارتی و امنیتی",
+          "examples_fa": [
+            "دوربین مداربسته",
+            "NVR",
+            "DVR"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:09:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "دستگاه‌های هوشمند",
+          "examples_fa": [
+            "ساعت هوشمند",
+            "خانه هوشمند"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:09:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "کنسول و تجهیزات بازی",
+          "examples_fa": [
+            "کنسول",
+            "دسته بازی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:09:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "تجهیزات ارتباطی",
+          "examples_fa": [
+            "بی‌سیم",
+            "تلفن",
+            "تجهیزات ارتباطی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:09:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "کابل، آداپتور و مبدل",
+          "examples_fa": [
+            "HDMI",
+            "مبدل تصویر",
+            "آداپتور"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:09:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "قطعات و بردهای الکترونیکی",
+          "examples_fa": [
+            "مقاومت",
+            "خازن",
+            "آی‌سی",
+            "برد"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:09:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "باتری و منابع تغذیه",
+          "examples_fa": [
+            "باتری",
+            "منبع تغذیه آزمایشگاهی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:09:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "ابزار و تجهیزات الکترونیک",
+          "examples_fa": [
+            "هویه",
+            "اسیلوسکوپ",
+            "مولتی‌متر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:09:11",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:09",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "10",
+      "name_fa": "لوازم خانگی و قطعات",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "یخچال و فریزر",
+          "examples_fa": [
+            "یخچال",
+            "فریزر",
+            "سایدبای‌ساید"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:10:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "ماشین لباس‌شویی و خشک‌کن",
+          "examples_fa": [
+            "لباس‌شویی",
+            "خشک‌کن"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:10:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "ماشین ظرف‌شویی",
+          "examples_fa": [
+            "دستگاه و ملزومات"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:10:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "اجاق، فر و تجهیزات پخت‌وپز",
+          "examples_fa": [
+            "اجاق",
+            "فر",
+            "هود"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:10:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "لوازم برقی کوچک آشپزخانه",
+          "examples_fa": [
+            "مخلوط‌کن",
+            "غذاساز",
+            "آبمیوه‌گیری"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:10:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "نظافت و شست‌وشوی خانگی",
+          "examples_fa": [
+            "جاروبرقی",
+            "بخارشوی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:10:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "سرمایش و گرمایش خانگی",
+          "examples_fa": [
+            "بخاری برقی",
+            "پنکه",
+            "کولر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:10:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "تصفیه هوا و آب",
+          "examples_fa": [
+            "دستگاه تصفیه",
+            "فیلتر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:10:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "قطعات مکانیکی لوازم خانگی",
+          "examples_fa": [
+            "موتور",
+            "پمپ",
+            "بلبرینگ"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:10:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "قطعات برقی و الکترونیکی",
+          "examples_fa": [
+            "برد",
+            "سنسور",
+            "ترموستات"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:10:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "شیلنگ، اتصالات و نصب",
+          "examples_fa": [
+            "شیلنگ ورودی",
+            "لوله",
+            "رابط"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:10:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "اقلام مصرفی و نگهداری",
+          "examples_fa": [
+            "فیلتر",
+            "جرم‌گیر",
+            "پاک‌کننده تخصصی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:10:12",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:10",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "11",
+      "name_fa": "پوشاک، کیف، کفش و محصولات چرمی",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "پوشاک زنانه",
+          "examples_fa": [
+            "مانتو",
+            "شومیز",
+            "شلوار"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:11:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "پوشاک مردانه",
+          "examples_fa": [
+            "پیراهن",
+            "شلوار",
+            "کت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:11:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "پوشاک بچگانه",
+          "examples_fa": [
+            "لباس کودک و نوجوان"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:11:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "لباس زیر و راحتی",
+          "examples_fa": [
+            "لباس زیر",
+            "لباس خواب"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:11:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "پوشاک ورزشی",
+          "examples_fa": [
+            "لگ",
+            "تیشرت ورزشی",
+            "ست تمرینی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:11:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "کفش زنانه",
+          "examples_fa": [
+            "رسمی",
+            "روزمره",
+            "بوت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:11:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "کفش مردانه",
+          "examples_fa": [
+            "رسمی",
+            "اسپرت",
+            "صندل"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:11:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "کفش بچگانه",
+          "examples_fa": [
+            "کفش",
+            "بوت",
+            "صندل کودک"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:11:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "کیف زنانه",
+          "examples_fa": [
+            "دستی",
+            "دوشی",
+            "اداری"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:11:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "کیف مردانه و اداری",
+          "examples_fa": [
+            "کیف دوشی",
+            "کوله",
+            "کیف اداری"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:11:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "محصولات چرمی و اکسسوری",
+          "examples_fa": [
+            "کمربند",
+            "دستکش",
+            "کیف پول"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:11:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "اکسسوری پوشاک",
+          "examples_fa": [
+            "شال",
+            "روسری",
+            "کلاه",
+            "جوراب"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:11:12",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:11",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "12",
+      "name_fa": "پارچه، خرازی و ملزومات دوخت",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "پارچه پوشاک",
+          "examples_fa": [
+            "نخی",
+            "کتان",
+            "جین",
+            "کرپ"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:12:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "پارچه مبلی و دکوراتیو",
+          "examples_fa": [
+            "مخمل",
+            "پرده‌ای",
+            "مبلی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:12:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "چرم و مواد اولیه مشابه",
+          "examples_fa": [
+            "چرم طبیعی",
+            "مصنوعی",
+            "جیر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:12:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "نخ و کاموا",
+          "examples_fa": [
+            "نخ دوخت",
+            "نخ گلدوزی",
+            "کاموا"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:12:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "دکمه، زیپ و قزن",
+          "examples_fa": [
+            "دکمه",
+            "زیپ",
+            "قفل",
+            "قزن"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:12:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "نوار، کش و خرج‌کار",
+          "examples_fa": [
+            "کش",
+            "نوار اریب",
+            "تور"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:12:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "لایی، آستر و مواد تکمیلی",
+          "examples_fa": [
+            "لایی چسب",
+            "آستر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:12:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "سوزن و ابزار خیاطی",
+          "examples_fa": [
+            "سوزن",
+            "قیچی",
+            "متر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:12:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "لوازم گلدوزی و بافتنی",
+          "examples_fa": [
+            "قلاب",
+            "میل بافتنی",
+            "کارگاه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:12:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "تجهیزات چرخ خیاطی",
+          "examples_fa": [
+            "پایه",
+            "ماسوره",
+            "سوزن چرخ"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:12:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "ملزومات بسته‌بندی پوشاک",
+          "examples_fa": [
+            "لیبل",
+            "اتیکت",
+            "پاکت",
+            "کاور"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:12:11",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:12",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "13",
+      "name_fa": "آرایشی، بهداشتی و مراقبتی",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "آرایش صورت",
+          "examples_fa": [
+            "کرم‌پودر",
+            "پنکک",
+            "رژگونه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:13:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "آرایش چشم و ابرو",
+          "examples_fa": [
+            "ریمل",
+            "خط چشم",
+            "سایه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:13:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "آرایش لب",
+          "examples_fa": [
+            "رژلب",
+            "برق لب",
+            "مداد لب"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:13:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "مراقبت پوست",
+          "examples_fa": [
+            "آبرسان",
+            "سرم",
+            "کرم مراقبتی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:13:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "شوینده و پاک‌کننده پوست",
+          "examples_fa": [
+            "ژل شست‌وشو",
+            "میسلار"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:13:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "مراقبت مو",
+          "examples_fa": [
+            "شامپو",
+            "ماسک",
+            "روغن مو"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:13:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "رنگ مو و مواد آرایشگاهی",
+          "examples_fa": [
+            "رنگ مو",
+            "اکسیدان",
+            "مواد فر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:13:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "عطر و خوشبوکننده شخصی",
+          "examples_fa": [
+            "عطر",
+            "ادکلن",
+            "بادی‌اسپلش"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:13:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "بهداشت فردی",
+          "examples_fa": [
+            "صابون",
+            "دئودورانت",
+            "مسواک"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:13:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "ابزار آرایش و زیبایی",
+          "examples_fa": [
+            "براش",
+            "سشوار",
+            "اتو مو"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:13:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "ناخن و ملزومات کاشت",
+          "examples_fa": [
+            "لاک",
+            "ژل",
+            "ابزار مانیکور"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:13:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "محصولات اصلاح و پیرایش",
+          "examples_fa": [
+            "تیغ",
+            "ماشین اصلاح",
+            "افترشیو"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:13:12",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:13",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "14",
+      "name_fa": "مواد غذایی و محصولات سوپرمارکتی",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "برنج، غلات و حبوبات",
+          "examples_fa": [
+            "برنج",
+            "عدس",
+            "لوبیا",
+            "جو"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "روغن و مواد اولیه آشپزی",
+          "examples_fa": [
+            "روغن خوراکی",
+            "سرکه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "کنسرو و غذای آماده",
+          "examples_fa": [
+            "کنسرو",
+            "سوپ",
+            "غذای بسته‌بندی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "لبنیات و فرآورده‌های آن",
+          "examples_fa": [
+            "شیر",
+            "ماست",
+            "پنیر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "گوشت و فرآورده‌های پروتئینی",
+          "examples_fa": [
+            "گوشت بسته‌بندی",
+            "سوسیس"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "محصولات منجمد",
+          "examples_fa": [
+            "سبزی منجمد",
+            "غذای یخ‌زده"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "نوشیدنی‌ها",
+          "examples_fa": [
+            "آب",
+            "آبمیوه",
+            "نوشابه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "چای، قهوه و دمنوش",
+          "examples_fa": [
+            "چای",
+            "قهوه",
+            "دمنوش"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "شیرینی، شکلات و تنقلات",
+          "examples_fa": [
+            "بیسکویت",
+            "شکلات",
+            "چیپس"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "نان، کیک و محصولات آردی",
+          "examples_fa": [
+            "نان بسته‌بندی",
+            "کیک",
+            "ماکارونی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "ادویه، چاشنی و سس",
+          "examples_fa": [
+            "نمک",
+            "ادویه",
+            "سس"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "خشکبار و میوه خشک",
+          "examples_fa": [
+            "آجیل",
+            "کشمش",
+            "خرما"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:12",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "13",
+          "name_fa": "شوینده و نظافت خانگی",
+          "examples_fa": [
+            "مایع ظرف‌شویی",
+            "شوینده سطوح"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:13",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "14",
+          "name_fa": "دستمال و اقلام مصرفی خانه",
+          "examples_fa": [
+            "دستمال کاغذی",
+            "کیسه زباله"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:14:14",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:14",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "15",
+      "name_fa": "لوازم تحریر، کتاب و ملزومات اداری",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "نوشت‌افزار",
+          "examples_fa": [
+            "خودکار",
+            "مداد",
+            "ماژیک"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:15:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "دفتر، کاغذ و محصولات کاغذی",
+          "examples_fa": [
+            "دفتر",
+            "کاغذ A4",
+            "یادداشت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:15:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "بایگانی و سازمان‌دهی اسناد",
+          "examples_fa": [
+            "زونکن",
+            "پوشه",
+            "کلاسور"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:15:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "کتاب و منابع آموزشی",
+          "examples_fa": [
+            "کتاب عمومی",
+            "کمک‌درسی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:15:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "لوازم هنری و طراحی",
+          "examples_fa": [
+            "رنگ",
+            "قلم‌مو",
+            "بوم"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:15:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "ابزار مهندسی و ترسیم",
+          "examples_fa": [
+            "خط‌کش",
+            "پرگار",
+            "شابلون"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:15:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "لوازم رومیزی و اداری",
+          "examples_fa": [
+            "پانچ",
+            "منگنه",
+            "قیچی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:15:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "تجهیزات اداری",
+          "examples_fa": [
+            "پرینتر",
+            "لیبل‌زن",
+            "دستگاه صحافی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:15:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "مواد مصرفی چاپ",
+          "examples_fa": [
+            "کارتریج",
+            "تونر",
+            "ریبون"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:15:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "کادو، بسته‌بندی و ملزومات هدیه",
+          "examples_fa": [
+            "پاکت",
+            "کاغذ کادو",
+            "روبان"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:15:10",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:15",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "16",
+      "name_fa": "لوازم منزل، دکوراسیون و آشپزخانه",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "ظروف پخت‌وپز",
+          "examples_fa": [
+            "قابلمه",
+            "تابه",
+            "زودپز"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:16:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "ظروف پذیرایی",
+          "examples_fa": [
+            "بشقاب",
+            "لیوان",
+            "سرویس پذیرایی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:16:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "ابزار و لوازم آشپزخانه",
+          "examples_fa": [
+            "چاقو",
+            "رنده",
+            "تخته"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:16:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "نظم‌دهنده و نگهداری",
+          "examples_fa": [
+            "باکس",
+            "سبد",
+            "بانکه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:16:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "کالای خواب",
+          "examples_fa": [
+            "بالش",
+            "پتو",
+            "روتختی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:16:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "منسوجات خانه",
+          "examples_fa": [
+            "حوله",
+            "رومیزی",
+            "دستمال"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:16:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "پرده و پوشش پنجره",
+          "examples_fa": [
+            "پرده",
+            "شید",
+            "کرکره"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:16:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "روشنایی دکوراتیو",
+          "examples_fa": [
+            "آباژور",
+            "چراغ تزئینی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:16:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "دکور و تزئینات",
+          "examples_fa": [
+            "مجسمه",
+            "گلدان",
+            "قاب عکس"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:16:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "ساعت و آینه",
+          "examples_fa": [
+            "ساعت دیواری",
+            "آینه دکوراتیو"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:16:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "لوازم حمام و سرویس",
+          "examples_fa": [
+            "جاصابونی",
+            "سطل",
+            "اکسسوری"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:16:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "لوازم نظافت خانه",
+          "examples_fa": [
+            "تی",
+            "جارو",
+            "سطل نظافت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:16:12",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:16",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "17",
+      "name_fa": "مبلمان و صنایع چوبی",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "مبلمان راحتی",
+          "examples_fa": [
+            "مبل راحتی",
+            "کاناپه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:17:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "مبلمان کلاسیک و رسمی",
+          "examples_fa": [
+            "مبل کلاسیک",
+            "نیم‌ست"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:17:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "میز و صندلی غذاخوری",
+          "examples_fa": [
+            "میز غذاخوری",
+            "صندلی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:17:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "مبلمان اداری",
+          "examples_fa": [
+            "صندلی اداری",
+            "میز کار"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:17:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "سرویس خواب",
+          "examples_fa": [
+            "تخت",
+            "پاتختی",
+            "میز آرایش"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:17:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "کمد، کتابخانه و قفسه",
+          "examples_fa": [
+            "کمد",
+            "شلف",
+            "کتابخانه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:17:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "کابینت و تجهیزات چوبی",
+          "examples_fa": [
+            "کابینت",
+            "صفحه کابینت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:17:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "میز و تجهیزات دکوراتیو",
+          "examples_fa": [
+            "میز جلو مبلی",
+            "کنسول"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:17:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "مصنوعات چوبی کوچک",
+          "examples_fa": [
+            "جعبه چوبی",
+            "استند"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:17:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "یراق و قطعات مبلمان",
+          "examples_fa": [
+            "ریل",
+            "لولا",
+            "پایه",
+            "اتصالات"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:17:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "مواد اولیه و ملزومات تولید",
+          "examples_fa": [
+            "MDF",
+            "نئوپان",
+            "چسب چوب"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:17:11",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:17",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "18",
+      "name_fa": "ورزش، بدنسازی و تجهیزات تفریحی",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "تجهیزات بدنسازی",
+          "examples_fa": [
+            "دستگاه سیم‌کش",
+            "نیمکت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:18:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "وزنه و تجهیزات قدرتی",
+          "examples_fa": [
+            "دمبل",
+            "هالتر",
+            "صفحه وزنه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:18:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "تجهیزات تمرین وزن بدن",
+          "examples_fa": [
+            "بارفیکس",
+            "پارالل",
+            "حلقه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:18:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "تجهیزات هوازی",
+          "examples_fa": [
+            "تردمیل",
+            "دوچرخه ثابت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:18:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "تجهیزات ورزش‌های رزمی",
+          "examples_fa": [
+            "دستکش بوکس",
+            "کیسه بوکس"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:18:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "تجهیزات ورزش‌های توپی",
+          "examples_fa": [
+            "توپ",
+            "تور",
+            "راکت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:18:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "پوشاک و کفش ورزشی",
+          "examples_fa": [
+            "لباس تمرین",
+            "کفش ورزشی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:18:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "تجهیزات کوهنوردی و کمپینگ",
+          "examples_fa": [
+            "کوله",
+            "چادر",
+            "کیسه خواب"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:18:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "تجهیزات دوچرخه‌سواری",
+          "examples_fa": [
+            "دوچرخه",
+            "کلاه",
+            "قطعات"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:18:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "لوازم شنا و ورزش‌های آبی",
+          "examples_fa": [
+            "عینک شنا",
+            "فین"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:18:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "لوازم ریکاوری و تمرین اصلاحی",
+          "examples_fa": [
+            "فوم‌رولر",
+            "کش تمرینی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:18:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "لوازم جانبی و قطعات تجهیزات",
+          "examples_fa": [
+            "کابل دستگاه",
+            "دستگیره",
+            "اتصالات"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:18:12",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:18",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "19",
+      "name_fa": "اسباب‌بازی، کودک و سرگرمی",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "اسباب‌بازی نوزاد",
+          "examples_fa": [
+            "جغجغه",
+            "آویز"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:19:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "اسباب‌بازی خردسال",
+          "examples_fa": [
+            "بلوک ساختنی",
+            "جورچین"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:19:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "عروسک و شخصیت‌ها",
+          "examples_fa": [
+            "عروسک",
+            "فیگور"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:19:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "ماشین و وسایل بازی",
+          "examples_fa": [
+            "ماشین کنترلی",
+            "ماشین اسباب‌بازی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:19:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "بازی فکری و رومیزی",
+          "examples_fa": [
+            "بازی کارتی",
+            "بردگیم"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:19:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "ساختنی و آموزشی",
+          "examples_fa": [
+            "لگو",
+            "کیت آموزشی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:19:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "هنر و خلاقیت کودک",
+          "examples_fa": [
+            "خمیر بازی",
+            "رنگ انگشتی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:19:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "بازی فضای باز",
+          "examples_fa": [
+            "تاب",
+            "توپ بازی",
+            "سه‌چرخه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:19:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "وسایل سیسمونی",
+          "examples_fa": [
+            "شیشه شیر",
+            "پستانک",
+            "لوازم نوزاد"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:19:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "تجهیزات حمل کودک",
+          "examples_fa": [
+            "کالسکه",
+            "صندلی خودرو"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:19:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "لوازم اتاق کودک",
+          "examples_fa": [
+            "چراغ خواب",
+            "نظم‌دهنده"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:19:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "سرگرمی و هدیه",
+          "examples_fa": [
+            "محصولات سرگرمی",
+            "هدیه کودک"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:19:12",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:19",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "20",
+      "name_fa": "کشاورزی، باغبانی و دامپروری",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "بذر و نهال",
+          "examples_fa": [
+            "بذر سبزی",
+            "نهال"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:20:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "کود و مواد تغذیه گیاه",
+          "examples_fa": [
+            "کود آلی",
+            "شیمیایی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:20:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "سموم و کنترل آفات",
+          "examples_fa": [
+            "آفت‌کش",
+            "قارچ‌کش مجاز"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:20:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "ابزار باغبانی",
+          "examples_fa": [
+            "قیچی باغبانی",
+            "بیل"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:20:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "تجهیزات آبیاری",
+          "examples_fa": [
+            "قطره‌چکان",
+            "لوله",
+            "آبپاش"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:20:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "ماشین‌آلات کشاورزی",
+          "examples_fa": [
+            "تیلر",
+            "تراکتور",
+            "موتورپمپ"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:20:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "قطعات ماشین‌آلات کشاورزی",
+          "examples_fa": [
+            "تسمه",
+            "تیغه",
+            "فیلتر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:20:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "تجهیزات گلخانه",
+          "examples_fa": [
+            "فن",
+            "هیتر",
+            "تجهیزات کنترل"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:20:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "خاک و بستر کشت",
+          "examples_fa": [
+            "خاک",
+            "کوکوپیت",
+            "پرلیت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:20:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "تجهیزات دام و طیور",
+          "examples_fa": [
+            "آبخوری",
+            "دانخوری",
+            "قفس"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:20:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "خوراک و مکمل دام و طیور",
+          "examples_fa": [
+            "خوراک",
+            "کنسانتره"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:20:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "تجهیزات نگهداری و بسته‌بندی",
+          "examples_fa": [
+            "سبد برداشت",
+            "مخزن",
+            "کیسه"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:20:12",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:20",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "21",
+      "name_fa": "تجهیزات پزشکی و آزمایشگاهی",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "تجهیزات معاینه و تشخیص",
+          "examples_fa": [
+            "فشارسنج",
+            "گوشی پزشکی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:21:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "تجهیزات بیمارستانی",
+          "examples_fa": [
+            "تخت بیمارستانی",
+            "پایه سرم"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:21:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "تجهیزات کمک‌حرکتی",
+          "examples_fa": [
+            "ویلچر",
+            "واکر",
+            "عصا"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:21:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "لوازم مصرفی پزشکی",
+          "examples_fa": [
+            "دستکش پزشکی",
+            "سرنگ"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:21:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "پانسمان و مراقبت زخم",
+          "examples_fa": [
+            "گاز",
+            "باند",
+            "پانسمان"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:21:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "تجهیزات آزمایشگاهی",
+          "examples_fa": [
+            "سانتریفیوژ",
+            "میکروسکوپ"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:21:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "ظروف و ملزومات آزمایشگاه",
+          "examples_fa": [
+            "لوله آزمایش",
+            "پیپت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:21:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "مواد و کیت‌های آزمایشگاهی",
+          "examples_fa": [
+            "کیت تشخیصی",
+            "معرف"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:21:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "تجهیزات دندان‌پزشکی",
+          "examples_fa": [
+            "ابزار و تجهیزات دندان‌پزشکی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:21:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "تجهیزات ضدعفونی و استریل",
+          "examples_fa": [
+            "اتوکلاو",
+            "مواد ضدعفونی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:21:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "قطعات و متعلقات تجهیزات",
+          "examples_fa": [
+            "پروب",
+            "سنسور",
+            "قطعات تعویضی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:21:11",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:21",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "22",
+      "name_fa": "طلا، زیورآلات و اکسسوری",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "انگشتر",
+          "examples_fa": [
+            "انگشتر طلا",
+            "نقره",
+            "بدلیجات"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:22:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "گردنبند و زنجیر",
+          "examples_fa": [
+            "زنجیر",
+            "گردنبند"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:22:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "دستبند و النگو",
+          "examples_fa": [
+            "دستبند",
+            "بنگل",
+            "النگو"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:22:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "گوشواره",
+          "examples_fa": [
+            "میخی",
+            "حلقه‌ای",
+            "آویز"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:22:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "سرویس و نیم‌ست",
+          "examples_fa": [
+            "ست زیورآلات"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:22:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "آویز و پلاک",
+          "examples_fa": [
+            "پلاک",
+            "چارم"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:22:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "ساعت مچی و اکسسوری ساعت",
+          "examples_fa": [
+            "ساعت",
+            "بند ساعت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:22:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "سنگ و متریال زیورآلات",
+          "examples_fa": [
+            "سنگ زینتی",
+            "مهره"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:22:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "اکسسوری و زیورآلات مو",
+          "examples_fa": [
+            "گیره",
+            "سنجاق",
+            "تل"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:22:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "جعبه و ملزومات نگهداری",
+          "examples_fa": [
+            "جعبه جواهر",
+            "استند"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:22:10",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:22",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "23",
+      "name_fa": "قطعات و تجهیزات ماشین‌آلات",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "موتور و محرک صنعتی",
+          "examples_fa": [
+            "الکتروموتور",
+            "موتور صنعتی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:23:01",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "02",
+          "name_fa": "گیربکس و انتقال قدرت",
+          "examples_fa": [
+            "گیربکس",
+            "کوپلینگ",
+            "پولی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:23:02",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "03",
+          "name_fa": "بلبرینگ و یاتاقان",
+          "examples_fa": [
+            "بلبرینگ",
+            "رولبرینگ",
+            "یاتاقان"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:23:03",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "04",
+          "name_fa": "هیدرولیک صنعتی",
+          "examples_fa": [
+            "پمپ",
+            "شیر هیدرولیک",
+            "جک"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:23:04",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "05",
+          "name_fa": "پنوماتیک صنعتی",
+          "examples_fa": [
+            "سیلندر",
+            "شیر برقی",
+            "واحد مراقبت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:23:05",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "06",
+          "name_fa": "پمپ و تجهیزات انتقال سیال",
+          "examples_fa": [
+            "پمپ صنعتی",
+            "پروانه",
+            "سیل"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:23:06",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "07",
+          "name_fa": "اتوماسیون و کنترل صنعتی",
+          "examples_fa": [
+            "PLC",
+            "HMI",
+            "درایو"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:23:07",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "08",
+          "name_fa": "سنسورها و ابزار دقیق",
+          "examples_fa": [
+            "سنسور فشار",
+            "دما",
+            "موقعیت"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:23:08",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "09",
+          "name_fa": "تجهیزات برق و قدرت",
+          "examples_fa": [
+            "تابلو",
+            "کنتاکتور",
+            "کابل"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:23:09",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "10",
+          "name_fa": "قطعات مکانیکی ماشین‌آلات",
+          "examples_fa": [
+            "شفت",
+            "چرخ‌دنده",
+            "فنر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:23:10",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "11",
+          "name_fa": "آب‌بندها و اتصالات صنعتی",
+          "examples_fa": [
+            "اورینگ",
+            "کاسه‌نمد",
+            "واشر"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:23:11",
+          "approval_status": "proposed"
+        },
+        {
+          "code": "12",
+          "name_fa": "ابزار و ملزومات تعمیر و نگهداری",
+          "examples_fa": [
+            "ابزار تخصصی",
+            "روان‌کننده صنعتی"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:23:12",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:23",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    },
+    {
+      "code": "24",
+      "name_fa": "سایر کالاها و کسب‌وکارها",
+      "custom_categories_allowed": true,
+      "categories": [
+        {
+          "code": "01",
+          "name_fa": "سایر کالاها",
+          "examples_fa": [
+            "کالاهای متفرقه و دسته‌بندی‌نشده هنگام شروع"
+          ],
+          "origin": "system",
+          "level": 1,
+          "reference_key": "category:24:01",
+          "approval_status": "proposed"
+        }
+      ],
+      "reference_key": "sector:24",
+      "sector_label_status": "approved_as_supplied",
+      "parent_categories_status": "proposed",
+      "reference_seed_eligible": false,
+      "customer_default_enabled": false,
+      "customer_enable_requires_store_adoption": true
+    }
+  ],
+  "taxonomy_version": "scb-2026-11-14-v1",
+  "approved_parent_category_count": 25,
+  "proposed_parent_category_count": 256,
+  "runtime_contract": {
+    "source": "reference_definitions_not_store_inventory",
+    "sector_labels_status": "approved_as_supplied",
+    "production_seed_requires_explicit_approval": true,
+    "proposed_categories_default_enabled": false,
+    "unknown_approval_denies": true,
+    "examples_are_inventory": false,
+    "store_assignment_requires_review": true,
+    "activation_rule": "approved_reference AND server_adopted_store AND authorized_current_operation",
+    "approval_metadata_is_not_authorization": true
+  }
+}

@@ -114,6 +114,8 @@ def provision_industry_inventory(
             catalog_remaining -= 1
 
     store.industry_id = industry.id
+    if changed or existing_items:
+        store.has_historical_inventory_usage = True
     # Keep the legacy owner profile field as a compatibility mirror while the
     # store is the authoritative business-domain boundary.
     store.owner.industry_id = industry.id

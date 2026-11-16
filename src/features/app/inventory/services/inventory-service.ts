@@ -13,8 +13,12 @@ import type { Product, ProductInput, ProductListParams } from "../types";
 import { validPackSize } from "../domain/packaging";
 import { labelStorage } from "@/shared/lib/infrastructure/storage/label-storage";
 import { isProductEligible } from "../domain/product-eligibility";
-import { barcodeLookupCandidates, inferSymbology } from "@/features/barcode/domain/barcode";
+import { barcodeLookupCandidates, generateInternalBarcode, inferSymbology, validateBarcode } from "@/features/barcode/domain/barcode";
 import { barcodeRepository } from "@/features/barcode/services/barcode-repository";
+import type { PendingBarcodeInput, ProductBarcode } from "@/features/barcode/types";
+import { categoryStorage } from "@/shared/lib/infrastructure/storage/category-storage";
+import { createLocalEntityId } from "@/shared/lib/infrastructure/storage/local-entity-id";
+import { syncMetadataStorage } from "@/shared/lib/infrastructure/storage/sync-metadata-storage";
 import { assertProductQuantity, productQuantityError } from "../domain/inventory-quantity";
 
 export type BulkProductIntent = {
@@ -108,6 +112,54 @@ function sanitize(product: Product): Product {
   };
 }
 
+async function prepareCreationBarcodes(
+  record: Product,
+  pendingBarcodes: PendingBarcodeInput[],
+  occupiedValues: Set<string>,
+): Promise<{ barcodes: ProductBarcode[]; commandFields: Record<string, unknown> }> {
+  const now = new Date().toISOString();
+  const barcodes: ProductBarcode[] = [];
+  for (const input of pendingBarcodes) {
+    if (input.source !== "manufacturer") throw new Error("بارکد داخلی فقط توسط فرایند امن ثبت محصول صادر می‌شود");
+    const symbology = inferSymbology(input.value);
+    const validation = validateBarcode(input.value, symbology);
+    if (!validation.valid) throw new Error(validation.error);
+    if (occupiedValues.has(input.value)) throw new Error("این بارکد در همین فروشگاه قبلاً رزرو شده است");
+    if (!Number.isSafeInteger(input.scanQuantity) || input.scanQuantity < 1 || (input.meaning === "unit" && input.scanQuantity !== 1)) {
+      throw new Error("تعداد هر اسکن بارکد معتبر نیست");
+    }
+    occupiedValues.add(input.value);
+    barcodes.push({
+      id: createLocalEntityId(), product_id: record.id, value: input.value, source: "manufacturer",
+      symbology, meaning: input.meaning, scan_quantity: input.scanQuantity, is_active: true,
+      is_default: barcodes.length === 0, lifecycle_status: "active", reservation_id: null,
+      category_reference_key: null, created_at: now, updated_at: now,
+    });
+  }
+  if (barcodes.length === 0 && record.category_id != null) {
+    const category = await categoryStorage.get(record.category_id);
+    if (category?.is_active !== false && category?.sector_code && category.code) {
+      const value = await generateInternalBarcode({
+        sectorCode: category.sector_code,
+        categoryCode: category.code,
+        exists: async (candidate) => occupiedValues.has(candidate),
+      });
+      occupiedValues.add(value);
+      barcodes.push({
+        id: createLocalEntityId(), product_id: record.id, value, source: "tanzim", symbology: "code128",
+        meaning: "unit", scan_quantity: 1, is_active: true, is_default: true, lifecycle_status: "active",
+        reservation_id: null, category_reference_key: category.reference_key ?? null, created_at: now, updated_at: now,
+      });
+    }
+  }
+  const commandFields = barcodes.length === 0
+    ? {}
+    : barcodes[0].source === "tanzim"
+      ? { internal_barcode: barcodes[0] }
+      : { external_barcodes: barcodes };
+  return { barcodes, commandFields };
+}
+
 class InventoryService {
   async getAll(params: ProductListParams = {}): Promise<Product[]> {
     let products = (await inventoryRepository.getAll())
@@ -191,7 +243,7 @@ class InventoryService {
     return product ? sanitize(product) : undefined;
   }
 
-  async create(product: Product): Promise<Product> {
+  async create(product: Product, pendingBarcodes: PendingBarcodeInput[] = []): Promise<Product> {
     accessState.requireWrite();
     accessState.requireStorePermission?.("products.create");
     if (product.purchase_price != null) accessState.requireStorePermission?.("products.purchase_price.change");
@@ -201,9 +253,13 @@ class InventoryService {
     const mediaJob = isLocalImage(record.image_url)
       ? await mediaTransferService.stage(record.image_url, record.id)
       : null;
+    const occupiedValues = new Set((await barcodeRepository.getAll()).map((barcode) => barcode.value));
+    const { barcodes: creationBarcodes, commandFields: embeddedBarcodePayload } =
+      await prepareCreationBarcodes(record, pendingBarcodes, occupiedValues);
     const commandPayload: Record<string, unknown> = mediaJob
       ? { ...record, media_transfer_id: mediaJob.transferId }
       : { ...record };
+    Object.assign(commandPayload, embeddedBarcodePayload);
     if (mediaJob) delete commandPayload.image_url;
 
     if (isTeamMode()) {
@@ -219,8 +275,9 @@ class InventoryService {
       return confirmed;
     }
 
-    return localMutationStorage.inventory(async () => {
+    return localMutationStorage.inventoryWithBarcodes(async () => {
       await inventoryRepository.save(record);
+      if (creationBarcodes.length) await barcodeRepository.saveMany(creationBarcodes);
       if (mediaJob) await db.mediaTransfers.put(mediaJob);
 
       const saved = await inventoryRepository.get(record.id);
@@ -231,7 +288,7 @@ class InventoryService {
     });
   }
 
-  async createMany(products: Product[]): Promise<Product[]> {
+  async createMany(products: Product[], pendingBarcodes: PendingBarcodeInput[][] = []): Promise<Product[]> {
     accessState.requireWrite();
     accessState.requireStorePermission?.("products.create");
     accessState.requireStorePermission?.("products.bulk");
@@ -239,20 +296,28 @@ class InventoryService {
     const existing = (await inventoryRepository.getAll()).length;
     accessState.requireInventoryCapacity(existing + products.length);
     const records = products.map(sanitize);
+    const occupiedValues = new Set((await barcodeRepository.getAll()).map((barcode) => barcode.value));
+    const prepared: Array<{ record: Product; barcodes: ProductBarcode[]; command: Record<string, unknown> }> = [];
+    for (let index = 0; index < records.length; index += 1) {
+      const record = records[index];
+      const result = await prepareCreationBarcodes(record, pendingBarcodes[index] ?? [], occupiedValues);
+      prepared.push({ record, barcodes: result.barcodes, command: { ...record, ...result.commandFields } });
+    }
     if (isTeamMode()) {
       const confirmed: Product[] = [];
-      for (const record of records) {
-        await teamCommandService.submit(PRODUCT_ENTITY, record.id, "CREATE", record);
+      for (const { record, command } of prepared) {
+        await teamCommandService.submit(PRODUCT_ENTITY, record.id, "CREATE", command);
         const saved = await inventoryRepository.get(record.id);
         if (!saved) throw new Error("TEAM_RESULT_MISSING");
         confirmed.push(saved);
       }
       return confirmed;
     }
-    return localMutationStorage.inventory(async () => {
-      for (const record of records) {
+    return localMutationStorage.inventoryWithBarcodes(async () => {
+      for (const { record, barcodes, command } of prepared) {
         await inventoryRepository.save(record);
-        await queueService.enqueue(PRODUCT_ENTITY, record.id, "CREATE", record);
+        if (barcodes.length) await barcodeRepository.saveMany(barcodes);
+        await queueService.enqueue(PRODUCT_ENTITY, record.id, "CREATE", command);
       }
       return records;
     });
@@ -278,6 +343,9 @@ class InventoryService {
       (intent.priceIncrease ?? 0) > 0 || intent.lowStockAlert !== undefined ||
       intent.lowStockThreshold !== undefined;
     if (!hasEffectiveChange) throw new Error("حداقل یک تغییر مؤثر انتخاب کنید");
+    if (intent.categoryId !== undefined && await syncMetadataStorage.getString("taxonomy-version")) {
+      throw new Error("CATEGORY_CHANGE_REQUIRES_PREVIEW");
+    }
 
     if (isTeamMode()) {
       const updated: Product[] = [];
@@ -340,6 +408,13 @@ class InventoryService {
 
     if (!current) {
       throw new Error("product not found");
+    }
+    if (
+      input.category_id !== undefined
+      && input.category_id !== current.category_id
+      && await syncMetadataStorage.getString("taxonomy-version")
+    ) {
+      throw new Error("CATEGORY_CHANGE_REQUIRES_PREVIEW");
     }
 
     const updated = sanitize({

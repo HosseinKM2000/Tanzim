@@ -8,12 +8,17 @@ from sqlalchemy import func, select
 from ..config import settings
 from ..deps import CurrentProductCreator, CurrentProductDeleter, CurrentProductReader, DbSession, require_capability
 from ..services.store_authorization import StorePermission, require_store_permission, project_inventory_item
-from ..models import CatalogProduct, Category, InventoryItem
+from ..models import BarcodeReservation, CatalogProduct, Category, InventoryItem, ProductBarcode, Store
 from sqlalchemy.orm import joinedload
 from ..schemas import InventoryOut, PaginatedInventory, InventoryStats, PaginationMeta
 from ..services.subscription_service import entitlement_for_user, locked_inventory_capacity
 from ..services.authorization_service import is_admin
 from ..inventory_policy import MAX_PRODUCT_QUANTITY
+from ..services.taxonomy_service import (
+    TAXONOMY_VERSION,
+    issue_internal_barcode,
+    validate_category_for_new_intent,
+)
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -160,7 +165,17 @@ async def create_product(
     require_capability(db, current_user, "inventory.write")
     if purchase_price is not None:
         require_store_permission(db, current_user, StorePermission.PURCHASE_PRICE_CHANGE)
-    _validate_category(db, category_id, current_user.store_id)
+    # Serialize first use against taxonomy adoption/sector selection. Without
+    # this lock an empty store could adopt one sector while a concurrent create
+    # commits under the previous policy.
+    store = db.scalar(
+        select(Store)
+        .where(Store.id == current_user.store_id)
+        .with_for_update()
+    )
+    if store is None:
+        raise HTTPException(status_code=404, detail="STORE_NOT_FOUND")
+    category = validate_category_for_new_intent(db, store, category_id)
     is_packaged, pack_size = _validated_packaging(is_packaged, pack_size)
 
     limit = None if is_admin(current_user) else locked_inventory_capacity(db, current_user)
@@ -199,6 +214,11 @@ async def create_product(
         is_catalog_backed=False,
     )
     db.add(product)
+    db.flush()
+    if store.taxonomy_version == TAXONOMY_VERSION:
+        assert category is not None
+        issue_internal_barcode(db, store, product, category)
+    store.has_historical_inventory_usage = True
     db.commit()
     db.refresh(product)
     return project_inventory_item(db, current_user, product)
@@ -237,6 +257,9 @@ async def update_product(
     if purchase_price is not None:
         require_store_permission(db, current_user, StorePermission.PURCHASE_PRICE_CHANGE)
     product = _get_owned_product(db, product_id, current_user.store_id)
+    store = db.get(Store, current_user.store_id)
+    if store is None:
+        raise HTTPException(status_code=404, detail="STORE_NOT_FOUND")
 
     if is_packaged is not None or pack_size is not None:
         if product.catalog_product.is_shared:
@@ -255,7 +278,9 @@ async def update_product(
         product.catalog_product.pack_size = effective_pack_size
 
     if category_id is not None:
-        _validate_category(db, category_id, current_user.store_id)
+        validate_category_for_new_intent(db, store, category_id)
+        if store.taxonomy_version == TAXONOMY_VERSION and category_id != product.category_id:
+            raise HTTPException(status_code=409, detail="CATEGORY_CHANGE_REQUIRES_PREVIEW")
 
     updates = {
         "custom_label": name,
@@ -301,6 +326,23 @@ def delete_product(
     private_catalog = (
         product.catalog_product if not product.catalog_product.is_shared else None
     )
+    reservations = list(db.scalars(
+        select(BarcodeReservation).where(
+            BarcodeReservation.store_id == current_user.store_id,
+            BarcodeReservation.target_type == "product",
+            BarcodeReservation.target_id == product.id,
+        )
+    ))
+    for reservation in reservations:
+        reservation.status = "deleted"
+        reservation.retired_at = func.now()
+    for barcode in db.scalars(select(ProductBarcode).where(
+        ProductBarcode.store_id == current_user.store_id,
+        ProductBarcode.product_id == product.id,
+    )):
+        barcode.is_active = False
+        barcode.is_default = False
+        barcode.lifecycle_status = "deleted"
     _delete_image(product.image_url)
     db.delete(product)
     db.flush()

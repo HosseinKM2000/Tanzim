@@ -146,6 +146,13 @@ class Store(Base):
         ForeignKey("industries.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     operating_mode: Mapped[str] = mapped_column(String(10), default="solo")
+    taxonomy_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    taxonomy_adopted_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+    taxonomy_adopted_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    taxonomy_policy_version: Mapped[int] = mapped_column(Integer, default=0)
+    has_historical_inventory_usage: Mapped[bool] = mapped_column(Boolean, default=False)
     policy_version: Mapped[int] = mapped_column(Integer, default=1)
     policy_changed_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
     policy_changed_by_user_id: Mapped[int | None] = mapped_column(
@@ -300,6 +307,49 @@ class UserSession(Base):
     )
 
 
+# ---------- Sector/category reference contract ----------
+class ReferenceSector(Base):
+    __tablename__ = "reference_sectors"
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    reference_key: Mapped[str] = mapped_column(String(80), unique=True)
+    code: Mapped[str] = mapped_column(String(2), unique=True)
+    name_fa: Mapped[str] = mapped_column(String(160))
+    taxonomy_version: Mapped[str] = mapped_column(String(40), index=True)
+    custom_categories_allowed: Mapped[bool] = mapped_column(Boolean, default=True)
+    label_status: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    categories: Mapped[list["ReferenceCategory"]] = relationship(
+        back_populates="sector", cascade="all, delete-orphan"
+    )
+
+
+class ReferenceCategory(Base):
+    __tablename__ = "reference_categories"
+    __table_args__ = (
+        UniqueConstraint("sector_id", "code", name="uq_reference_categories_sector_code"),
+        CheckConstraint(
+            "approval_status IN ('approved','proposed')",
+            name="ck_reference_categories_approval",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    sector_id: Mapped[int] = mapped_column(
+        ForeignKey("reference_sectors.id", ondelete="CASCADE"), index=True
+    )
+    reference_key: Mapped[str] = mapped_column(String(80), unique=True)
+    code: Mapped[str] = mapped_column(String(24))
+    name_fa: Mapped[str] = mapped_column(String(160))
+    examples_json: Mapped[str] = mapped_column(Text, default="[]")
+    approval_status: Mapped[str] = mapped_column(String(20), index=True)
+    taxonomy_version: Mapped[str] = mapped_column(String(40), index=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    sector: Mapped["ReferenceSector"] = relationship(back_populates="categories")
+
+
 # ---------- Category ----------
 class Category(Base):
     __tablename__ = "categories"
@@ -313,6 +363,17 @@ class Category(Base):
 
     name: Mapped[str] = mapped_column(String(120))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    code: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    sector_code: Mapped[str | None] = mapped_column(String(2), nullable=True, index=True)
+    origin: Mapped[str] = mapped_column(String(20), default="custom", index=True)
+    approval_status: Mapped[str] = mapped_column(String(20), default="approved")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    reference_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    reference_category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("reference_categories.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    taxonomy_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
 
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"),
@@ -651,12 +712,42 @@ class ProductBarcode(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     version: Mapped[int] = mapped_column(Integer, default=1)
+    lifecycle_status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    reservation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("barcode_reservations.id", ondelete="RESTRICT"), nullable=True, unique=True
+    )
+    category_reference_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
     updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
 
     inventory_item: Mapped["InventoryItem"] = relationship(
         back_populates="barcodes", foreign_keys=[product_id]
     )
+
+
+class BarcodeReservation(Base):
+    __tablename__ = "barcode_reservations"
+    __table_args__ = (
+        UniqueConstraint("store_id", "value", name="uq_barcode_reservations_store_value"),
+        CheckConstraint("origin IN ('external','internal','legacy_unknown')", name="ck_barcode_reservations_origin"),
+        CheckConstraint("status IN ('active','retired','deleted')", name="ck_barcode_reservations_status"),
+        CheckConstraint("target_type IN ('product')", name="ck_barcode_reservations_target_type"),
+        Index("ix_barcode_reservations_store_status_value", "store_id", "status", "value"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    value: Mapped[str] = mapped_column(String(64))
+    target_type: Mapped[str] = mapped_column(String(20), default="product")
+    target_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    origin: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), default="active")
+    category_reference_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    replaced_by_reservation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("barcode_reservations.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    retired_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
 
 
 class InventoryMovement(Base):
@@ -1020,6 +1111,11 @@ class Industry(Base):
         Boolean,
         default=True,
     )
+    reference_sector_id: Mapped[int | None] = mapped_column(
+        ForeignKey("reference_sectors.id", ondelete="RESTRICT"), nullable=True, unique=True
+    )
+    sector_code: Mapped[str | None] = mapped_column(String(2), nullable=True, unique=True)
+    taxonomy_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
     # NULL is deliberately interpreted as every existing tool enabled. This
     # keeps pre-migration industries behaviorally unchanged.

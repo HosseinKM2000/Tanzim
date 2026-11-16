@@ -94,15 +94,20 @@ function encodeBase32(bytes: Uint8Array) {
 }
 
 export async function generateInternalBarcode(options: {
+  sectorCode: string;
+  categoryCode: string;
   exists(value: string): Promise<boolean>;
   randomBytes?: () => Uint8Array;
   attempts?: number;
 }) {
-  const randomBytes = options.randomBytes ?? (() => crypto.getRandomValues(new Uint8Array(10)));
+  if (!/^\d{2}$/.test(options.sectorCode) || !/^[A-Z0-9]{2,24}$/.test(options.categoryCode)) {
+    throw new Error("فضای نام حوزه یا دسته برای بارکد معتبر نیست");
+  }
+  const randomBytes = options.randomBytes ?? (() => crypto.getRandomValues(new Uint8Array(16)));
   for (let attempt = 0; attempt < (options.attempts ?? 8); attempt += 1) {
-    // 60 random bits keep the label compact enough for common 50 mm media
-    // while retaining ample collision resistance for store-local identifiers.
-    const value = `TZ-${encodeBase32(randomBytes()).slice(0, 12)}`;
+    const token = encodeBase32(randomBytes());
+    if (token.length !== 26) throw new Error("منبع تصادفی بارکد باید دقیقاً ۱۲۸ بیت باشد");
+    const value = `TZ1-${options.sectorCode}-${options.categoryCode}-${token}`;
     if (!(await options.exists(value))) return value;
   }
   throw new Error("ساخت بارکد یکتا ممکن نشد؛ دوباره تلاش کنید");

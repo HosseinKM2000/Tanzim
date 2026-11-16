@@ -223,7 +223,7 @@ export async function parseBackupEnvelope(raw: string, expectedUserId: number, e
     throw new Error("BACKUP_INVALID_JSON");
   }
   if (!isRecord(parsed) || parsed.format !== BACKUP_FORMAT) throw new Error("BACKUP_FORMAT_INVALID");
-  if (parsed.formatVersion !== BACKUP_FORMAT_VERSION || ![1, 2, 3, 4, BACKUP_SCHEMA_VERSION].includes(Number(parsed.schemaVersion))) {
+  if (parsed.formatVersion !== BACKUP_FORMAT_VERSION || ![1, 2, 3, 4, 5, BACKUP_SCHEMA_VERSION].includes(Number(parsed.schemaVersion))) {
     throw new Error("BACKUP_SCHEMA_UNSUPPORTED");
   }
   const envelope = parsed as unknown as BackupEnvelope;
@@ -250,7 +250,13 @@ export async function parseBackupEnvelope(raw: string, expectedUserId: number, e
     throw new Error("BACKUP_REVISION_INVALID");
   }
   const products = normalizeBackupProducts(envelope.data.products);
-  const normalized = { ...envelope, data: { ...envelope.data, products, barcodes: envelope.data.barcodes ?? [], inventoryMovements: envelope.data.inventoryMovements ?? [], invoices: envelope.data.invoices ?? [] } };
+  const barcodes = (envelope.data.barcodes ?? []).map((barcode) => ({
+    ...barcode,
+    lifecycle_status: barcode.lifecycle_status ?? (barcode.is_active ? "legacy_unknown" : "retired"),
+    reservation_id: barcode.reservation_id ?? null,
+    category_reference_key: barcode.category_reference_key ?? null,
+  }));
+  const normalized = { ...envelope, data: { ...envelope.data, products, barcodes, inventoryMovements: envelope.data.inventoryMovements ?? [], invoices: envelope.data.invoices ?? [] } };
   validateBackupForRestore(normalized, expectedUserId, expectedStoreId);
   return normalized;
 }

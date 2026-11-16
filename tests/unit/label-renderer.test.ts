@@ -23,4 +23,20 @@ describe("label renderer", () => {
   it("rejects values whose modules cannot fit the configured quiet-zone width", () => {
     expect(() => validateLabelFit("X".repeat(64), { ...profile, widthMm: 20 })).toThrow(/عرض لیبل/);
   });
+
+  it("keeps the 128-bit custom-category format blocked on both current label profiles", () => {
+    const longestCustomInternal = "TZ1-24-C0123456789ABC-0123456789ABCDEFGHJKMNPQRS";
+    expect(longestCustomInternal).toHaveLength(48);
+    expect(() => validateLabelFit(longestCustomInternal, profile)).toThrow(/عرض لیبل/);
+    expect(() => validateLabelFit(longestCustomInternal, {
+      ...profile,
+      id: "a4-3-column",
+      kind: "a4",
+      widthMm: 63.5,
+      heightMm: 38.1,
+      marginMm: 7,
+      horizontalGapMm: 2.5,
+      columns: 3,
+    })).toThrow(/عرض لیبل/);
+  });
 });

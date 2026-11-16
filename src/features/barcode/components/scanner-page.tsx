@@ -55,7 +55,7 @@ export function ScannerPage() {
   const [mode, setMode] = useState<ScannerMode>("observe");
   const [input, setInput] = useState("");
   const [located, setLocated] = useState<LocatedProduct | null>(null);
-  const [unresolved, setUnresolved] = useState<{ value: string; kind: "unknown" | "ambiguous" } | null>(null);
+  const [unresolved, setUnresolved] = useState<{ value: string; kind: "unknown" | "ambiguous" | "retired" } | null>(null);
   const [pending, setPending] = useState<LocatedProduct | null>(null);
   const [lastMovement, setLastMovement] = useState<InventoryMovement | null>(null);
   const [quantity, setQuantity] = useState("1");
@@ -149,6 +149,12 @@ export function ScannerPage() {
         setLocated(null);
         setUnresolved({ value, kind: "ambiguous" });
         toast.error("بارکد مبهم است؛ اتصال‌های تکراری را بررسی کنید");
+        return;
+      }
+      if (resolution.status === "retired") {
+        setLocated(null);
+        setUnresolved({ value, kind: "retired" });
+        toast.error("این بارکد بازنشسته شده و هیچ عملیات موجودی با آن انجام نمی‌شود");
         return;
       }
       const product = await inventoryRepository.get(resolution.productId);

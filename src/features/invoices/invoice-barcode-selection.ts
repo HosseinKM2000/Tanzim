@@ -1,5 +1,5 @@
 import type { Product } from "@/features/app/inventory/types";
-import { barcodeRepository } from "@/features/barcode/services/barcode-repository";
+import { barcodeService } from "@/features/barcode/services/barcode-service";
 import type { ProductBarcode } from "@/features/barcode/types";
 import { accessState } from "@/shared/access/access-state";
 import { assertSyncAccountCurrent, captureSyncAccountContext } from "@/shared/lib/infrastructure/sync/sync-account-context";
@@ -7,6 +7,7 @@ import { assertSyncAccountCurrent, captureSyncAccountContext } from "@/shared/li
 export type InvoiceBarcodeResult =
   | { kind: "unique"; product: Product; barcode: ProductBarcode }
   | { kind: "unknown" }
+  | { kind: "retired" }
   | { kind: "ambiguous" };
 
 export async function lookupInvoiceBarcode(value: string, products: Product[], invoiceType: "purchase" | "sale"): Promise<InvoiceBarcodeResult> {
@@ -14,13 +15,13 @@ export async function lookupInvoiceBarcode(value: string, products: Product[], i
   accessState.requireCapability("barcode.lookup");
   accessState.requireStorePermission("barcodes.lookup");
   const account = captureSyncAccountContext();
-  const matches = (await barcodeRepository.findByValue(value.trim())).filter((item) => item.is_active);
+  const resolution = await barcodeService.resolve(value);
   assertSyncAccountCurrent(account);
-  const byProduct = new Map<number, ProductBarcode>();
-  for (const match of matches) byProduct.set(match.product_id, match);
-  if (byProduct.size === 0) return { kind: "unknown" };
-  if (byProduct.size > 1) return { kind: "ambiguous" };
-  const [productId, barcode] = [...byProduct.entries()][0];
+  if (resolution.status === "unknown") return { kind: "unknown" };
+  if (resolution.status === "retired") return { kind: "retired" };
+  if (resolution.status === "ambiguous") return { kind: "ambiguous" };
+  const productId = resolution.productId;
+  const barcode = resolution.barcode;
   const product = products.find((item) => item.id === productId && !item.deleted_at && !item.is_hidden);
   return product ? { kind: "unique", product, barcode } : { kind: "unknown" };
 }
