@@ -82,3 +82,21 @@
 5. تست فیزیکی چاپ/اسکن یا ثبت صریح پذیرش عملیاتیِ باقی‌ماندن آن به‌عنوان blocker rollout.
 
 تا آن زمان این کد «زیرساخت gated» است، نه «آمادهٔ مشتری».
+
+## اجرای نهایی ۱۴۰۵/۰۸/۲۵ (2026-11-16)
+
+| کنترل | نتیجه |
+|---|---|
+| validator بستهٔ v1.1 | PASS؛ 24 sector، 281 category، 25 approved، 256 proposed-disabled و 62 scenario؛ همهٔ hashهای manifest مطابق. |
+| `npm.cmd test` | PASS؛ 89 فایل و 412 تست frontend/component. |
+| `npm.cmd run test:backend` | PASS؛ 104 تست backend بدون suite جداگانهٔ PostgreSQL. |
+| `npm.cmd run test:backend:postgres:local` | PASS؛ 19 تست روی PostgreSQL 18.6 محلی و دیتابیس ایزولهٔ `tanzim_test`. |
+| `npm.cmd run test:typecheck` | PASS؛ exit 0. |
+| `npm.cmd run lint` | PASS؛ exit 0. |
+| `npm.cmd run build` | PASS؛ production build با Vite 8.0.16. هشدار اندازهٔ chunk و browserslist موجود است و failure نیست. |
+| Playwright production preview | PASS؛ 8 journey در chromium desktop/mobile: invoice layout، hardware-input scan بدون اثر جانبی، PDF آفلاین، backup/restore review و barcode empty-state. |
+| focused exact external regression | PASS؛ 2 تست backend taxonomy/lifecycle، شامل حفظ فاصله/case/leading zero و عدم exact-match پس از trim. |
+| `git diff --check` | PASS؛ خروجی خالی. |
+| تجهیزات فیزیکی | NOT RUN؛ scanner/camera/printer در محیط موجود نبود. |
+
+مرز شواهد: PostgreSQL واقعی محلی و مرورگر Chromium واقعی استفاده شد، ولی APIهای journey مرورگر focused با fixture مصنوعی mock شده‌اند. app-to-backend واقعی برای migration/lifecycle در TestClient و PostgreSQL suite اجرا شده، نه در همان Playwright process. هیچ تستی روی داده یا حساب مشتری اجرا نشده است.
