@@ -25,13 +25,13 @@
 | scan و movement | `ProductBarcode`, `InventoryMovement` | resolver مشترک local/server و validation پذیرش sync | invoice، scanner عمومی و quantity؛ retired/ambiguous/unavailable هیچ اثر خودکاری ندارد. |
 | backup/restore | backup envelope و recovery journal موجود | `backup-format.ts`, `backup-restore.ts`, `backup-snapshot.ts` | schema 6 lifecycle را حمل می‌کند؛ current-over-import و review/reconciliation مانع resurrection قطعی می‌شود. |
 | PWA و ارتقا | Dexie 14، service worker موجود | `db.ts`, update safety و real two-build harness | schema IndexedDB عوض نشده؛ outbox/OPFS/cache پاک نمی‌شود. |
-| label | `label-renderer.ts`, profileهای ۵۰×۳۰ و A4 سه‌ستونه | bwip-js Code 128 و `validateLabelFit` | مسیر چاپ کد ۱۲۸‌بیتی روی هر دو profile فعلی به‌درستی رد می‌شود؛ این rollout blocker است. |
+| label | `label-renderer.ts`، profileهای ۵۰×۳۰ و A4 سه‌ستونه | bwip-js Data Matrix ECC200 و `validateLabelFit` | هویت داخلی ۴۸نویسه‌ای بدون تغییر مقدار در هر دو profile به‌صورت مربع چاپ می‌شود؛ externalها با symbology ثبت‌شدهٔ خود باقی می‌مانند. |
 
 ## نبود مدل variant
 
 در `backend/app/models.py`، schemaها، routeها، Dexie و consumerهای barcode هیچ target مستقل variant وجود ندارد. `BarcodeReservation.target_type` در migration با constraint فقط `product` را می‌پذیرد. بنابراین مسیرهای variant در این فاز `N/A` هستند؛ target عمومی آینده بدون ساخت feature فرضی حفظ نشده و افزودن variant به فاز مستقلی نیاز دارد.
 
-## قرارداد barcode داخلی و تناقض چاپ
+## قرارداد barcode داخلی و انتخاب Data Matrix
 
 فرمت تثبیت‌شده در backend و frontend:
 
@@ -41,13 +41,14 @@
 - entropy: ۱۶ بایت cryptographic، معادل ۱۲۸ بیت
 - system category code: کد مرجع؛ custom category code: `C` به‌علاوهٔ ۱۳ نویسهٔ Base32 تصادفی
 - حداکثر طول فعلی: ۴۸ نویسه
+- symbology هویت داخلی: `datamatrix` (ECC200)؛ external barcodeها بازنویسی یا تبدیل نمی‌شوند.
 - ذخیره و lookup: exact، بدون trim/case-fold/Unicode normalization؛ فقط terminatorهای transport اسکنر جدا می‌شوند.
 
-در مدل محافظه‌کارانهٔ Code 128 موجود، طول ۴۸ نویسه ۵۹۶ module می‌خواهد. عرض مفید profile حرارتی ۴۶ میلی‌متر و A4 سه‌ستونه ۴۹٫۵ میلی‌متر است؛ X-dimension حاصل به‌ترتیب حدود ۰٫۰۷۷ و ۰٫۰۸۳ میلی‌متر می‌شود، پایین‌تر از حد ۰٫۱۹ میلی‌متری validator. کاهش entropy یا تغییر بی‌اجازهٔ symbology مجاز نیست. بنابراین:
+Code 128 برای این قرارداد مناسب نبود: طول ۴۸ نویسه در مدل محافظه‌کارانه ۵۹۶ module می‌خواست و در عرض مفید profileهای موجود به X-dimension امن نمی‌رسید. با تصمیم تأییدشدهٔ کاربر، فقط هویت داخلی به Data Matrix ECC200 منتقل شد؛ entropy، مقدار و exact lookup ثابت ماند. نمونهٔ ۴۸نویسه‌ای نهایی با bwip-js به ماتریس ۲۴×۲۴ تبدیل و با ZXing دقیقاً decode شد. validator برای ورودی printable تا سقف قرارداد، ۵۶ module شامل حاشیهٔ محافظه‌کارانه و حداقل ۰٫۲۵ میلی‌متر برای هر module را روی هر دو profile کنترل می‌کند. بنابراین:
 
-- migration/reference/reservation می‌توانند بررسی و commit شوند؛
+- migration/reference/reservation و چاپ خودکار بررسی شده‌اند؛
 - adoption در سرور و UI پیش‌فرض خاموش می‌ماند؛
-- چاپ/فعال‌سازی مشتری تا تصمیم صریح دربارهٔ symbology یا profile عریض‌تر `BLOCKED` است؛
+- encode/decode مصنوعی و production-preview هر دو profile `PASS` است؛
 - تست فیزیکی scanner/camera/printer نیز `NOT RUN` است.
 
 ## سازگاری legacy
