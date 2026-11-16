@@ -45,9 +45,9 @@ async function seedOfflineUser(page: Page) {
   await page.route("http://localhost:8000/api/**", (route) => route.abort());
 }
 
-async function seedProduct(page: Page, options: { name?: string; packaged?: boolean; categoryName?: string; barcode?: string; salePrice?: number; quantity?: number } = {}) {
+async function seedProduct(page: Page, options: { name?: string; packaged?: boolean; categoryName?: string; barcode?: string; barcodeSymbology?: "code128" | "datamatrix"; barcodeSource?: "manufacturer" | "tanzim"; salePrice?: number; quantity?: number } = {}) {
   await page.goto("/dashboard");
-  await page.evaluate(async ({ name, packaged, categoryName, barcode, salePrice, quantity }) => {
+  await page.evaluate(async ({ name, packaged, categoryName, barcode, barcodeSymbology, barcodeSource, salePrice, quantity }) => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open("inventory-db");
       request.onsuccess = () => resolve(request.result);
@@ -74,7 +74,7 @@ async function seedProduct(page: Page, options: { name?: string; packaged?: bool
     });
     if (barcode) transaction.objectStore("barcodes").put({
       local_key: "7111:7111:9102", local_user_id: 7111, local_store_id: 7111, store_id: 7111,
-      id: 9102, product_id: 8101, value: barcode, source: "manufacturer", symbology: "code128",
+      id: 9102, product_id: 8101, value: barcode, source: barcodeSource, symbology: barcodeSymbology,
       meaning: "unit", scan_quantity: 1, is_active: true, is_default: true, created_at: now, updated_at: now,
     });
     await new Promise<void>((resolve, reject) => { transaction.oncomplete = () => resolve(); transaction.onerror = () => reject(transaction.error); });
@@ -84,6 +84,8 @@ async function seedProduct(page: Page, options: { name?: string; packaged?: bool
     packaged: options.packaged ?? false,
     categoryName: options.categoryName ?? null,
     barcode: options.barcode ?? null,
+    barcodeSymbology: options.barcodeSymbology ?? "code128",
+    barcodeSource: options.barcodeSource ?? "manufacturer",
     salePrice: options.salePrice ?? 350000,
     quantity: options.quantity ?? 6,
   });
@@ -1025,4 +1027,42 @@ test("grid and comfortable cards show a minimal empty barcode state", async ({ p
   const emptyBarcode = page.locator(".inventory-card--comfortable .inventory-card-barcode");
   await expect(emptyBarcode).toHaveText("بدون بارکد");
   await expect(emptyBarcode.locator("svg")).toBeVisible();
+});
+
+test("longest internal Data Matrix renders unclipped in both supported label profiles", async ({ page }) => {
+  const value = "TZ1-24-C0123456789ABC-0123456789ABCDEFGHJKMNPQRS";
+  await seedOfflineUser(page);
+  await seedProduct(page, { barcode: value, barcodeSymbology: "datamatrix", barcodeSource: "tanzim" });
+  await page.goto("/inventory/edit?id=8101");
+  await page.locator(".product-barcode-card").scrollIntoViewIfNeeded();
+  await page.getByRole("button", { name: `چاپ بارکد ${value}`, exact: true }).click();
+
+  const dialog = page.getByRole("dialog");
+  const frame = dialog.frameLocator('iframe[title="پیش‌نمایش لیبل"]');
+  await expect(frame.locator('article[data-symbology="datamatrix"]')).toBeVisible();
+  await expect(frame.locator(".value")).toHaveText(value);
+  const thermal = await frame.locator('article[data-symbology="datamatrix"]').evaluate((label) => {
+    const labelBox = label.getBoundingClientRect();
+    const symbol = label.querySelector("svg")!.getBoundingClientRect();
+    const text = label.querySelector(".value")!.getBoundingClientRect();
+    return {
+      squareDelta: Math.abs(symbol.width - symbol.height),
+      symbolInside: symbol.left >= labelBox.left && symbol.right <= labelBox.right && symbol.top >= labelBox.top && symbol.bottom <= labelBox.bottom,
+      textInside: text.left >= labelBox.left && text.right <= labelBox.right,
+    };
+  });
+  expect(thermal.squareDelta).toBeLessThanOrEqual(1);
+  expect(thermal.symbolInside).toBe(true);
+  expect(thermal.textInside).toBe(true);
+
+  await dialog.getByRole("combobox").click();
+  await page.getByRole("option", { name: "برگه A4 سه‌ستونه", exact: true }).click();
+  await expect(frame.locator('article[data-symbology="datamatrix"]')).toBeVisible();
+  const a4 = await frame.locator('article[data-symbology="datamatrix"]').evaluate((label) => {
+    const labelBox = label.getBoundingClientRect();
+    const symbol = label.querySelector("svg")!.getBoundingClientRect();
+    return { inside: symbol.left >= labelBox.left && symbol.right <= labelBox.right, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+  });
+  expect(a4.inside).toBe(true);
+  expect(a4.overflow).toBeLessThanOrEqual(1);
 });

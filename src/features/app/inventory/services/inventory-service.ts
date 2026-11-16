@@ -13,7 +13,7 @@ import type { Product, ProductInput, ProductListParams } from "../types";
 import { validPackSize } from "../domain/packaging";
 import { labelStorage } from "@/shared/lib/infrastructure/storage/label-storage";
 import { isProductEligible } from "../domain/product-eligibility";
-import { barcodeLookupCandidates, generateInternalBarcode, inferSymbology, validateBarcode } from "@/features/barcode/domain/barcode";
+import { barcodeLookupCandidates, generateInternalBarcode, inferSymbology, INTERNAL_BARCODE_SYMBOLOGY, validateBarcode } from "@/features/barcode/domain/barcode";
 import { barcodeRepository } from "@/features/barcode/services/barcode-repository";
 import type { PendingBarcodeInput, ProductBarcode } from "@/features/barcode/types";
 import { categoryStorage } from "@/shared/lib/infrastructure/storage/category-storage";
@@ -146,7 +146,7 @@ async function prepareCreationBarcodes(
       });
       occupiedValues.add(value);
       barcodes.push({
-        id: createLocalEntityId(), product_id: record.id, value, source: "tanzim", symbology: "code128",
+        id: createLocalEntityId(), product_id: record.id, value, source: "tanzim", symbology: INTERNAL_BARCODE_SYMBOLOGY,
         meaning: "unit", scan_quantity: 1, is_active: true, is_default: true, lifecycle_status: "active",
         reservation_id: null, category_reference_key: category.reference_key ?? null, created_at: now, updated_at: now,
       });

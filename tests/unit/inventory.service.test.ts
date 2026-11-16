@@ -91,8 +91,9 @@ describe("local-first inventory service", () => {
 
     const [barcode] = await db.barcodes.toArray();
     expect(barcode.value).toMatch(/^TZ1-01-03-[0-9A-HJKMNP-TV-Z]{26}$/);
+    expect(barcode.symbology).toBe("datamatrix");
     expect(mocks.enqueue).toHaveBeenCalledWith("product", 92, "CREATE", expect.objectContaining({
-      internal_barcode: expect.objectContaining({ id: barcode.id, value: barcode.value, source: "tanzim" }),
+      internal_barcode: expect.objectContaining({ id: barcode.id, value: barcode.value, source: "tanzim", symbology: "datamatrix" }),
     }));
   });
 

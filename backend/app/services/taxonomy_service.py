@@ -33,6 +33,7 @@ from ..schemas import InventoryOut
 
 TAXONOMY_VERSION = "scb-2026-11-14-v1"
 INTERNAL_BARCODE_VERSION = "TZ1"
+INTERNAL_BARCODE_SYMBOLOGY = "datamatrix"
 INTERNAL_TOKEN_BYTES = 16
 INTERNAL_TOKEN_LENGTH = 26
 INTERNAL_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
@@ -293,7 +294,7 @@ def issue_internal_barcode(
             product_id=product.id,
             value=value,
             source="tanzim",
-            symbology="code128",
+            symbology=INTERNAL_BARCODE_SYMBOLOGY,
             meaning="unit",
             scan_quantity=1,
             is_active=True,

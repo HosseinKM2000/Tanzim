@@ -153,6 +153,7 @@ def test_adoption_gates_reference_data_and_preserves_barcode_reservations() -> N
             barcode = db.scalar(select(ProductBarcode).where(ProductBarcode.product_id == product_id))
             assert barcode is not None
             assert re.fullmatch(r"TZ1-01-\d{2}-[0-9A-HJKMNP-TV-Z]{26}", barcode.value)
+            assert barcode.symbology == "datamatrix"
             assert barcode.lifecycle_status == "active"
             reservation_id = barcode.reservation_id
             value = barcode.value
@@ -208,7 +209,7 @@ def test_adoption_gates_reference_data_and_preserves_barcode_reservations() -> N
                     "product_id": solo_product_id,
                     "value": solo_value,
                     "source": "tanzim",
-                    "symbology": "code128",
+                    "symbology": "datamatrix",
                     "meaning": "unit",
                     "scan_quantity": 1,
                     "is_active": True,
@@ -232,6 +233,38 @@ def test_adoption_gates_reference_data_and_preserves_barcode_reservations() -> N
             data={"operations_json": json.dumps({"operations": [solo_operation]})},
         )
         assert replay.json()["results"] == accepted_solo.json()["results"]
+
+        incompatible_product_id = 7_100_000_000_003
+        incompatible = {
+            "operation_id": f"post-adoption-uncategorized-{uuid.uuid4().hex}",
+            "entity": "product",
+            "entity_id": incompatible_product_id,
+            "operation": "CREATE",
+            "execution_mode": "solo",
+            "policy_version": policy_version,
+            "payload": {
+                "quantity": 1,
+                "sale_price": 100,
+                "custom_label": "فرمان قدیمی بدون دسته",
+                "catalog_product": {"id": 0, "name": "فرمان قدیمی بدون دسته"},
+            },
+        }
+        rejected_old = client.post(
+            "/api/sync/batch",
+            headers=headers,
+            data={"operations_json": json.dumps({"operations": [incompatible]})},
+        )
+        assert rejected_old.status_code == 422, rejected_old.text
+        assert rejected_old.json()["detail"] == "CATEGORY_REQUIRED_AFTER_ADOPTION"
+        rejected_replay = client.post(
+            "/api/sync/batch",
+            headers=headers,
+            data={"operations_json": json.dumps({"operations": [incompatible]})},
+        )
+        assert rejected_replay.status_code == 422
+        assert rejected_replay.json() == rejected_old.json()
+        with SessionLocal() as db:
+            assert db.get(InventoryItem, incompatible_product_id) is None
 
         destination_id = categories.json()[1]["id"]
         preview = client.post("/api/taxonomy/recategorization/preview", headers=headers, json={
@@ -285,7 +318,7 @@ def test_custom_category_deactivation_preserves_products_and_can_reactivate() ->
     _seed_reference_contract()
 
     with TestClient(app) as client:
-        headers, _ = _signup(client)
+        headers, user_id = _signup(client)
         state = client.get("/api/taxonomy/state", headers=headers).json()
         adopted = client.post("/api/taxonomy/adopt", headers=headers, json={
             "sector_code": "02",
@@ -330,4 +363,76 @@ def test_custom_category_deactivation_preserves_products_and_can_reactivate() ->
         reactivated = client.patch(f"/api/categories/{category['id']}", headers=headers, json={"is_active": True})
         assert reactivated.status_code == 200, reactivated.text
         assert reactivated.json()["is_active"] is True
+
+        offline_category_id = 7_200_000_000_001
+        offline_product_id = 7_200_000_000_002
+        offline_barcode_id = 7_200_000_000_003
+        offline_code = "C0123456789ABCDEF"
+        offline_value = f"TZ1-02-{offline_code}-0123456789ABCDEFGHJKMNPQRS"
+        with SessionLocal() as db:
+            store = db.scalar(select(Store).where(Store.owner_user_id == user_id))
+            assert store is not None
+            owner = db.get(User, store.owner_user_id)
+            assert owner is not None
+            owner.plan = store.plan = "pro"
+            policy_version = store.policy_version
+            db.commit()
+        dependent_batch = {
+            "operations": [
+                {
+                    "operation_id": f"offline-category-{uuid.uuid4().hex}",
+                    "entity": "category",
+                    "entity_id": offline_category_id,
+                    "operation": "CREATE",
+                    "execution_mode": "solo",
+                    "policy_version": policy_version,
+                    "payload": {
+                        "name": "دسته آفلاین پایدار",
+                        "description": "دسته و محصول وابسته در یک batch",
+                        "code": offline_code,
+                        "sector_code": "02",
+                    },
+                },
+                {
+                    "operation_id": f"offline-product-{uuid.uuid4().hex}",
+                    "entity": "product",
+                    "entity_id": offline_product_id,
+                    "operation": "CREATE",
+                    "execution_mode": "solo",
+                    "policy_version": policy_version,
+                    "payload": {
+                        "quantity": 1,
+                        "sale_price": 250,
+                        "category_id": offline_category_id,
+                        "custom_label": "محصول وابسته آفلاین",
+                        "catalog_product": {"id": 0, "name": "محصول وابسته آفلاین"},
+                        "internal_barcode": {
+                            "id": offline_barcode_id,
+                            "product_id": offline_product_id,
+                            "value": offline_value,
+                            "source": "tanzim",
+                            "symbology": "datamatrix",
+                            "meaning": "unit",
+                            "scan_quantity": 1,
+                            "is_active": True,
+                            "is_default": True,
+                        },
+                    },
+                },
+            ]
+        }
+        accepted_dependency = client.post(
+            "/api/sync/batch",
+            headers=headers,
+            data={"operations_json": json.dumps(dependent_batch)},
+        )
+        assert accepted_dependency.status_code == 200, accepted_dependency.text
+        assert [item["status"] for item in accepted_dependency.json()["results"]] == ["applied", "applied"]
+        with SessionLocal() as db:
+            offline_category = db.get(Category, offline_category_id)
+            offline_barcode = db.get(ProductBarcode, offline_barcode_id)
+            assert offline_category is not None and offline_category.code == offline_code
+            assert offline_barcode is not None
+            assert offline_barcode.value == offline_value
+            assert offline_barcode.symbology == "datamatrix"
     engine.dispose()

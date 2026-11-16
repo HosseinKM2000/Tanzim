@@ -725,7 +725,7 @@ class BarcodeOut(BaseModel):
     product_id: int
     value: str
     source: Literal["manufacturer", "tanzim"]
-    symbology: Literal["code128", "ean13", "ean8", "upca", "upce", "unknown"]
+    symbology: Literal["code128", "datamatrix", "ean13", "ean8", "upca", "upce", "unknown"]
     meaning: Literal["unit", "package"]
     scan_quantity: int
     is_active: bool

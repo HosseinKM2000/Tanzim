@@ -1,5 +1,5 @@
 export type BarcodeSource = "manufacturer" | "tanzim";
-export type BarcodeSymbology = "code128" | "ean13" | "ean8" | "upca" | "upce" | "unknown";
+export type BarcodeSymbology = "code128" | "datamatrix" | "ean13" | "ean8" | "upca" | "upce" | "unknown";
 export type BarcodeMeaning = "unit" | "package";
 export type PendingBarcodeInput = { value: string; source: BarcodeSource; meaning: BarcodeMeaning; scanQuantity: number };
 export type BarcodeLifecycleStatus = "active" | "retired" | "deleted" | "legacy_unknown";

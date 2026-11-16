@@ -2,6 +2,7 @@ import type { BarcodeSymbology } from "../types";
 
 const CODE128_ASCII = /^[\x20-\x7E]+$/;
 const INTERNAL_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+export const INTERNAL_BARCODE_SYMBOLOGY = "datamatrix" as const;
 const TRANSPORT_PREFIX = /^[\t\r\n]+/;
 const TRANSPORT_SUFFIX = /[\t\r\n]+$/;
 
@@ -39,13 +40,13 @@ export function validateBarcode(value: string, symbology: BarcodeSymbology): Bar
   if (!value) return { valid: false, error: "کد خالی است" };
   if (value.length > 64) return { valid: false, error: "کد نباید بیش از ۶۴ نویسه باشد" };
 
-  if (symbology === "code128" || symbology === "unknown") {
+  if (symbology === "code128" || symbology === "datamatrix" || symbology === "unknown") {
     return CODE128_ASCII.test(value)
       ? { valid: true }
-      : { valid: false, error: "Code 128 فقط نویسه‌های ASCII قابل چاپ را می‌پذیرد" };
+      : { valid: false, error: "این قالب فقط نویسه‌های ASCII قابل چاپ را می‌پذیرد" };
   }
 
-  const lengths: Record<Exclude<BarcodeSymbology, "code128" | "unknown">, number> = {
+  const lengths: Record<Exclude<BarcodeSymbology, "code128" | "datamatrix" | "unknown">, number> = {
     ean13: 13,
     ean8: 8,
     upca: 12,

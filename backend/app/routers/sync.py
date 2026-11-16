@@ -626,9 +626,9 @@ def _barcode_candidates(value: str, symbology: str) -> set[str]:
 def _validate_barcode(value: object, symbology: object) -> tuple[str, str]:
     if not isinstance(value, str) or not value or len(value) > 64:
         raise ValueError("BARCODE_VALUE_INVALID")
-    if not isinstance(symbology, str) or symbology not in {"code128", "ean13", "ean8", "upca", "upce", "unknown"}:
+    if not isinstance(symbology, str) or symbology not in {"code128", "datamatrix", "ean13", "ean8", "upca", "upce", "unknown"}:
         raise ValueError("BARCODE_SYMBOLOGY_INVALID")
-    if symbology in {"code128", "unknown"}:
+    if symbology in {"code128", "datamatrix", "unknown"}:
         if _CODE128_ASCII.fullmatch(value) is None:
             raise ValueError("BARCODE_CHARSET_INVALID")
     elif not value.isascii() or not value.isdigit() or len(value) != _BARCODE_LENGTHS[symbology]:
@@ -1136,6 +1136,7 @@ async def _apply_product_operation(
                 if (
                     not isinstance(internal_barcode, dict)
                     or internal_barcode.get("source") != "tanzim"
+                    or internal_barcode.get("symbology") != "datamatrix"
                     or isinstance(internal_barcode.get("id"), bool)
                     or not isinstance(internal_barcode.get("id"), int)
                     or internal_barcode["id"] <= 0
