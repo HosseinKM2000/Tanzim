@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { product } from "../helpers/product";
+import { db } from "@/shared/lib/infrastructure/storage/db";
+import { categoryStorage } from "@/shared/lib/infrastructure/storage/category-storage";
 
 const mocks = vi.hoisted(() => ({
   getAll: vi.fn(), get: vi.fn(), save: vi.fn(), remove: vi.fn(), getAllStored: vi.fn(),
@@ -47,11 +49,69 @@ vi.mock("@/shared/lib/infrastructure/storage/label-storage", () => ({
 import { inventoryService } from "@/features/app/inventory/services/inventory-service";
 
 describe("local-first inventory service", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     Object.values(mocks).forEach((mock) => mock.mockReset());
     mocks.getLabels.mockResolvedValue([]);
     mocks.user.mockReturnValue({ id: 7, store_id: 7 });
     mocks.isTeamMode.mockReturnValue(false);
+    await db.open();
+    await Promise.all([db.barcodes.clear(), db.categories.clear(), db.syncMetadata.clear()]);
+  });
+
+  it("commits an external barcode with its Solo product and embeds one immutable server command", async () => {
+    const record = product({ id: 91, category_id: null, version: undefined });
+    mocks.getAll.mockResolvedValue([]);
+    mocks.get.mockResolvedValue(record);
+    mocks.save.mockResolvedValue(undefined);
+    mocks.enqueue.mockResolvedValue(undefined);
+
+    await inventoryService.create(record, [{ value: "001AbC", source: "manufacturer", meaning: "unit", scanQuantity: 1 }]);
+
+    const [barcode] = await db.barcodes.toArray();
+    expect(barcode).toMatchObject({ product_id: 91, value: "001AbC", source: "manufacturer", lifecycle_status: "active" });
+    expect(mocks.enqueue).toHaveBeenCalledOnce();
+    expect(mocks.enqueue).toHaveBeenCalledWith("product", 91, "CREATE", expect.objectContaining({
+      external_barcodes: [expect.objectContaining({ id: barcode.id, value: "001AbC" })],
+    }));
+  });
+
+  it("durably chooses the internal barcode before dispatch for an adopted Solo category", async () => {
+    await categoryStorage.save({
+      id: 7, name: "سیستم", description: "", code: "03", sector_code: "01", origin: "system",
+      approval_status: "approved", is_active: true, reference_key: "sector-01-category-03",
+      taxonomy_version: "scb-2026-11-14-v1", version: 1, created_at: "2026-01-01", updated_at: "2026-01-01",
+    });
+    const record = product({ id: 92, category_id: 7, version: undefined });
+    mocks.getAll.mockResolvedValue([]);
+    mocks.get.mockResolvedValue(record);
+    mocks.save.mockResolvedValue(undefined);
+    mocks.enqueue.mockResolvedValue(undefined);
+
+    await inventoryService.create(record);
+
+    const [barcode] = await db.barcodes.toArray();
+    expect(barcode.value).toMatch(/^TZ1-01-03-[0-9A-HJKMNP-TV-Z]{26}$/);
+    expect(barcode.symbology).toBe("datamatrix");
+    expect(mocks.enqueue).toHaveBeenCalledWith("product", 92, "CREATE", expect.objectContaining({
+      internal_barcode: expect.objectContaining({ id: barcode.id, value: barcode.value, source: "tanzim", symbology: "datamatrix" }),
+    }));
+  });
+
+  it("does not project a Team barcode before the combined product command is accepted", async () => {
+    const record = product({ id: 93, category_id: null, version: undefined });
+    const confirmed = product({ ...record, version: 1 });
+    mocks.isTeamMode.mockReturnValue(true);
+    mocks.getAll.mockResolvedValue([]);
+    mocks.get.mockResolvedValue(confirmed);
+    mocks.submitTeam.mockResolvedValue("team-product-create");
+
+    await expect(inventoryService.create(record, [{ value: "TEAM-001", source: "manufacturer", meaning: "unit", scanQuantity: 1 }]))
+      .resolves.toEqual(confirmed);
+
+    expect(await db.barcodes.count()).toBe(0);
+    expect(mocks.submitTeam).toHaveBeenCalledWith("product", 93, "CREATE", expect.objectContaining({
+      external_barcodes: [expect.objectContaining({ value: "TEAM-001" })],
+    }));
   });
 
   it("sanitizes corrupted values and derives boundary stock status", async () => {

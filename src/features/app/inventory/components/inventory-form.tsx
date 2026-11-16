@@ -23,9 +23,7 @@ import { useLabels } from "@/features/setting/mutations/use-labels";
 import { LowStockThresholdField } from "./low-stock-threshold-field";
 import { formatJalaliDateTime } from "@/shared/lib/date/jalali";
 import { BarcodeManager } from "@/features/barcode/components/barcode-manager";
-import { generateInternalBarcode } from "@/features/barcode/domain/barcode";
-import { barcodeRepository } from "@/features/barcode/services/barcode-repository";
-import type { BarcodeMeaning, BarcodeSource } from "@/features/barcode/types";
+import type { BarcodeMeaning, PendingBarcodeInput } from "@/features/barcode/types";
 import { accessState } from "@/shared/access/access-state";
 import { formatGroupedIntegerText, normalizeIntegerText } from "../services/localized-integer";
 import { BarcodeCaptureField } from "@/features/barcode/components/barcode-capture-field";
@@ -33,8 +31,6 @@ import type { Label } from "@/features/setting/types";
 import { MAX_PRODUCT_QUANTITY } from "../domain/inventory-quantity";
 
 type ProductFormMode = "create" | "edit" | "view";
-export type PendingBarcodeInput = { value: string; source: BarcodeSource; meaning: BarcodeMeaning; scanQuantity: number };
-
 type ProductFormProps = {
   mode: ProductFormMode;
 
@@ -505,11 +501,7 @@ export function ProductForm({
                     setPendingBarcodes((current) => [...current, { value: pendingBarcodeValue, source: "manufacturer", meaning: pendingBarcodeMeaning, scanQuantity }]);
                     setPendingBarcodeValue("");
                   }} leftIcon={<PlusIcon />}>افزودن کد موجود</Button>
-                  <Button className="product-barcode-generate" type="button" variant="soft" onClick={() => void generateInternalBarcode({ exists: async (candidate) => (await barcodeRepository.findByValue(candidate)).length > 0 }).then((generated) => {
-                    const scanQuantity = pendingBarcodeMeaning === "package" ? Number(packaging.pack_size) : 1;
-                    if (!Number.isSafeInteger(scanQuantity) || scanQuantity < 1) return toast.error("ابتدا تعداد واحد هر بسته را مشخص کنید");
-                    setPendingBarcodes((current) => [...current, { value: generated, source: "tanzim", meaning: pendingBarcodeMeaning, scanQuantity }]);
-                  })}>ساخت بارکد تنظیم</Button>
+                  <Text size="1" color="gray">اگر کد موجود وارد نکنید، پس از ثبت موفق یک بارکد داخلی امن و دسته‌محور صادر می‌شود.</Text>
                 </Flex>
               </Box>
               {pendingBarcodes.length ? <Flex direction="column" gap="2" mt="4" className="product-barcode-list">{pendingBarcodes.map((item, index) => <Flex key={`${item.value}-${index}`} justify="between" align="center" gap="3" className="product-barcode-row product-barcode-row--pending"><Box className="product-barcode-row-main"><Text as="div" weight="bold" dir="ltr">{item.value}</Text><Text as="div" size="1" color="gray">{item.meaning === "package" ? `بسته — هر اسکن ${item.scanQuantity.toLocaleString("fa-IR")} واحد` : "واحد — هر اسکن یک واحد"}</Text></Box><Button className="product-barcode-pending-remove" type="button" size="2" color="red" variant="soft" aria-label={`برداشتن بارکد ${item.value} از فرم`} onClick={() => setPendingBarcodes((current) => current.filter((_, currentIndex) => currentIndex !== index))}>برداشتن</Button></Flex>)}</Flex> : null}

@@ -35,12 +35,14 @@ describe("barcode identity", () => {
   });
 
   it("generates compact ASCII identifiers and retries local collisions", async () => {
-    const sequences = [new Uint8Array(10), new Uint8Array(10).fill(1)];
+    const sequences = [new Uint8Array(16), new Uint8Array(16).fill(1)];
     const generated = await generateInternalBarcode({
+      sectorCode: "01",
+      categoryCode: "07",
       randomBytes: () => sequences.shift()!,
-      exists: async (value) => value === "TZ-000000000000",
+      exists: async (value) => value === "TZ1-01-07-00000000000000000000000000",
     });
-    expect(generated).toBe("TZ-040G2081040G");
-    expect(generated).toMatch(/^TZ-[0-9A-HJKMNP-TV-Z]{12}$/);
+    expect(generated).toBe("TZ1-01-07-040G2081040G2081040G208104");
+    expect(generated).toMatch(/^TZ1-01-07-[0-9A-HJKMNP-TV-Z]{26}$/);
   });
 });

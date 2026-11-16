@@ -7,7 +7,7 @@ type NativeBarcodeDetectorConstructor = {
   getSupportedFormats(): Promise<string[]>;
 };
 
-const FORMATS = ["code_128", "ean_13", "ean_8", "upc_a", "upc_e"];
+const FORMATS = ["data_matrix", "code_128", "ean_13", "ean_8", "upc_a", "upc_e"];
 
 export type CameraSession = { stop(): void; engine: "native" | "zxing" };
 
@@ -45,7 +45,7 @@ export async function startCameraScanner(video: HTMLVideoElement, onValue: (valu
 
   const { BarcodeFormat, BrowserMultiFormatReader } = await import("@zxing/browser");
   const reader = new BrowserMultiFormatReader();
-  reader.possibleFormats = [BarcodeFormat.CODE_128, BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E];
+  reader.possibleFormats = [BarcodeFormat.DATA_MATRIX, BarcodeFormat.CODE_128, BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E];
   const controls = await reader.decodeFromStream(stream, video, (result) => {
     if (result) onValue(result.getText()); else onEmpty();
   });

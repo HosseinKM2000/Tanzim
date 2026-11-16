@@ -66,24 +66,16 @@ export function BarcodeManager({ product, readOnly = false, tone = "edit" }: Pro
     };
   }, [product.id]);
 
-  const add = async (generate = false) => {
+  const add = async () => {
     setBusy(true);
     try {
-      if (generate) {
-        await barcodeService.generate(
-          product.id,
-          meaning,
-          Number(scanQuantity),
-        );
-      } else {
-        await barcodeService.create({
-          productId: product.id,
-          value,
-          source: "manufacturer",
-          meaning,
-          scanQuantity: Number(scanQuantity),
-        });
-      }
+      await barcodeService.create({
+        productId: product.id,
+        value,
+        source: "manufacturer",
+        meaning,
+        scanQuantity: Number(scanQuantity),
+      });
       setValue("");
       await refresh();
       toast.success("بارکد به محصول افزوده شد");
@@ -103,7 +95,7 @@ export function BarcodeManager({ product, readOnly = false, tone = "edit" }: Pro
       await barcodeService.remove(barcodeToDelete.id);
       await refresh();
       setBarcodeToDelete(null);
-      toast.success("بارکد حذف شد");
+      toast.success("بارکد بازنشسته شد");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "حذف بارکد ناموفق بود",
@@ -187,20 +179,12 @@ export function BarcodeManager({ product, readOnly = false, tone = "edit" }: Pro
               color="green"
               disabled={!value.trim()}
               loading={busy}
-              onClick={() => void add(false)}
+              onClick={() => void add()}
               leftIcon={<PlusIcon />}
             >
               افزودن کد موجود
             </Button>
-            <Button
-              className="product-barcode-generate"
-              type="button"
-              variant="soft"
-              loading={busy}
-              onClick={() => void add(true)}
-            >
-              ساخت بارکد تنظیم
-            </Button>
+            <Text size="1" color="gray">بارکد داخلی تنها هنگام ثبت محصول و با فضای نام دسته از سمت سرور صادر می‌شود.</Text>
           </Flex>
         </Flex>
       ) : null}

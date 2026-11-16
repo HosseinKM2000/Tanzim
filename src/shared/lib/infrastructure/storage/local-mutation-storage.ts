@@ -81,6 +81,10 @@ export const localMutationStorage = {
     return run([db.inventoryItems, db.syncQueue, db.mediaTransfers], operation);
   },
 
+  inventoryWithBarcodes<T>(operation: () => Promise<T>) {
+    return run([db.inventoryItems, db.barcodes, db.syncQueue, db.mediaTransfers], operation);
+  },
+
   category<T>(operation: () => Promise<T>) {
     return run([db.categories, db.syncQueue], operation);
   },

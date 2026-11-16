@@ -55,7 +55,7 @@ export function ScannerPage() {
   const [mode, setMode] = useState<ScannerMode>("observe");
   const [input, setInput] = useState("");
   const [located, setLocated] = useState<LocatedProduct | null>(null);
-  const [unresolved, setUnresolved] = useState<{ value: string; kind: "unknown" | "ambiguous" } | null>(null);
+  const [unresolved, setUnresolved] = useState<{ value: string; kind: "unknown" | "ambiguous" | "retired" } | null>(null);
   const [pending, setPending] = useState<LocatedProduct | null>(null);
   const [lastMovement, setLastMovement] = useState<InventoryMovement | null>(null);
   const [quantity, setQuantity] = useState("1");
@@ -149,6 +149,12 @@ export function ScannerPage() {
         setLocated(null);
         setUnresolved({ value, kind: "ambiguous" });
         toast.error("بارکد مبهم است؛ اتصال‌های تکراری را بررسی کنید");
+        return;
+      }
+      if (resolution.status === "retired") {
+        setLocated(null);
+        setUnresolved({ value, kind: "retired" });
+        toast.error("این بارکد بازنشسته شده و هیچ عملیات موجودی با آن انجام نمی‌شود");
         return;
       }
       const product = await inventoryRepository.get(resolution.productId);
@@ -357,9 +363,21 @@ export function ScannerPage() {
               </Flex>
             ) : unresolved ? (
               <Flex minHeight="240px" direction="column" align="center" justify="center" gap="3" className="text-center">
-                <Text weight="bold">{unresolved.kind === "unknown" ? "بارکد در داده محلی پیدا نشد" : "بارکد به‌صورت مبهم ثبت شده است"}</Text>
+                <Text weight="bold">{
+                  unresolved.kind === "unknown"
+                    ? "بارکد در داده محلی پیدا نشد"
+                    : unresolved.kind === "retired"
+                      ? "بارکد بازنشسته شده است"
+                      : "بارکد به‌صورت مبهم ثبت شده است"
+                }</Text>
                 <Text size="2" color="gray" dir="ltr">{unresolved.value}</Text>
-                <Text size="1" color="gray">{unresolved.kind === "unknown" && !navigator.onLine ? "آفلاین هستید؛ ممکن است این کد هنوز روی این دستگاه همگام نشده باشد." : "تا رفع اتصال تکراری، هیچ تغییری در موجودی انجام نمی‌شود."}</Text>
+                <Text size="1" color="gray">{
+                  unresolved.kind === "retired"
+                    ? "این کد فقط برای راهنمایی سوابق نگه‌داری می‌شود؛ برچسب جدید محصول را اسکن کنید. هیچ تغییری در موجودی انجام نشد."
+                    : unresolved.kind === "unknown" && !navigator.onLine
+                      ? "آفلاین هستید؛ ممکن است این کد هنوز روی این دستگاه همگام نشده باشد."
+                      : "تا رفع اتصال تکراری، هیچ تغییری در موجودی انجام نمی‌شود."
+                }</Text>
                 {unresolved.kind === "unknown" && canEdit ? <Flex gap="2" wrap="wrap" justify="center">
                   <Button variant="outline" color="green" onClick={() => void navigate({ to: "/inventory/add" })}>ساخت محصول</Button>
                   <Button variant="soft" onClick={() => void openLink()}>اتصال به محصول موجود</Button>

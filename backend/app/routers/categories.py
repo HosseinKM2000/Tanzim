@@ -1,17 +1,15 @@
-import json
-
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select, func
 
 from ..deps import CurrentCategoryWriter, CurrentCategoryUser, DbSession
-from ..models import Category, InventoryItem, SyncChange
+from ..models import Category, Industry, InventoryItem, ReferenceSector, Store
 from ..schemas import (
     CategoryCreate,
     CategoryOut,
     CategoryUpdate,
     CategoryWithStats,
-    InventoryOut,
 )
+from ..services.taxonomy_service import TAXONOMY_VERSION, custom_category_code
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
@@ -86,12 +84,25 @@ def create_category(
             detail="این دسته بندی قبلا ثبت شده است",
         )
 
+    store = db.get(Store, current_user.store_id)
+    industry = db.get(Industry, store.industry_id) if store and store.industry_id else None
+    sector = db.get(ReferenceSector, industry.reference_sector_id) if industry and industry.reference_sector_id else None
+    adopted = store is not None and store.taxonomy_version == TAXONOMY_VERSION
+    if adopted and (sector is None or not sector.custom_categories_allowed):
+        raise HTTPException(status_code=403, detail="CUSTOM_CATEGORY_FORBIDDEN_FOR_SECTOR")
+
     category = Category(
         store_id=current_user.store_id,
         id=payload.id,
         name=payload.name,
         description=payload.description,
         user_id=current_user.data_owner_id,
+        code=custom_category_code() if adopted else None,
+        sector_code=sector.code if adopted and sector else None,
+        origin="custom" if adopted else "legacy",
+        approval_status="approved" if adopted else "legacy",
+        is_active=True,
+        taxonomy_version=TAXONOMY_VERSION if adopted else None,
     )
 
     db.add(category)
@@ -113,6 +124,8 @@ def update_category(
         category_id,
         current_user.store_id,
     )
+    if category.origin == "system":
+        raise HTTPException(status_code=409, detail="SYSTEM_CATEGORY_IMMUTABLE")
 
     if payload.name and _category_exists(
         db,
@@ -126,7 +139,10 @@ def update_category(
         )
 
     for field, value in payload.model_dump(exclude_unset=True).items():
+        if field == "is_active" and category.origin != "custom":
+            raise HTTPException(status_code=409, detail="CATEGORY_LIFECYCLE_INVALID")
         setattr(category, field, value)
+    category.version += 1
 
     db.commit()
     db.refresh(category)
@@ -153,28 +169,10 @@ def delete_category(
             detail="دسته بندی یافت نشد",
         )
 
-    affected_items = list(db.scalars(select(InventoryItem).where(
-        InventoryItem.store_id == current_user.store_id,
-        InventoryItem.category_id == category.id,
-    )))
-    for item in affected_items:
-        item.category_id = None
-
-    db.flush()
-    for item in affected_items:
-        db.add(SyncChange(
-            store_id=current_user.store_id,
-            actor_user_id=current_user.id,
-            user_id=current_user.data_owner_id,
-            entity="product",
-            entity_id=item.id,
-            operation="UPSERT",
-            payload=json.dumps(
-                InventoryOut.model_validate(item).model_dump(mode="json")
-            ),
-        ))
-
-    db.delete(category)
+    if category.origin == "system":
+        raise HTTPException(status_code=409, detail="SYSTEM_CATEGORY_IMMUTABLE")
+    category.is_active = False
+    category.version += 1
     db.commit()
 
 
@@ -206,6 +204,14 @@ def category_stats(
                 id=category.id,
                 name=category.name,
                 description=category.description,
+                code=category.code,
+                sector_code=category.sector_code,
+                origin=category.origin,
+                approval_status=category.approval_status,
+                is_active=category.is_active,
+                reference_key=category.reference_key,
+                taxonomy_version=category.taxonomy_version,
+                version=category.version,
                 created_at=category.created_at,
                 updated_at=category.updated_at,
                 product_count=product_count,

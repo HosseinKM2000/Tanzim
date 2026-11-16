@@ -285,6 +285,7 @@ class CategoryCreate(CategoryBase):
 class CategoryUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = None
+    is_active: bool | None = None
 
 
 class CategoryOut(BaseModel):
@@ -293,6 +294,14 @@ class CategoryOut(BaseModel):
     id: int
     name: str
     description: str | None = None
+    code: str | None = None
+    sector_code: str | None = None
+    origin: Literal["system", "custom", "legacy"] = "legacy"
+    approval_status: str = "legacy"
+    is_active: bool = True
+    reference_key: str | None = None
+    taxonomy_version: str | None = None
+    version: int = 1
     created_at: datetime
     updated_at: datetime
 
@@ -300,6 +309,74 @@ class CategoryOut(BaseModel):
 class CategoryWithStats(CategoryOut):
     product_count: int
     total_quantity: int
+
+
+class ReferenceCategoryOut(BaseModel):
+    id: int
+    reference_key: str
+    code: str
+    name_fa: str
+    examples: list[str]
+    approval_status: Literal["approved"]
+
+
+class ReferenceSectorOut(BaseModel):
+    id: int
+    reference_key: str
+    code: str
+    name_fa: str
+    taxonomy_version: str
+    custom_categories_allowed: bool
+
+
+class TaxonomyStoreStateOut(BaseModel):
+    taxonomy_version: str | None
+    taxonomy_policy_version: int
+    sector_code: str | None
+    adopted_at: datetime | None
+    has_historical_inventory_usage: bool
+    adoption_enabled: bool
+
+
+class TaxonomyAdoptRequest(BaseModel):
+    sector_code: str = Field(pattern=r"^\d{2}$")
+    expected_policy_version: int = Field(ge=0)
+
+
+class RecategorizationPreviewRequest(BaseModel):
+    product_ids: list[int] = Field(min_length=1, max_length=100)
+    destination_category_id: int = Field(gt=0)
+
+
+class RecategorizationTarget(BaseModel):
+    product_id: int
+    version: int
+    current_category_id: int | None
+    internal_labels_to_replace: int = Field(ge=0)
+
+
+class RecategorizationPreviewOut(BaseModel):
+    store_id: int
+    destination_category_id: int
+    targets: list[RecategorizationTarget]
+    expires_at: str
+    confirmation_token: str
+
+
+class RecategorizationConfirmRequest(BaseModel):
+    operation_id: str = Field(min_length=8, max_length=64)
+    destination_category_id: int = Field(gt=0)
+    targets: list[RecategorizationTarget] = Field(min_length=1, max_length=100)
+    expires_at: str
+    confirmation_token: str = Field(min_length=64, max_length=64)
+
+
+class BarcodeResolutionOut(BaseModel):
+    status: Literal["active", "retired", "ambiguous", "not_found", "unavailable"]
+    value: str
+    target_id: int | None = None
+    barcode_id: int | None = None
+    product_version: int | None = None
 
 
 class LabelOut(BaseModel):
@@ -648,12 +725,15 @@ class BarcodeOut(BaseModel):
     product_id: int
     value: str
     source: Literal["manufacturer", "tanzim"]
-    symbology: Literal["code128", "ean13", "ean8", "upca", "upce", "unknown"]
+    symbology: Literal["code128", "datamatrix", "ean13", "ean8", "upca", "upce", "unknown"]
     meaning: Literal["unit", "package"]
     scan_quantity: int
     is_active: bool
     is_default: bool
     version: int
+    lifecycle_status: Literal["active", "retired", "deleted"] = "active"
+    reservation_id: int | None = None
+    category_reference_key: str | None = None
     created_at: datetime
     updated_at: datetime
 

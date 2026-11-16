@@ -1,6 +1,5 @@
 import { barcodeLookupCandidates, inferSymbology, validateBarcode } from "@/features/barcode/domain/barcode";
 import { barcodeRepository } from "@/features/barcode/services/barcode-repository";
-import { barcodeService } from "@/features/barcode/services/barcode-service";
 import { accessState } from "@/shared/access/access-state";
 import type { Product } from "../types";
 import { createProductInitialValues } from "../form/product-form.initial";
@@ -121,11 +120,12 @@ export async function importProductRows(rows: ImportRow[], onProgress?: (done: n
   let done = 0;
   for (let offset = 0; offset < rows.length; offset += CHUNK_SIZE) {
     const sourceRows = rows.slice(offset, offset + CHUNK_SIZE);
-    const created = await inventoryService.createMany(sourceRows.map(toProduct));
-    for (let index = 0; index < created.length; index += 1) {
-      const barcode = sourceRows[index].barcode;
-      if (barcode) await barcodeService.create({ productId: created[index].id, value: barcode, source: "manufacturer", meaning: "unit", scanQuantity: 1, isDefault: true });
-    }
+    const created = await inventoryService.createMany(
+      sourceRows.map(toProduct),
+      sourceRows.map((row) => row.barcode
+        ? [{ value: row.barcode, source: "manufacturer" as const, meaning: "unit" as const, scanQuantity: 1 }]
+        : []),
+    );
     done += created.length; onProgress?.(done);
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
   }

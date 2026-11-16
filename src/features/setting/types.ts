@@ -4,6 +4,8 @@ export type Industry = {
   is_active: boolean;
   description: string;
   tools: Record<string, boolean>;
+  sector_code?: string | null;
+  taxonomy_version?: string | null;
 };
 
 export type IndustryInput = {
@@ -20,6 +22,14 @@ export type Category = {
   local_key?: string;
   name: string;
   description: string;
+  code?: string | null;
+  sector_code?: string | null;
+  origin?: "system" | "custom" | "legacy";
+  approval_status?: "approved" | "proposed" | "legacy";
+  is_active?: boolean;
+  reference_key?: string | null;
+  taxonomy_version?: string | null;
+  version?: number;
   created_at: string;
   updated_at: string;
 };

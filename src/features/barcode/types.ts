@@ -1,6 +1,8 @@
 export type BarcodeSource = "manufacturer" | "tanzim";
-export type BarcodeSymbology = "code128" | "ean13" | "ean8" | "upca" | "upce" | "unknown";
+export type BarcodeSymbology = "code128" | "datamatrix" | "ean13" | "ean8" | "upca" | "upce" | "unknown";
 export type BarcodeMeaning = "unit" | "package";
+export type PendingBarcodeInput = { value: string; source: BarcodeSource; meaning: BarcodeMeaning; scanQuantity: number };
+export type BarcodeLifecycleStatus = "active" | "retired" | "deleted" | "legacy_unknown";
 
 export type ProductBarcode = {
   id: number;
@@ -17,6 +19,9 @@ export type ProductBarcode = {
   is_active: boolean;
   is_default: boolean;
   version?: number;
+  lifecycle_status?: BarcodeLifecycleStatus;
+  reservation_id?: number | null;
+  category_reference_key?: string | null;
   created_at: string;
   updated_at: string;
 };

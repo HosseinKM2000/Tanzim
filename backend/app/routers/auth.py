@@ -3,7 +3,7 @@ from sqlalchemy import select
 from fastapi import Header
 
 from ..deps import CurrentUser, DbSession, DeviceFingerprint
-from ..models import User
+from ..models import Industry, Store, User
 from ..schemas import (
     IndustrySelect,
     LoginRequest,
@@ -180,6 +180,14 @@ def set_industry(
     current_user: CurrentUser,
     db: DbSession,
 ):
+    store = db.get(Store, current_user.store_id)
+    industry = db.get(Industry, payload.industry_id)
+    if store is None:
+        raise HTTPException(status_code=404, detail="STORE_NOT_FOUND")
+    # Reference-sector selection is exclusively handled by /taxonomy/adopt,
+    # which is owner-only, version-bound and serialized with first use.
+    if store.taxonomy_version is not None or (industry is not None and industry.reference_sector_id is not None):
+        raise HTTPException(status_code=409, detail="TAXONOMY_ADOPTION_ENDPOINT_REQUIRED")
     return provision_industry_inventory(
         db=db,
         user=current_user,

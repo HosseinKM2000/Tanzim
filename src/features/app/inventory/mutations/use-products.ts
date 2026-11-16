@@ -9,6 +9,7 @@ import { productKeys } from "../query/query-keys";
 import { inventoryService } from "../services/inventory-service";
 
 import type { Product, ProductInput, ProductListParams } from "../types";
+import type { PendingBarcodeInput } from "@/features/barcode/types";
 import type { BulkProductIntent } from "../services/inventory-service";
 import { exportKeys } from "@/features/setting/query/query-keys";
 import { notifySubscriptionRestriction } from "@/shared/access/subscription-limit";
@@ -54,7 +55,8 @@ export function useCreateProduct() {
   const invalidate = useInvalidateProducts();
 
   return useMutation({
-    mutationFn: (input: Product) => inventoryService.create(input),
+    mutationFn: ({ product, pendingBarcodes }: { product: Product; pendingBarcodes: PendingBarcodeInput[] }) =>
+      inventoryService.create(product, pendingBarcodes),
 
     onSuccess() {
       invalidate();

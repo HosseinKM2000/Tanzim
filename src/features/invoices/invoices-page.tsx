@@ -19,6 +19,7 @@ import { Boxes, Calculator, CalendarDays, Check, CircleAlert, Clock3, Coins, Dat
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { lookupInvoiceBarcode } from "./invoice-barcode-selection";
+import { sanitizeScannedValue } from "@/features/barcode/domain/barcode";
 import { refreshInvoiceHistory } from "./invoice-history";
 import { invoiceOutput } from "./invoice-output";
 import { invoiceRepository } from "./invoice-repository";
@@ -132,7 +133,7 @@ export function InvoicesPage() {
   });
 
   const findBarcode = async (scanned = barcode) => {
-    const normalized = scanned.trim();
+    const normalized = sanitizeScannedValue(scanned);
     if (!normalized) return;
     const now = Date.now();
     if (lastScan.current.value === normalized && now - lastScan.current.at < 1200) return;
@@ -141,6 +142,7 @@ export function InvoicesPage() {
       const result = await lookupInvoiceBarcode(normalized, products, type);
       if (result.kind === "unknown") throw new Error("محصولی با این بارکد پیدا نشد");
       if (result.kind === "ambiguous") throw new Error("این بارکد چند محصول دارد؛ محصول را دستی انتخاب کنید.");
+      if (result.kind === "retired") throw new Error("این بارکد بازنشسته شده و نمی‌تواند ردیف فاکتور را انتخاب کند.");
       const existing = lines.findIndex((line) => Number(line.productId) === result.product.id);
       const empty = lines.findIndex((line) => !line.productId);
       const target = existing >= 0 ? existing : empty >= 0 ? empty : lines.length;

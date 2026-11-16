@@ -10,8 +10,17 @@ import {
   type BulkAlertChoice,
   type BulkCategoryChoice,
 } from "../services/bulk-edit-intent";
+import type { BulkProductIntent } from "../services/inventory-service";
 import { formatGroupedIntegerText, normalizeOptionalInteger } from "../services/localized-integer";
 import { LowStockThresholdField } from "./low-stock-threshold-field";
+import { ConfirmDialog } from "@/shared/ui/dialog/confirm-dialog";
+import { confirmRecategorization, previewRecategorization, type RecategorizationPreview } from "@/features/setting/api/taxonomy.api";
+import { syncMetadataStorage } from "@/shared/lib/infrastructure/storage/sync-metadata-storage";
+import { syncService } from "@/shared/lib/infrastructure/sync/sync-service";
+import {
+  assertSyncAccountCurrent,
+  captureSyncAccountContext,
+} from "@/shared/lib/infrastructure/sync/sync-account-context";
 
 type Props = {
   open: boolean;
@@ -29,6 +38,11 @@ export function BulkEditDialog({ open, selectedIds, onOpenChange, onComplete }: 
   const [alert, setAlert] = useState<BulkAlertChoice>("unchanged");
   const [threshold, setThreshold] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [pendingRecategorization, setPendingRecategorization] = useState<{
+    preview: RecategorizationPreview;
+    remaining: BulkProductIntent;
+  } | null>(null);
+  const [recategorizationBusy, setRecategorizationBusy] = useState(false);
 
   const values = { category, priceIncrease: price, alert, threshold };
   const intent = buildBulkProductIntent(values);
@@ -57,8 +71,21 @@ export function BulkEditDialog({ open, selectedIds, onOpenChange, onComplete }: 
       setError("مقادیر عددی باید صحیح، نامنفی و در محدوده مجاز باشند"); return;
     }
     submitting.current = true; setError(null);
+    const account = captureSyncAccountContext();
     try {
+      const taxonomyVersion = await syncMetadataStorage.getString("taxonomy-version");
+      assertSyncAccountCurrent(account);
+      if (taxonomyVersion && intent.categoryId !== undefined) {
+        if (intent.categoryId == null) throw new Error("پس از پذیرش دسته‌بندی جدید، حذف دسته از محصولات مجاز نیست.");
+        const preview = await previewRecategorization(selectedIds, intent.categoryId);
+        assertSyncAccountCurrent(account);
+        const remaining = { ...intent };
+        delete remaining.categoryId;
+        setPendingRecategorization({ preview, remaining });
+        return;
+      }
       const updated = await mutation.mutateAsync({ ids: selectedIds, intent });
+      assertSyncAccountCurrent(account);
       toast.success(`${updated.length.toLocaleString("fa-IR")} محصول به‌صورت محلی و پایدار ویرایش شد`);
       onComplete(updated.map((product) => product.id));
       reset();
@@ -68,7 +95,7 @@ export function BulkEditDialog({ open, selectedIds, onOpenChange, onComplete }: 
     } finally { submitting.current = false; }
   };
 
-  return <Dialog.Root open={open} onOpenChange={changeOpen}>
+  return <><Dialog.Root open={open} onOpenChange={changeOpen}>
     <Dialog.Content dir="rtl" maxWidth="620px" className="max-h-[calc(100dvh-2rem-env(safe-area-inset-bottom))] w-[calc(100vw-2rem)] overflow-y-auto">
       <Dialog.Title>
         <Flex align="center" gap="2">
@@ -116,5 +143,47 @@ export function BulkEditDialog({ open, selectedIds, onOpenChange, onComplete }: 
         <Button intent="positive" disabled={!effective} loading={mutation.isPending} onClick={() => void submit()}>اعمال تغییرات</Button>
       </Flex>
     </Dialog.Content>
-  </Dialog.Root>;
+  </Dialog.Root>
+  <ConfirmDialog
+    open={pendingRecategorization !== null}
+    onOpenChange={(next) => { if (!next) setPendingRecategorization(null); }}
+    title="تغییر دسته گروهی و جایگزینی بارکدها؟"
+    description="این تأیید فقط برای محصولات و نسخه‌های همین پیش‌نمایش معتبر است. بارکدهای خارجی حفظ و بارکدهای داخلی فعال بازنشسته می‌شوند."
+    details={pendingRecategorization ? (
+      <Flex direction="column" gap="1">
+        <Text size="2">محصول متاثر: {pendingRecategorization.preview.targets.length.toLocaleString("fa-IR")}</Text>
+        <Text size="2">لیبل نیازمند چاپ مجدد: {pendingRecategorization.preview.targets.reduce((sum, target) => sum + target.internal_labels_to_replace, 0).toLocaleString("fa-IR")}</Text>
+      </Flex>
+    ) : null}
+    confirmLabel="تأیید تغییر گروهی"
+    cancelLabel="لغو"
+    loading={recategorizationBusy}
+    onConfirm={() => {
+      if (!pendingRecategorization) return;
+      const account = captureSyncAccountContext();
+      setRecategorizationBusy(true);
+      void (async () => {
+        try {
+          await confirmRecategorization(pendingRecategorization.preview);
+          assertSyncAccountCurrent(account);
+          if (hasBulkProductChanges(pendingRecategorization.remaining)) {
+            await mutation.mutateAsync({ ids: selectedIds, intent: pendingRecategorization.remaining });
+            assertSyncAccountCurrent(account);
+          }
+          await syncService.sync();
+          assertSyncAccountCurrent(account);
+          toast.success(`${selectedIds.length.toLocaleString("fa-IR")} محصول با ثبت سابقه تغییر دسته یافت`);
+          onComplete(selectedIds);
+          setPendingRecategorization(null);
+          reset();
+          onOpenChange(false);
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : "تغییر دسته گروهی انجام نشد");
+        } finally {
+          setRecategorizationBusy(false);
+        }
+      })();
+    }}
+  />
+  </>;
 }

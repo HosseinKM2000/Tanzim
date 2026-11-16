@@ -38,7 +38,8 @@ os.environ["SYSTEM_ADMIN_PASSWORD"] = "Test-only-system-admin-password-123!"
 from fastapi.testclient import TestClient
 from app.database import SessionLocal, engine
 from app.main import app
-from app.models import CatalogProduct, Category, Industry, InventoryItem, InventoryMovement, Invoice, Label, MediaAsset, Store, StoreMembership, StoreModeTransition, StorePlanGrant, SubscriptionPlan, SyncOperation, User, UserSession
+from app.config import settings
+from app.models import BarcodeReservation, CatalogProduct, Category, Industry, InventoryItem, InventoryMovement, Invoice, Label, MediaAsset, ProductBarcode, ReferenceCategory, ReferenceSector, Store, StoreMembership, StoreModeTransition, StorePlanGrant, SubscriptionPlan, SyncOperation, User, UserSession
 from app.routers.sync import _duplicate_result
 from app.schemas import SyncOperationIn
 from app.services.catalog_product_service import _reconcile_catalog_assignments
@@ -57,6 +58,7 @@ EXPECTED_TABLES = {
     "store_plan_grants",
     "media_assets",
     "invoices", "invoice_lines", "counterparties",
+    "reference_sectors", "reference_categories", "barcode_reservations",
 }
 MIGRATION_EVIDENCE = {}
 
@@ -288,6 +290,17 @@ def migrated_empty_database():
             "SELECT id,features_json,price_minor,duration,duration_unit,is_offer_available "
             "FROM subscription_plans WHERE id IN ('personal','pro','vip') ORDER BY id"
         )).all())
+        MIGRATION_EVIDENCE["taxonomy_reference"] = (
+            connection.scalar(text("SELECT count(*) FROM reference_sectors")),
+            connection.scalar(text("SELECT count(*) FROM reference_categories")),
+            connection.scalar(text("SELECT count(*) FROM reference_categories WHERE approval_status='approved'")),
+            connection.scalar(text("SELECT count(*) FROM reference_categories WHERE approval_status='proposed'")),
+            connection.scalar(text("SELECT count(*) FROM industries WHERE taxonomy_version='scb-2026-11-14-v1'")),
+        )
+        MIGRATION_EVIDENCE["taxonomy_legacy"] = connection.execute(text(
+            "SELECT c.origin,c.is_active,s.taxonomy_version,s.has_historical_inventory_usage "
+            "FROM categories c JOIN stores s ON s.id=c.store_id WHERE c.id=9101"
+        )).one()
     with SessionLocal() as db:
         stored = db.get(SyncOperation, 9101)
         replay = _duplicate_result(stored, legacy_operation, legacy_fingerprint)
@@ -327,6 +340,71 @@ def signup(client: TestClient):
     })
 
 
+def seed_taxonomy_reference() -> None:
+    with SessionLocal() as db:
+        db.add(ReferenceSector(
+            id=1,
+            reference_key="pg-sector-01",
+            code="01",
+            name_fa="خودرو و قطعات",
+            taxonomy_version="scb-2026-11-14-v1",
+            custom_categories_allowed=True,
+            label_status="approved",
+        ))
+        db.flush()
+        db.add_all([
+            ReferenceCategory(
+                id=101,
+                sector_id=1,
+                reference_key="pg-sector-01-category-01",
+                code="01",
+                name_fa="موتور",
+                examples_json='["پیستون"]',
+                approval_status="approved",
+                taxonomy_version="scb-2026-11-14-v1",
+            ),
+            ReferenceCategory(
+                id=102,
+                sector_id=1,
+                reference_key="pg-sector-01-category-02",
+                code="02",
+                name_fa="تعلیق",
+                examples_json='["سیبک"]',
+                approval_status="approved",
+                taxonomy_version="scb-2026-11-14-v1",
+            ),
+        ])
+        db.add(Industry(
+            name="حوزه PostgreSQL خودرو",
+            description="synthetic taxonomy race fixture",
+            is_active=True,
+            reference_sector_id=1,
+            sector_code="01",
+            taxonomy_version="scb-2026-11-14-v1",
+        ))
+        db.commit()
+
+
+def taxonomy_owner(client: TestClient) -> tuple[dict[str, str], list[dict]]:
+    seed_taxonomy_reference()
+    created = signup(client)
+    assert created.status_code == 201, created.text
+    headers = {
+        "Authorization": f"Bearer {created.json()['access_token']}",
+        "X-Device-Fingerprint": "postgres-device",
+        "X-Client-Data-Schema": "3",
+    }
+    state = client.get("/api/taxonomy/state", headers=headers).json()
+    adopted = client.post("/api/taxonomy/adopt", headers=headers, json={
+        "sector_code": "01",
+        "expected_policy_version": state["taxonomy_policy_version"],
+    })
+    assert adopted.status_code == 200, adopted.text
+    categories = client.get("/api/categories", headers=headers)
+    assert categories.status_code == 200, categories.text
+    return headers, categories.json()
+
+
 @pytest.mark.postgres
 def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database):
     assert MIGRATION_EVIDENCE["blocked"] is True
@@ -346,7 +424,7 @@ def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database
     assert MIGRATION_EVIDENCE["mode_rollback"] == ("20261101_0009", True)
     assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261110_0018"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261116_0019"
         assert "MOBILE_PHONE_PREFLIGHT" in MIGRATION_EVIDENCE["mobile_preflight"]
         assert "malformed_count=1:user_ids=9401" in MIGRATION_EVIDENCE["mobile_preflight"]
         assert "duplicate_groups=1:user_ids=9101,9201" in MIGRATION_EVIDENCE["mobile_preflight"]
@@ -371,6 +449,8 @@ def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database
         assert {"store_id", "actor_user_id", "transfer_id", "content_sha256", "storage_key", "available_at"} <= media_columns
         operation_columns = {column["name"] for column in inspect(engine).get_columns("sync_operations")}
         assert {"request_fingerprint", "execution_mode", "policy_version"} <= operation_columns
+        assert MIGRATION_EVIDENCE["taxonomy_reference"] == (24, 281, 25, 256, 24)
+        assert tuple(MIGRATION_EVIDENCE["taxonomy_legacy"]) == ("legacy", True, None, True)
         assert next(column for column in inspect(engine).get_columns("inventory_items") if column["name"] == "store_id")["nullable"] is False
         assert tuple(MIGRATION_EVIDENCE["legacy_mode"]) == ("team", 1, 9101)
         assert tuple(MIGRATION_EVIDENCE["legacy_solo_mode"]) == ("solo", 1, 9201)
@@ -1095,3 +1175,170 @@ def test_expired_subscription_preserves_reads_and_blocks_writes(client):
     blocked = client.post("/api/categories", headers=headers, json={"name": "Blocked"})
     assert blocked.status_code == 403
     assert blocked.json()["detail"] == "ENTITLEMENT_EXPIRED"
+
+
+@pytest.mark.postgres
+def test_taxonomy_adoption_serializes_with_first_product_create(client):
+    previous_gate = settings.TAXONOMY_ADOPTION_ENABLED
+    settings.TAXONOMY_ADOPTION_ENABLED = True
+    try:
+        seed_taxonomy_reference()
+        created = signup(client)
+        assert created.status_code == 201, created.text
+        headers = {
+            "Authorization": f"Bearer {created.json()['access_token']}",
+            "X-Device-Fingerprint": "postgres-device",
+            "X-Client-Data-Schema": "3",
+        }
+        state = client.get("/api/taxonomy/state", headers=headers).json()
+
+        def adopt():
+            return client.post("/api/taxonomy/adopt", headers=headers, json={
+                "sector_code": "01",
+                "expected_policy_version": state["taxonomy_policy_version"],
+            })
+
+        def create_first_product():
+            return client.post("/api/products", headers=headers, data={
+                "name": "اولین محصول هم‌زمان",
+                "quantity": "1",
+                "price": "100",
+            })
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            adoption_future = pool.submit(adopt)
+            product_future = pool.submit(create_first_product)
+            adoption = adoption_future.result()
+            product = product_future.result()
+
+        assert sorted([adoption.status_code, product.status_code]) in ([200, 422], [201, 409])
+        with SessionLocal() as db:
+            store = db.scalar(select(Store).where(Store.owner_user_id == created.json()["user"]["id"]))
+            assert store is not None
+            products = list(db.scalars(select(InventoryItem).where(InventoryItem.store_id == store.id)))
+            if adoption.status_code == 200:
+                assert store.taxonomy_version == "scb-2026-11-14-v1"
+                assert products == []
+                assert product.json()["detail"] == "CATEGORY_REQUIRED_AFTER_ADOPTION"
+            else:
+                assert adoption.json()["detail"] == "LEGACY_STORE_REVIEW_REQUIRED"
+                assert store.taxonomy_version is None
+                assert len(products) == 1 and products[0].category_id is None
+    finally:
+        settings.TAXONOMY_ADOPTION_ENABLED = previous_gate
+
+
+@pytest.mark.postgres
+def test_concurrent_recategorization_has_one_winner_and_no_orphan_state(client):
+    previous_gate = settings.TAXONOMY_ADOPTION_ENABLED
+    settings.TAXONOMY_ADOPTION_ENABLED = True
+    try:
+        headers, categories = taxonomy_owner(client)
+        created = client.post("/api/products", headers=headers, data={
+            "name": "محصول رقابت تغییر دسته",
+            "category_id": str(categories[0]["id"]),
+            "quantity": "1",
+            "price": "100",
+        })
+        assert created.status_code == 201, created.text
+        product_id = created.json()["id"]
+        preview = client.post("/api/taxonomy/recategorization/preview", headers=headers, json={
+            "product_ids": [product_id],
+            "destination_category_id": categories[1]["id"],
+        })
+        assert preview.status_code == 200, preview.text
+
+        def confirm(suffix: str):
+            body = preview.json()
+            return client.post("/api/taxonomy/recategorization/confirm", headers=headers, json={
+                "destination_category_id": categories[1]["id"],
+                "targets": body["targets"],
+                "expires_at": body["expires_at"],
+                "confirmation_token": body["confirmation_token"],
+                "operation_id": f"pg-concurrent-recategory-{suffix}",
+            })
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            responses = list(pool.map(confirm, ("a", "b")))
+
+        assert sorted(response.status_code for response in responses) == [200, 409]
+        assert next(response for response in responses if response.status_code == 409).json()["detail"] == "RECATEGORIZATION_PREVIEW_STALE"
+        with SessionLocal() as db:
+            product = db.get(InventoryItem, product_id)
+            barcodes = list(db.scalars(select(ProductBarcode).where(ProductBarcode.product_id == product_id)))
+            active = [barcode for barcode in barcodes if barcode.lifecycle_status == "active"]
+            retired = [barcode for barcode in barcodes if barcode.lifecycle_status == "retired"]
+            assert product is not None and product.category_id == categories[1]["id"]
+            assert len(active) == len(retired) == 1
+            assert active[0].symbology == "datamatrix"
+            old_reservation = db.get(BarcodeReservation, retired[0].reservation_id)
+            assert old_reservation is not None
+            assert old_reservation.status == "retired"
+            assert old_reservation.replaced_by_reservation_id == active[0].reservation_id
+    finally:
+        settings.TAXONOMY_ADOPTION_ENABLED = previous_gate
+
+
+@pytest.mark.postgres
+def test_recategorization_fault_rolls_back_category_and_barcode_lifecycle(client, monkeypatch):
+    import app.services.taxonomy_service as taxonomy_service
+
+    previous_gate = settings.TAXONOMY_ADOPTION_ENABLED
+    settings.TAXONOMY_ADOPTION_ENABLED = True
+    try:
+        headers, categories = taxonomy_owner(client)
+        created = client.post("/api/products", headers=headers, data={
+            "name": "محصول تزریق خطا",
+            "category_id": str(categories[0]["id"]),
+            "quantity": "1",
+            "price": "100",
+        })
+        assert created.status_code == 201, created.text
+        product_id = created.json()["id"]
+        preview = client.post("/api/taxonomy/recategorization/preview", headers=headers, json={
+            "product_ids": [product_id],
+            "destination_category_id": categories[1]["id"],
+        })
+        assert preview.status_code == 200, preview.text
+        with SessionLocal() as db:
+            before = db.get(InventoryItem, product_id)
+            assert before is not None
+            before_version = before.version
+            original_barcode = db.scalar(select(ProductBarcode).where(ProductBarcode.product_id == product_id))
+            assert original_barcode is not None
+            original_barcode_id = original_barcode.id
+            original_reservation_id = original_barcode.reservation_id
+
+        issue = taxonomy_service.issue_internal_barcode
+
+        def fail_after_issue(*args, **kwargs):
+            issue(*args, **kwargs)
+            raise RuntimeError("SYNTHETIC_FAILURE_AFTER_REPLACEMENT_ISSUE")
+
+        monkeypatch.setattr(taxonomy_service, "issue_internal_barcode", fail_after_issue)
+        body = preview.json()
+        with pytest.raises(RuntimeError, match="SYNTHETIC_FAILURE_AFTER_REPLACEMENT_ISSUE"):
+            client.post("/api/taxonomy/recategorization/confirm", headers=headers, json={
+                "destination_category_id": categories[1]["id"],
+                "targets": body["targets"],
+                "expires_at": body["expires_at"],
+                "confirmation_token": body["confirmation_token"],
+                "operation_id": "pg-fault-recategory",
+            })
+
+        with SessionLocal() as db:
+            product = db.get(InventoryItem, product_id)
+            barcodes = list(db.scalars(select(ProductBarcode).where(ProductBarcode.product_id == product_id)))
+            reservations = list(db.scalars(select(BarcodeReservation).where(
+                BarcodeReservation.store_id == product.store_id,
+                BarcodeReservation.target_id == product_id,
+            )))
+            assert product is not None
+            assert product.category_id == categories[0]["id"] and product.version == before_version
+            assert len(barcodes) == 1 and barcodes[0].id == original_barcode_id
+            assert barcodes[0].lifecycle_status == "active" and barcodes[0].is_active is True
+            assert len(reservations) == 1 and reservations[0].id == original_reservation_id
+            assert reservations[0].status == "active" and reservations[0].replaced_by_reservation_id is None
+            assert db.scalar(select(func.count(SyncOperation.id)).where(SyncOperation.operation_id == "pg-fault-recategory")) == 0
+    finally:
+        settings.TAXONOMY_ADOPTION_ENABLED = previous_gate

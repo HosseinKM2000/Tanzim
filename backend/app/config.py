@@ -22,6 +22,13 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 
+def _environment_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class Settings:
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development").strip().lower()
     SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-change-me")
@@ -41,7 +48,10 @@ class Settings:
     ]
     SYSTEM_ADMIN_PASSWORD: str | None = os.getenv("SYSTEM_ADMIN_PASSWORD")
     APP_BUILD_ID: str = os.getenv("APP_BUILD_ID", "development").strip() or "development"
-    DATABASE_SCHEMA_VERSION: str = "20261110_0018"
+    DATABASE_SCHEMA_VERSION: str = "20261116_0019"
+    # Reference data may be deployed before customer adoption. Keep this off
+    # until the Code 128 label-capacity and physical release gates are cleared.
+    TAXONOMY_ADOPTION_ENABLED: bool = _environment_flag("TAXONOMY_ADOPTION_ENABLED")
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
     # Product media must survive application/database replacement. Production
     # deployments provide an absolute durable mount; tests/development use an

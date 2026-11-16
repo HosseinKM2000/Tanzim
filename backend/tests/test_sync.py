@@ -390,8 +390,8 @@ class SyncApiTest(unittest.TestCase):
             "operation": "CREATE",
             "payload": {
                 "product_id": product_id,
-                "value": "TZ-TEST90",
-                "source": "tanzim",
+                "value": "0012345678905",
+                "source": "manufacturer",
                 "symbology": "code128",
                 "meaning": "package",
                 "scan_quantity": 3,
@@ -413,7 +413,7 @@ class SyncApiTest(unittest.TestCase):
                 "delta": 3,
                 "scan_source": "hardware",
                 "barcode_id": barcode_id,
-                "barcode_value": "TZ-TEST90",
+                "barcode_value": "0012345678905",
                 "scan_quantity": 3,
                 "before_quantity": 4,
             },
@@ -1774,8 +1774,9 @@ class SyncApiTest(unittest.TestCase):
     def test_delete_catalog_product_6_permanently_removes_dependencies(self) -> None:
         with SessionLocal() as db:
             store_id = db.get(User, self.user_id).store_memberships[0].store_id
+            catalog_id = 6_000_000_006
             catalog = CatalogProduct(
-                id=6,
+                id=catalog_id,
                 industry_id=self.industry_id,
                 name="Original failing catalog six",
                 is_shared=True,
@@ -1814,12 +1815,12 @@ class SyncApiTest(unittest.TestCase):
             transaction_id = transaction.id
 
         response = self.client.delete(
-            "/api/catalog-products/6", headers=self.admin_headers
+            f"/api/catalog-products/{catalog_id}", headers=self.admin_headers
         )
         self.assertEqual(response.status_code, 204, response.text)
 
         with SessionLocal() as db:
-            catalog = db.get(CatalogProduct, 6)
+            catalog = db.get(CatalogProduct, catalog_id)
             item = db.get(InventoryItem, item_id)
             self.assertIsNone(catalog)
             self.assertIsNone(item)
