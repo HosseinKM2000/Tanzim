@@ -1,0 +1,29 @@
+# Catalog safe rollout changelog
+
+## GATE 0 — 2026-11-17
+
+### Files changed
+
+- `docs/catalog-rollout/00_BASELINE.md`
+- `docs/catalog-rollout/CHANGELOG.md`
+
+### Runtime, schema and compatibility
+
+- Runtime code changed: no.
+- PostgreSQL migration added or executed: no.
+- Dexie schema changed: no.
+- Sync/outbox/media behavior changed: no.
+- OPFS files changed or deleted: no.
+- Dependencies installed or updated: no.
+- Production/staging deployment changed: no.
+- Feature flag added: no; existing default-off environment-gate pattern was documented.
+
+### Verification summary
+
+- `npm.cmd run test:regression`: PASS (414 frontend tests, 104 backend tests, typecheck, build and lint).
+- `npm.cmd run test:backend:postgres:local`: PASS (22 tests).
+- Direct unhosted E2E: invalid environment baseline, 128 connection-refused failures and 8 skips.
+- Hosted production-preview E2E: FAIL (119 passed, 9 failed, 8 skipped).
+- Gate decision: **NO-GO**; no later Gate started.
+
+See `00_BASELINE.md` for commands, failure classification, database aggregate snapshot, backup/restore checklist, residual risks and prerequisites for a future GO decision.
