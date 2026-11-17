@@ -22,6 +22,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.database import Base, SessionLocal, engine
+from app.config import settings
 from app.main import app
 from app.models import (
     CatalogProduct,
@@ -160,6 +161,97 @@ class SyncApiTest(unittest.TestCase):
         self.assertIn("status=fatal_error", log)
         self.assertNotIn("must-not-be-logged", log)
         self.assertNotIn("987654321", log)
+
+    def test_on_demand_catalog_adoption_resolves_duplicate_to_stable_inventory(self) -> None:
+        with SessionLocal() as db:
+            catalog = CatalogProduct(
+                industry_id=self.industry_id,
+                name=f"Adoption {uuid.uuid4().hex[:8]}",
+                is_shared=True,
+                is_active=True,
+            )
+            db.add(catalog)
+            db.commit()
+            catalog_id = catalog.id
+
+        first_id = 1_700_000_071_001
+        second_id = 1_700_000_071_002
+        first = {
+            "operation_id": "catalog-adoption-first",
+            "entity": "product",
+            "entity_id": first_id,
+            "operation": "CREATE",
+            "payload": {
+                "quantity": 7,
+                "custom_label": "first device",
+                "catalog_product": {"id": catalog_id, "name": "ignored client name"},
+            },
+        }
+        second = {
+            "operation_id": "catalog-adoption-second",
+            "entity": "product",
+            "entity_id": second_id,
+            "operation": "CREATE",
+            "payload": {
+                "quantity": 99,
+                "custom_label": "second device",
+                "catalog_product": {"id": catalog_id, "name": "ignored client name"},
+            },
+        }
+
+        previous = settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED
+        settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED = True
+        try:
+            first_result = self.push([first]).json()["results"][0]
+            second_result = self.push([second]).json()["results"][0]
+        finally:
+            settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED = previous
+
+        self.assertEqual(first_result["status"], "applied")
+        self.assertEqual(second_result["status"], "conflict")
+        self.assertEqual(second_result["error"], "CATALOG_ALREADY_ADOPTED")
+        self.assertEqual(first_result["record"]["id"], first_id)
+        self.assertEqual(second_result["record"]["id"], first_id)
+        self.assertEqual(second_result["entity_id"], first_id)
+        self.assertEqual(second_result["record"]["quantity"], 7)
+        self.assertEqual(second_result["record"]["custom_label"], "first device")
+        with SessionLocal() as db:
+            store_id = db.get(User, self.user_id).store_memberships[0].store_id
+            assignments = list(db.scalars(select(InventoryItem).where(
+                InventoryItem.store_id == store_id,
+                InventoryItem.catalog_product_id == catalog_id,
+            )))
+            self.assertEqual([item.id for item in assignments], [first_id])
+
+    def test_on_demand_catalog_adoption_rejects_inactive_reference_without_writes(self) -> None:
+        with SessionLocal() as db:
+            catalog = CatalogProduct(
+                industry_id=self.industry_id,
+                name=f"Inactive adoption {uuid.uuid4().hex[:8]}",
+                is_shared=True,
+                is_active=False,
+            )
+            db.add(catalog)
+            db.commit()
+            catalog_id = catalog.id
+
+        operation = {
+            "operation_id": "inactive-catalog-adoption",
+            "entity": "product",
+            "entity_id": 1_700_000_071_003,
+            "operation": "CREATE",
+            "payload": {
+                "quantity": 1,
+                "catalog_product": {"id": catalog_id, "name": "untrusted"},
+            },
+        }
+        with patch.object(settings, "CATALOG_ON_DEMAND_ADOPTION_ENABLED", True):
+            result = self.push([operation]).json()["results"][0]
+
+        self.assertEqual(result["status"], "fatal_error")
+        self.assertEqual(result["error"], "CATALOG_PRODUCT_NOT_AVAILABLE")
+        with SessionLocal() as db:
+            self.assertIsNone(db.get(InventoryItem, operation["entity_id"]))
 
     def test_atomic_invoice_post_replay_cancel_and_price_snapshots(self) -> None:
         product_id = 1_700_000_095_001
@@ -925,6 +1017,24 @@ class SyncApiTest(unittest.TestCase):
             f"/api/industries/{empty.json()['id']}", headers=self.admin_headers
         )
         self.assertEqual(removed.status_code, 200, removed.text)
+
+    def test_catalog_adoption_status_is_authenticated_and_tracks_flag(self) -> None:
+        self.assertEqual(
+            self.client.get("/api/catalog-products/adoption-status").status_code,
+            401,
+        )
+        with patch.object(settings, "CATALOG_ON_DEMAND_ADOPTION_ENABLED", False):
+            disabled = self.client.get(
+                "/api/catalog-products/adoption-status", headers=self.headers,
+            )
+        self.assertEqual(disabled.status_code, 200, disabled.text)
+        self.assertEqual(disabled.json(), {"enabled": False})
+
+        with patch.object(settings, "CATALOG_ON_DEMAND_ADOPTION_ENABLED", True):
+            enabled = self.client.get(
+                "/api/catalog-products/adoption-status", headers=self.headers,
+            )
+        self.assertEqual(enabled.json(), {"enabled": True})
 
     def test_category_ids_are_client_stable_and_admin_is_guarded(self) -> None:
         category_id = 1_800_000_000_001

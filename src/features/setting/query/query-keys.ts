@@ -37,4 +37,6 @@ export const catalogProductKeys = {
   details: () => [...catalogProductKeys.all, "detail"] as const,
 
   detail: (id: number) => [...catalogProductKeys.details(), id] as const,
+
+  adoptionStatus: () => [...catalogProductKeys.all, "adoption-status"] as const,
 };

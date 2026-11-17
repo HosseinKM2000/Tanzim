@@ -1,5 +1,35 @@
 # Catalog safe rollout changelog
 
+## GATE 1 — 2026-11-18
+
+### Adoption decoupling
+
+- Added default-off `CATALOG_ON_DEMAND_ADOPTION_ENABLED`.
+- Flag on stops industry selection and Catalog publish/update/restore from
+  creating missing Store Inventory rows while preserving existing linked rows.
+- Added an authenticated read-only flag status, same-industry Catalog browser,
+  and explicit adoption through the existing local-first product form/outbox.
+- Added client/server duplicate convergence to the stable Inventory ID,
+  Store-row serialization, inactive-reference rejection and preserved conflict
+  recovery evidence.
+- Added no migration, Dexie version, dependency, media-storage or backup-format
+  change.
+
+### Verification summary
+
+- Full regression: PASS (418 frontend, 109 backend, typecheck, production
+  build, lint).
+- PostgreSQL: PASS (24 tests), with 1k/5k/10k scale results of 11/9/9 SQL
+  statements, zero Inventory rows, and 37.73/24.11/26.50 ms.
+- Hosted Playwright at two workers: PASS (132 passed, 8 established skips,
+  0 failed), including flag-on/off adoption on desktop and mobile.
+- Development Gate: **GO — DEVELOPMENT ONLY**.
+- Production Release Gate: **NO-GO / NOT ASSESSED**; no merge, push, deploy or
+  later gate.
+
+See `01_ADOPTION_DECOUPLING.md` for dependency map, scenario matrix, rollback
+and complete evidence.
+
 ## GATE 0 — 2026-11-17
 
 ### Files changed

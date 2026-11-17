@@ -106,6 +106,7 @@ const NavMenu = ({ hidden = false }: Props) => {
         {canAddProduct && (
           <Link
             to="/inventory/add"
+            search={{ catalogId: undefined }}
             className="app-bottom-navigation-add relative min-w-0"
             aria-label="افزودن محصول"
           >

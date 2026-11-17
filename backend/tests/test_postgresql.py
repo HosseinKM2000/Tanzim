@@ -8,6 +8,7 @@ import os
 import base64
 import hashlib
 import json
+from time import perf_counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -15,7 +16,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, func, inspect, select, text
+from sqlalchemy import create_engine, event, func, inspect, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
@@ -43,6 +44,7 @@ from app.models import BarcodeReservation, CatalogProduct, Category, Industry, I
 from app.routers.sync import _duplicate_result
 from app.schemas import SyncOperationIn
 from app.services.catalog_product_service import _reconcile_catalog_assignments
+from app.services.catalog_provisioning_service import provision_industry_inventory
 from app.services.bootstrap_service import ensure_system_admin
 from app.services.subscription_service import seed_default_plans
 
@@ -874,6 +876,115 @@ def test_concurrent_inventory_admission_respects_finite_capacity_atomically(clie
     assert next(result for result in results if result["status"] == "fatal_error")["error"] == "INVENTORY_LIMIT_REACHED"
     with SessionLocal() as db:
         assert db.scalar(select(func.count(InventoryItem.id)).where(InventoryItem.store_id == store_id)) == 1
+
+
+@pytest.mark.postgres
+def test_concurrent_catalog_adoption_converges_on_one_stable_assignment(client, monkeypatch):
+    created = signup(client)
+    user_id = created.json()["user"]["id"]
+    headers = {
+        "Authorization": f"Bearer {created.json()['access_token']}",
+        "X-Device-Fingerprint": "postgres-device", "X-Client-Data-Schema": "2",
+    }
+    with SessionLocal() as db:
+        industry = Industry(name="On-demand adoption", is_active=True)
+        db.add(industry)
+        db.flush()
+        user = db.get(User, user_id)
+        store = db.scalar(select(Store).where(Store.owner_user_id == user_id))
+        user.industry_id = store.industry_id = industry.id
+        free = db.get(SubscriptionPlan, "free")
+        features = json.loads(free.features_json)
+        features["sync"] = True
+        free.features_json = json.dumps(features)
+        catalog = CatalogProduct(
+            industry_id=industry.id, name="Shared adoption", is_shared=True, is_active=True,
+        )
+        db.add(catalog)
+        db.commit()
+        store_id, catalog_id = store.id, catalog.id
+
+    monkeypatch.setattr(settings, "CATALOG_ON_DEMAND_ADOPTION_ENABLED", True)
+
+    def adopt(index: int):
+        operation = {
+            "operation_id": f"catalog-adoption-{index}", "entity": "product",
+            "entity_id": 1_700_003_000_000 + index, "operation": "CREATE",
+            "payload": {
+                "quantity": index, "price": 100, "custom_label": f"Device {index}",
+                "low_stock_threshold": 0, "low_stock_alert": False, "is_hidden": False,
+                "catalog_product": {"id": catalog_id, "name": "untrusted snapshot"},
+            },
+        }
+        # Each concurrent request needs its own AnyIO portal while the other
+        # request deliberately waits for the store row lock.
+        with TestClient(app) as isolated_client:
+            return isolated_client.post("/api/sync/batch", headers=headers, data={
+                "operations_json": json.dumps({"operations": [operation]}),
+            })
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(adopt, [1, 2]))
+    assert all(response.status_code == 200 for response in responses)
+    results = [response.json()["results"][0] for response in responses]
+    assert sorted(result["status"] for result in results) == ["applied", "conflict"]
+    assert next(result for result in results if result["status"] == "conflict")["error"] == "CATALOG_ALREADY_ADOPTED"
+    assert len({result["entity_id"] for result in results}) == 1
+    with SessionLocal() as db:
+        assert db.scalar(select(func.count(InventoryItem.id)).where(
+            InventoryItem.store_id == store_id,
+            InventoryItem.catalog_product_id == catalog_id,
+        )) == 1
+
+
+@pytest.mark.postgres
+def test_on_demand_provisioning_scale_has_constant_database_work(client, monkeypatch):
+    created = signup(client)
+    user_id = created.json()["user"]["id"]
+    with SessionLocal() as db:
+        industry = Industry(name="Gate 1 scale", is_active=True)
+        db.add(industry)
+        db.commit()
+        industry_id = industry.id
+
+    monkeypatch.setattr(settings, "CATALOG_ON_DEMAND_ADOPTION_ENABLED", True)
+    observed: list[tuple[int, int, int, float]] = []
+    seeded = 0
+    for target in (1_000, 5_000, 10_000):
+        with engine.begin() as connection:
+            connection.execute(text("""
+                INSERT INTO catalog_products
+                    (industry_id, name, is_shared, is_active, is_packaged)
+                SELECT :industry_id, 'Gate 1 catalog ' || value, true, true, false
+                FROM generate_series(CAST(:start AS bigint), CAST(:finish AS bigint)) AS value
+            """), {"industry_id": industry_id, "start": seeded + 1, "finish": target})
+        seeded = target
+        statements = 0
+
+        def count_statement(*_args):
+            nonlocal statements
+            statements += 1
+
+        event.listen(engine, "before_cursor_execute", count_statement)
+        started = perf_counter()
+        try:
+            with SessionLocal() as db:
+                provision_industry_inventory(db, db.get(User, user_id), industry_id)
+        finally:
+            elapsed_ms = (perf_counter() - started) * 1_000
+            event.remove(engine, "before_cursor_execute", count_statement)
+        with SessionLocal() as db:
+            rows = db.scalar(select(func.count(InventoryItem.id)).where(
+                InventoryItem.store_id == select(Store.id).where(Store.owner_user_id == user_id).scalar_subquery(),
+            )) or 0
+        observed.append((target, statements, rows, elapsed_ms))
+
+    print("GATE1_SCALE", observed)
+    assert [entry[2] for entry in observed] == [0, 0, 0]
+    # The first industry selection performs two one-time compatibility writes;
+    # catalog cardinality itself adds no statements.
+    assert max(entry[1] for entry in observed) <= 11
+    assert observed[1][1] == observed[2][1]
 
 
 @pytest.mark.postgres

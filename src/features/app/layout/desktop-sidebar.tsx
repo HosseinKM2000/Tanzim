@@ -152,7 +152,7 @@ export default function DesktopSidebar() {
         </span>
       </div>
 
-      <Link to="/inventory/add" className="desktop-sidebar-add" aria-label="افزودن محصول" title={collapsed ? "افزودن محصول" : undefined}>
+      <Link to="/inventory/add" search={{ catalogId: undefined }} className="desktop-sidebar-add" aria-label="افزودن محصول" title={collapsed ? "افزودن محصول" : undefined}>
         <PlusIcon width="20" height="20" aria-hidden="true" />
         <span className="desktop-sidebar-label">افزودن محصول</span>
       </Link>

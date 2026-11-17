@@ -248,6 +248,31 @@ describe("product synchronization reconciliation", () => {
     }));
   });
 
+  it("replaces a provisional duplicate adoption with the stable server inventory identity", async () => {
+    const item = queued("CREATE");
+    const stable = product({ id: 20, catalog_product_id: 7, is_catalog_backed: true, version: 3 });
+    mocks.pushBatch.mockResolvedValue({
+      cursor: 6,
+      results: [{
+        operation_id: item.operationId,
+        entity_id: stable.id,
+        status: "conflict",
+        record: stable,
+        error: "CATALOG_ALREADY_ADOPTED",
+      }],
+    });
+
+    await expect(mocks.outbound?.([item])).resolves.toEqual([{
+      itemId: item.id, status: "conflict", error: "CATALOG_ALREADY_ADOPTED",
+    }]);
+    expect(mocks.inventoryRemove).toHaveBeenCalledWith(item.entityId);
+    expect(mocks.inventorySave).toHaveBeenCalledWith(expect.objectContaining({
+      id: stable.id,
+      catalog_product_id: stable.catalog_product_id,
+      version: stable.version,
+    }));
+  });
+
   it("does not reconcile an old account response into the newly active partition", async () => {
     const item = queued();
     let resolveResponse!: (value: unknown) => void;

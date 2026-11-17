@@ -52,6 +52,11 @@ class Settings:
     # Reference data may be deployed before customer adoption. Keep this off
     # until the Code 128 label-capacity and physical release gates are cleared.
     TAXONOMY_ADOPTION_ENABLED: bool = _environment_flag("TAXONOMY_ADOPTION_ENABLED")
+    # Gate 1: preserve legacy Catalog fan-out unless a development environment
+    # explicitly enables on-demand Store adoption.
+    CATALOG_ON_DEMAND_ADOPTION_ENABLED: bool = _environment_flag(
+        "CATALOG_ON_DEMAND_ADOPTION_ENABLED"
+    )
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
     # Product media must survive application/database replacement. Production
     # deployments provide an absolute durable mount; tests/development use an

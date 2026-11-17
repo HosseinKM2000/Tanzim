@@ -381,7 +381,7 @@ export function ScannerPage() {
                       : "تا رفع اتصال تکراری، هیچ تغییری در موجودی انجام نمی‌شود."
                 }</Text>
                 {unresolved.kind === "unknown" && canEdit ? <Flex gap="2" wrap="wrap" justify="center">
-                  <Button variant="outline" color="green" onClick={() => void navigate({ to: "/inventory/add" })}>ساخت محصول</Button>
+                  <Button variant="outline" color="green" onClick={() => void navigate({ to: "/inventory/add", search: { catalogId: undefined } })}>ساخت محصول</Button>
                   <Button variant="soft" onClick={() => void openLink()}>اتصال به محصول موجود</Button>
                 </Flex> : null}
               </Flex>

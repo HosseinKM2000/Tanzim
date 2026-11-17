@@ -15,6 +15,7 @@ import {
   deleteCatalogProduct,
   getArchivedCatalogProducts,
   getCatalogProduct,
+  getCatalogAdoptionStatus,
   getCatalogProducts,
   restoreCatalogProduct,
   updateCatalogProduct,
@@ -41,6 +42,14 @@ export function useCatalogProducts(
     // Catalog membership is server-authoritative. Refresh on every visit so
     // records cached before an archive or backend migration cannot reappear.
     refetchOnMount: "always",
+  });
+}
+
+export function useCatalogAdoptionStatus() {
+  return useQuery({
+    queryKey: catalogProductKeys.adoptionStatus(),
+    queryFn: getCatalogAdoptionStatus,
+    staleTime: 60_000,
   });
 }
 

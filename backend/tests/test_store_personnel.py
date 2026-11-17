@@ -9,7 +9,8 @@ from sqlalchemy import select
 
 from app.database import Base, SessionLocal, engine
 from app.main import app
-from app.models import CatalogProduct, Category, Industry, InventoryItem, Store, StoreMembership, StoreRole, User
+from app.config import settings
+from app.models import CatalogProduct, Category, Industry, InventoryItem, Store, StoreMembership, StoreRole, SyncChange, User
 from app.services.catalog_product_service import _reconcile_catalog_assignments
 from app.services.bootstrap_service import ensure_system_admin
 from app.services.store_authorization import normalize_permissions
@@ -380,6 +381,96 @@ def test_store_inventory_is_shared_with_personnel_and_isolated_from_other_store(
     revoked = client.get("/api/products", headers=person_headers)
     assert revoked.status_code == 403
     assert revoked.json()["detail"] == "STORE_MEMBERSHIP_INACTIVE"
+
+
+def test_on_demand_industry_selection_creates_no_catalog_inventory(client: TestClient):
+    suffix = uuid.uuid4().hex[:8]
+    auth = signup(client, f"on-demand-industry-{suffix}")
+    owner_headers = headers(auth, f"device-on-demand-industry-{suffix}")
+    with SessionLocal() as db:
+        industry = Industry(name=f"On demand industry {suffix}", is_active=True)
+        db.add(industry)
+        db.flush()
+        db.add_all([
+            CatalogProduct(
+                industry_id=industry.id,
+                name=f"On demand {suffix}-{index}",
+                is_shared=True,
+                is_active=True,
+            )
+            for index in range(3)
+        ])
+        db.commit()
+        industry_id = industry.id
+
+    previous = settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED
+    settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED = True
+    try:
+        selected = client.patch(
+            "/api/auth/industry",
+            headers=owner_headers,
+            json={"industry_id": industry_id},
+        )
+        assert selected.status_code == 200, selected.text
+    finally:
+        settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED = previous
+
+    with SessionLocal() as db:
+        store_id = db.scalar(select(Store.id).where(Store.owner_user_id == auth["user"]["id"]))
+        assert db.scalar(select(Store.industry_id).where(Store.id == store_id)) == industry_id
+        assert list(db.scalars(select(InventoryItem).where(InventoryItem.store_id == store_id))) == []
+        assert list(db.scalars(select(SyncChange).where(SyncChange.store_id == store_id))) == []
+
+
+def test_on_demand_reconciliation_updates_only_existing_assignments(client: TestClient):
+    suffix = uuid.uuid4().hex[:8]
+    first = signup(client, f"on-demand-existing-{suffix}")
+    second = signup(client, f"on-demand-missing-{suffix}")
+    with SessionLocal() as db:
+        industry = Industry(name=f"On demand reconcile {suffix}", is_active=True)
+        db.add(industry)
+        db.flush()
+        product = CatalogProduct(
+            industry_id=industry.id,
+            name=f"On demand reconcile product {suffix}",
+            is_shared=True,
+            is_active=True,
+        )
+        db.add(product)
+        db.flush()
+        first_store = db.scalar(select(Store).where(Store.owner_user_id == first["user"]["id"]))
+        second_store = db.scalar(select(Store).where(Store.owner_user_id == second["user"]["id"]))
+        first_store.industry_id = second_store.industry_id = industry.id
+        existing = InventoryItem(
+            store_id=first_store.id,
+            user_id=first_store.owner_user_id,
+            catalog_product_id=product.id,
+            quantity=19,
+            custom_label="preserved",
+            is_catalog_backed=True,
+        )
+        db.add(existing)
+        db.commit()
+        product_id = product.id
+        first_store_id, second_store_id = first_store.id, second_store.id
+
+    previous = settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED
+    settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED = True
+    try:
+        with SessionLocal() as db:
+            _reconcile_catalog_assignments(db, db.get(CatalogProduct, product_id))
+            db.commit()
+    finally:
+        settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED = previous
+
+    with SessionLocal() as db:
+        assignments = list(db.scalars(select(InventoryItem).where(
+            InventoryItem.catalog_product_id == product_id,
+        )))
+        assert [(item.store_id, item.quantity, item.custom_label) for item in assignments] == [
+            (first_store_id, 19, "preserved"),
+        ]
+        assert all(item.store_id != second_store_id for item in assignments)
 
 
 def test_multiple_active_memberships_fail_closed_instead_of_choosing_arbitrarily(client: TestClient):

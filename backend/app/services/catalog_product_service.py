@@ -72,6 +72,13 @@ def _reconcile_catalog_assignments(db: Session, product: CatalogProduct) -> None
         item.is_catalog_backed = True
         changed.append(item)
 
+    if settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED:
+        db.flush()
+        for item in changed:
+            _record_inventory_change(db, item)
+        db.flush()
+        return
+
     stores = list(
         db.scalars(
             select(Store)

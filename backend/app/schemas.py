@@ -392,6 +392,10 @@ class LabelOut(BaseModel):
 # =========================================================
 # CATALOG
 # =========================================================
+class CatalogAdoptionStatus(BaseModel):
+    enabled: bool
+
+
 class CatalogProductBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=5000)

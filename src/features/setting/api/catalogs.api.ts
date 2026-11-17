@@ -27,6 +27,11 @@ export function getCatalogProducts(params?: CatalogProductListParams) {
   );
 }
 
+export function getCatalogAdoptionStatus() {
+  requireOnline();
+  return apiFetch<{ enabled: boolean }>("/catalog-products/adoption-status");
+}
+
 export function getArchivedCatalogProducts(params?: CatalogProductListParams) {
   requireOnline();
   const query = new URLSearchParams();

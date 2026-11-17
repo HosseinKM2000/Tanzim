@@ -3,10 +3,12 @@ from fastapi import APIRouter, Query, status
 from ..deps import CurrentCatalogManager, CurrentCatalogUser, DbSession
 
 from ..schemas import (
+    CatalogAdoptionStatus,
     CatalogProductCreate,
     CatalogProductUpdate,
     CatalogProductOut,
 )
+from ..config import settings
 
 from ..services import catalog_product_service
 
@@ -14,6 +16,11 @@ router = APIRouter(
     prefix="/catalog-products",
     tags=["catalog-products"],
 )
+
+
+@router.get("/adoption-status", response_model=CatalogAdoptionStatus)
+def catalog_adoption_status(_: CurrentCatalogUser):
+    return CatalogAdoptionStatus(enabled=settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED)
 
 
 # =========================================================
