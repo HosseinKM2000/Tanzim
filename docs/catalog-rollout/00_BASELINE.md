@@ -1,6 +1,6 @@
 # GATE 0 — Current baseline status
 
-**Status: NO-GO**
+**Status: GO — DEVELOPMENT ONLY (Production Release Gate: NO-GO / NOT ASSESSED)**
 
 **Captured:** 2026-11-17, Asia/Tehran
 
@@ -31,4 +31,22 @@ and remaining blockers are in [00R_BASELINE_RECOVERY.md](00R_BASELINE_RECOVERY.m
 No Catalog runtime behavior, schema, Sync/outbox/OPFS contract, dependency, or
 production resource changed in Gate 0 or Gate 0-R.
 
-**Explicit gate status: NO-GO. Do not begin GATE 1 behavior changes.**
+**Gate 0-R historical result: NO-GO. Gate 1 was not started.**
+
+## GATE 0-S update — 2026-11-17
+
+Gate 0-S stabilized the local development E2E target at two workers, corrected
+the entitlement-render and deterministic fixture/selector races, and completed
+four full successful hosted runs (each 128 passed, 8 prerequisite-dependent
+skips, 0 failed). Regression is green with 416 frontend tests and 104 backend
+tests; PostgreSQL integration is green with 22 tests.
+
+This changes only the **Development Gate** to **GO — DEVELOPMENT ONLY**. The
+**Production Release Gate remains NO-GO / NOT ASSESSED** because the eight
+external-integration skips and the production evidence gaps documented in Gate
+0-R remain open. No Gate 0-R restore hash, benchmark, or original evidence above
+was changed. Gate 1 still requires a new explicit instruction.
+
+Detailed worker measurements, root causes, fixes, repeated-run evidence and skip
+prerequisites are in
+[00S_E2E_STABILIZATION.md](00S_E2E_STABILIZATION.md).

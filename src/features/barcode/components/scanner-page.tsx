@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { accessState } from "@/shared/access/access-state";
+import { useEntitlementAccess } from "@/shared/access/use-entitlement";
 import { Button } from "@/shared/ui/button/button";
 import { inventoryRepository } from "@/features/app/inventory/services/inventory.repository";
 import type { Product } from "@/features/app/inventory/types";
@@ -46,6 +47,7 @@ function productName(product: Product) {
 }
 
 export function ScannerPage() {
+  const access = useEntitlementAccess();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraRef = useRef<CameraSession | null>(null);
@@ -68,8 +70,8 @@ export function ScannerPage() {
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkProducts, setLinkProducts] = useState<Product[]>([]);
   const [linkProductId, setLinkProductId] = useState("");
-  const canChangeQuantity = accessState.canWrite() && accessState.hasStorePermission("products.quantity.change");
-  const canEdit = accessState.canWrite() && accessState.hasStorePermission("products.edit");
+  const canChangeQuantity = !access.requiresOnlineVerification && accessState.canWrite() && accessState.hasStorePermission("products.quantity.change");
+  const canEdit = !access.requiresOnlineVerification && accessState.canWrite() && accessState.hasStorePermission("products.edit");
 
   const stopCamera = useCallback(() => {
     cameraRef.current?.stop();

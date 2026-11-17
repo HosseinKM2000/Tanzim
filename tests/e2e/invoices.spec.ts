@@ -11,6 +11,23 @@ const owner = {
 
 async function json(route: Route, body: unknown, status = 200) { await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) }); }
 
+async function storedInvoiceCount(page: Page) {
+  return page.evaluate(async () => {
+    const request = indexedDB.open("inventory-db");
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const count = await new Promise<number>((resolve, reject) => {
+      const countRequest = database.transaction("invoices", "readonly").objectStore("invoices").count();
+      countRequest.onsuccess = () => resolve(countRequest.result);
+      countRequest.onerror = () => reject(countRequest.error);
+    });
+    database.close();
+    return count;
+  });
+}
+
 async function seed(page: Page, serverInvoices: unknown[] = [], paid = true) {
   await page.addInitScript(({ user, captured, hasInvoiceAccess }) => {
     localStorage.setItem("access_token", JSON.stringify("invoice-layout-token"));
@@ -49,7 +66,12 @@ async function seed(page: Page, serverInvoices: unknown[] = [], paid = true) {
     }
     return route.abort();
   });
+  const invoicesLoaded = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/api/invoices" && response.status() === 200,
+  );
   await page.goto("/tools/invoices");
+  await (await invoicesLoaded).finished();
+  await expect.poll(() => storedInvoiceCount(page)).toBe(serverInvoices.length);
   await page.evaluate(async ({ user, captured }) => {
     const request = indexedDB.open("inventory-db");
     const database = await new Promise<IDBDatabase>((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });

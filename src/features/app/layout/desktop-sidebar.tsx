@@ -11,6 +11,7 @@ import { useState } from "react";
 
 import { isAdmin } from "@/shared/access/authorization";
 import { useAuth } from "@/shared/auth/use-auth";
+import { useEntitlementAccess } from "@/shared/access/use-entitlement";
 import { isPathActive, isPrimaryNavigationActive } from "@/shared/lib/navigation/is-path-active";
 import {
   managementNavigationItems,
@@ -80,12 +81,13 @@ function SidebarGroup({
 }
 
 export default function DesktopSidebar() {
+  const access = useEntitlementAccess();
   const [collapsed, setCollapsed] = useState(initialCollapsedState);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { user, logout } = useAuth();
 
   const primaryItems = primaryNavigationItems(user);
-  const operationItems = visibleNavigationItems(toolsNavigationItems, user).filter((item) =>
+  const operationItems = visibleNavigationItems(toolsNavigationItems, user, access).filter((item) =>
     OPERATION_ITEM_IDS.has(item.id),
   );
   const managementItems = isAdmin(user)

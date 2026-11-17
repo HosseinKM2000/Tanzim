@@ -49,3 +49,31 @@ See `00_BASELINE.md` for commands, failure classification, database aggregate sn
 - Gate decision: **NO-GO**; Gate 1 was not started.
 
 See `00R_BASELINE_RECOVERY.md` for the complete evidence and blockers.
+
+## GATE 0-S — 2026-11-17
+
+### Stabilization work
+
+- Set the evidence-backed Playwright development default to two workers while
+  retaining an explicit positive-integer `E2E_WORKERS` override.
+- Fixed entitlement external-store revision consumption and removed a redundant
+  online transition that could reopen the verification gate.
+- Made gated navigation, counterparty, invoice and scanner behavior consume the
+  live verified access snapshot.
+- Stabilized invoice history persistence/type selection and the theme preset
+  measurement without adding retries, timeouts or skips.
+- Added unit/component regression coverage for sync verification and entitlement
+  re-rendering.
+
+### Verification summary
+
+- `npm.cmd run test:regression`: PASS (416 frontend, 104 backend, test
+  typecheck, production build, lint).
+- `npm.cmd run test:backend:postgres:local`: PASS (22 tests).
+- Final hosted E2E: PASS (128 passed, 8 documented external-prerequisite skips,
+  0 failed); at least three complete successful runs were recorded.
+- Development Gate: **GO — DEVELOPMENT ONLY**.
+- Production Release Gate: **NO-GO / NOT ASSESSED**; Gate 1 was not started.
+
+See `00S_E2E_STABILIZATION.md` for worker pressure evidence, root-cause analysis,
+full run history, skip prerequisites and remaining production blockers.

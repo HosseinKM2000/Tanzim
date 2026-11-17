@@ -38,7 +38,7 @@ function NavigationLink({ item, active }: { item: NavigationItem; active: boolea
 
 const NavMenu = ({ hidden = false }: Props) => {
   const { navigationRef, keyboardOpen } = useNavigationLayout();
-  useEntitlementAccess();
+  const access = useEntitlementAccess();
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
@@ -46,7 +46,9 @@ const NavMenu = ({ hidden = false }: Props) => {
   const administrator = isAdmin(user);
   const adminShortcut = useDraggableAdminShortcut(navigationRef, administrator);
   const items = primaryNavigationItems(user);
-  const canAddProduct = accessState.canWrite() && (accessState.hasStorePermission?.("products.create") ?? true);
+  const canAddProduct = !access.requiresOnlineVerification
+    && accessState.canWrite()
+    && (accessState.hasStorePermission?.("products.create") ?? true);
   const beforeAction = items.slice(0, 2);
   const afterAction = items.slice(2);
   return (

@@ -10,7 +10,6 @@ async function verifyThenSync() {
     entitlementService.markOffline();
     return;
   }
-  entitlementService.markOnline();
   try {
     await entitlementService.verify();
     await syncService.sync();

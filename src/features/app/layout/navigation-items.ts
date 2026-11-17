@@ -1,6 +1,6 @@
 import type { User } from "@/features/auth/types";
 import { isAdmin } from "@/shared/access/authorization";
-import { accessState } from "@/shared/access/access-state";
+import { accessState, type EntitlementEvaluation } from "@/shared/access/access-state";
 import type { DomainToolId } from "@/shared/access/tools";
 import { ActivityLogIcon, ArchiveIcon, BookmarkIcon, ClipboardIcon, CubeIcon, DashboardIcon, DownloadIcon, FileTextIcon, GearIcon, LayersIcon, LockClosedIcon, MagnifyingGlassIcon, MixIcon, MixerHorizontalIcon, PersonIcon, QuestionMarkCircledIcon, ReloadIcon, StarIcon, UploadIcon } from "@radix-ui/react-icons";
 import type { ComponentType } from "react";
@@ -52,5 +52,18 @@ export const managementNavigationItems = [
   { id: "industry-management", label: "مدیریت حوزه‌ها", description: "ایجاد و نگهداری حوزه‌های کاری", to: "/management/industries", icon: GearIcon, group: "management", adminOnly: true, requiresOnline: true },
 ] as const satisfies readonly NavigationItem[];
 
-export function visibleNavigationItems(items: readonly NavigationItem[], user: User | null | undefined) { const administrator = isAdmin(user); return items.filter((item) => (!item.adminOnly || administrator) && (!item.ownerOnly || administrator || user?.is_store_owner !== false) && (!item.storePermission || accessState.hasStorePermission(item.storePermission)) && (!item.capabilities || item.capabilities.some((key) => accessState.canUse(key))) && (!item.toolId || accessState.canUseTool(item.toolId))); }
+export function visibleNavigationItems(
+  items: readonly NavigationItem[],
+  user: User | null | undefined,
+  access?: EntitlementEvaluation,
+) {
+  const administrator = isAdmin(user);
+  return items.filter((item) =>
+    (!item.adminOnly || administrator)
+    && (!item.ownerOnly || administrator || user?.is_store_owner !== false)
+    && (!item.storePermission || accessState.hasStorePermission(item.storePermission))
+    && (!item.capabilities || ((administrator || !access?.requiresOnlineVerification) && item.capabilities.some((key) => accessState.canUse(key))))
+    && (!item.toolId || ((administrator || !access?.requiresOnlineVerification) && accessState.canUseTool(item.toolId)))
+  );
+}
 export function primaryNavigationItems(user: User | null | undefined) { void user; return [...basePrimaryNavigationItems]; }

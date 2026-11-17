@@ -189,7 +189,10 @@ export const accessState = {
     const user = readUser();
     return user ? readEntitlement(user) : null;
   },
-  evaluate,
+  evaluate(_revision?: number) {
+    void _revision;
+    return evaluate();
+  },
   subscribe(listener: () => void) {
     listeners.add(listener);
     return () => {
