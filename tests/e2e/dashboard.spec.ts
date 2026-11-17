@@ -63,7 +63,10 @@ test("dashboard restores scroll after browser back and in-app return", async ({ 
     await expect.poll(() => shell.evaluate((element) => element.scrollTop)).toBeGreaterThan(100);
 
     await page.locator("#dashboard-section-hidden").click();
-    await page.getByRole("navigation", { name: "ناوبری اصلی" }).getByRole("link", { name: "داشبورد" }).click();
+    await page
+      .locator(".app-desktop-sidebar:visible, .app-bottom-navigation:visible")
+      .getByRole("link", { name: "داشبورد", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/dashboard\/?$/);
     await expect.poll(() => shell.evaluate((element) => element.scrollTop)).toBeGreaterThan(100);
   }

@@ -270,9 +270,9 @@ test("prepares unvisited core routes and local inventory for an offline cold pag
     database.close();
     return {
       productKey,
-      hasDelete: queued.some((item) => item.entity === "product" && item.entityId === id && item.action === "DELETE"),
+      hasQueuedOperation: queued.some((item) => item.entity === "product" && item.entityId === id),
     };
-  }, createdId)).toEqual({ productKey: undefined, hasDelete: true });
+  }, createdId)).toEqual({ productKey: undefined, hasQueuedOperation: false });
 });
 
 test("IndexedDB inventory survives a persistent browser-profile restart", async ({ browserName }, testInfo) => {

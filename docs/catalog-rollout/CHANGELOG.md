@@ -27,3 +27,25 @@
 - Gate decision: **NO-GO**; no later Gate started.
 
 See `00_BASELINE.md` for commands, failure classification, database aggregate snapshot, backup/restore checklist, residual risks and prerequisites for a future GO decision.
+
+## GATE 0-R — 2026-11-17
+
+### Recovery work
+
+- Reproduced and classified all nine original hosted E2E failures.
+- Corrected deterministic selectors, stale time fixtures, queue-policy assertion,
+  entitlement-verification race, and explicit invoice-mode selection in tests.
+- Changed no Catalog runtime, schema, Sync, outbox, OPFS, dependency, or deployment behavior.
+- Ran an isolated paired PostgreSQL/media dump and restore rehearsal successfully.
+- Captured local synthetic Catalog baselines at 1k, 5k, 10k and 50k rows.
+- Removed all synthetic rehearsal databases and temporary media/dump artifacts.
+
+### Verification summary
+
+- `npm.cmd run test:regression`: PASS (414 frontend, 104 backend, typecheck, build, lint).
+- `npm.cmd run test:backend:postgres:local`: PASS (22 tests).
+- Focused corrected E2E scenarios: PASS, including 8/8 repeated parallel counterparties runs.
+- Final standard hosted E2E: FAIL (126 passed, 2 browser-process closures, 8 skipped).
+- Gate decision: **NO-GO**; Gate 1 was not started.
+
+See `00R_BASELINE_RECOVERY.md` for the complete evidence and blockers.

@@ -1,6 +1,6 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
-const now = "2026-11-04T08:00:00.000Z";
+const now = new Date().toISOString();
 const owner = {
   id: 8601, first_name: "مالک", last_name: "آزمایشی", username: "invoice-owner",
   email: null, phone: "09120008601", industry_id: 1, plan: "free", is_active: true,
@@ -150,7 +150,10 @@ test("invoice form posts one atomic command and remains responsive", async ({ pa
   await seed(page);
   await page.evaluate(() => localStorage.setItem("inventory-appearance", "dark"));
   await page.reload();
-  await expect(page.getByRole("heading", { name: "فاکتورها", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "فاکتورها", exact: true, level: 1 })).toBeVisible();
+  const saleMode = page.getByRole("button", { name: "فروش", exact: true });
+  await expect(saleMode).toBeEnabled();
+  await saleMode.click();
   await expect(page.locator(".invoice-count-desktop")).toContainText("قلم کالا");
   const stepperGeometry = await page.getByRole("button", { name: "یک واحد بیشتر برای ردیف 1" }).evaluate((button) => {
     const input = button.parentElement?.querySelector("input");
