@@ -1,7 +1,7 @@
 # ممیزی معماری Catalog و زیرساخت تصویر Tanzim
 
-> تاریخ ممیزی: ۱۴۰۵/۰۸/۲۶ (2026-11-17)  
-> دامنه: وضعیت موجود Repository؛ بدون تغییر کد، Migration یا زیرساخت  
+> تاریخ ممیزی: ۱۴۰۵/۰۸/۲۶ (2026-11-17)
+> دامنه: وضعیت موجود Repository؛ بدون تغییر کد، Migration یا زیرساخت
 > روش: ردیابی مدل، API، UI، IndexedDB/OPFS، Service Worker، Sync و تست‌های موجود. هر ادعای استقرار که در Repository قابل اثبات نباشد با «قابل تأیید نیست» مشخص شده است.
 
 | بخش | وضعیت فعلی | میزان آمادگی | نیاز به تغییر |
@@ -353,4 +353,3 @@ Migration برای راهکار robust ضروری است: `catalog_families`, `c
 - **دانلود خانواده‌ای:** manifest diff → deduped low-priority per-file queue → temp write → hash verify → atomic finalize → pin/reference update؛ concurrency configurable، pause/resume و quota preflight.
 - **محدودیت‌های واقعی:** API بدون pagination، Catalog UI eager، family identity موجود نیست، thumbnail واقعی نیست، OPFS local hash-addressed نیست، server deployment/proxy telemetry مفقود است.
 - **تصمیم‌های باز پیش از پیاده‌سازی:** access policy عمومی/خصوصی، cache scope، variant sizes/quality، family taxonomy، multi-image cardinality، storage budgets/eviction، manifest signing، release retention، CDN URL policy و browser support matrix.
-
