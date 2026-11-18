@@ -18,8 +18,9 @@ class NetworkService {
     });
 
     window.addEventListener("offline", () => {
-      // Double-check against /api/health before locking the UI into offline mode,
-      // because mobile WebViews and VPNs can emit transient offline events.
+      this.markOffline();
+      // Double-check against /api/health in the background so transient WebView/VPN
+      // offline events recover automatically if the backend is actually reachable.
       void this.verifyConnectivity(true);
     });
 
