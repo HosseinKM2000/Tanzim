@@ -426,7 +426,10 @@ def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database
     assert MIGRATION_EVIDENCE["mode_rollback"] == ("20261101_0009", True)
     assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261116_0019"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261118_0020"
+        assert "ix_catalog_products_cursor_scope" in {
+            index["name"] for index in inspect(engine).get_indexes("catalog_products")
+        }
         assert "MOBILE_PHONE_PREFLIGHT" in MIGRATION_EVIDENCE["mobile_preflight"]
         assert "malformed_count=1:user_ids=9401" in MIGRATION_EVIDENCE["mobile_preflight"]
         assert "duplicate_groups=1:user_ids=9101,9201" in MIGRATION_EVIDENCE["mobile_preflight"]
@@ -1453,3 +1456,56 @@ def test_recategorization_fault_rolls_back_category_and_barcode_lifecycle(client
             assert db.scalar(select(func.count(SyncOperation.id)).where(SyncOperation.operation_id == "pg-fault-recategory")) == 0
     finally:
         settings.TAXONOMY_ADOPTION_ENABLED = previous_gate
+
+
+@pytest.mark.postgres
+def test_catalog_cursor_query_scales_to_50k_and_uses_scope_index():
+    """Synthetic read-only evidence; the module fixture drops the test schema."""
+    measurements = []
+    with SessionLocal() as db:
+        industry = Industry(name="Catalog cursor scale", description="isolated benchmark", is_active=True)
+        db.add(industry)
+        db.commit()
+        db.refresh(industry)
+        previous = 0
+        last_boundary = None
+        for target in (1_000, 5_000, 10_000, 50_000):
+            increment = target - previous
+            db.execute(text("""
+                INSERT INTO catalog_products
+                    (industry_id, name, description, brand, is_shared, is_active, is_packaged, created_at)
+                SELECT :industry_id, 'scale-' || value, 'scale', 'benchmark', true, true, false,
+                       now() - (value * interval '1 millisecond')
+                FROM generate_series(CAST(:start AS bigint), CAST(:finish AS bigint)) AS value
+            """), {"industry_id": industry.id, "start": previous + 1, "finish": previous + increment})
+            db.commit()
+            db.execute(text("ANALYZE catalog_products"))
+            started = perf_counter()
+            rows = db.execute(text("""
+                SELECT id, created_at FROM catalog_products
+                WHERE is_shared = true AND is_active = true AND industry_id = :industry_id
+                ORDER BY created_at DESC, id DESC LIMIT 25
+            """), {"industry_id": industry.id}).all()
+            elapsed_ms = round((perf_counter() - started) * 1000, 3)
+            assert len(rows) == 25
+            if last_boundary is not None:
+                next_rows = db.execute(text("""
+                    SELECT id, created_at FROM catalog_products
+                    WHERE is_shared = true AND is_active = true AND industry_id = :industry_id
+                      AND (created_at < :created_at OR (created_at = :created_at AND id < :catalog_id))
+                    ORDER BY created_at DESC, id DESC LIMIT 25
+                """), {"industry_id": industry.id, "created_at": last_boundary.created_at, "catalog_id": last_boundary.id}).all()
+                assert not ({row.id for row in rows} & {row.id for row in next_rows})
+            last_boundary = rows[-1]
+            measurements.append({"rows": target, "first_page_ms": elapsed_ms})
+            previous = target
+
+        plan = "\n".join(row[0] for row in db.execute(text("""
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+            SELECT id, created_at FROM catalog_products
+            WHERE is_shared = true AND is_active = true AND industry_id = :industry_id
+            ORDER BY created_at DESC, id DESC LIMIT 25
+        """), {"industry_id": industry.id}))
+        assert "ix_catalog_products_cursor_scope" in plan
+        print("CATALOG_CURSOR_BENCHMARK=" + json.dumps(measurements))
+        print(plan)

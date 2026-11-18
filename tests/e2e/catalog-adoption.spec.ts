@@ -18,7 +18,7 @@ async function json(route: Route, body: unknown) {
   await route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
 }
 
-async function seed(page: Page, enabled: boolean) {
+async function seed(page: Page, enabled: boolean, cursorV2 = enabled) {
   await page.addInitScript(({ seededUser, captured }) => {
     localStorage.setItem("access_token", JSON.stringify("catalog-adoption-token"));
     localStorage.setItem("inventory-last-user", JSON.stringify(seededUser));
@@ -41,9 +41,10 @@ async function seed(page: Page, enabled: boolean) {
       capabilities: { "inventory.read": true, "inventory.write": true, sync: true },
       limits: { inventory_items: null }, tools: { catalog: true },
     });
-    if (path === "/api/catalog-products/adoption-status") return json(route, { enabled });
+    if (path === "/api/catalog-products/adoption-status") return json(route, { enabled, cursor_read_v2_enabled: cursorV2 });
     if (path === "/api/catalog-products/7101") return json(route, catalog);
     if (path === "/api/catalog-products") return json(route, [catalog]);
+    if (path === "/api/catalog-products/page") return json(route, { items: [catalog], next_cursor: null, has_more: false });
     if (path === "/api/categories" || path === "/api/labels") return json(route, []);
     if (path === "/api/sync/changes") return json(route, { cursor: 0, changes: [] });
     if (path === "/api/sync/categories" || path === "/api/sync/barcodes") return json(route, { items: [] });
@@ -72,7 +73,7 @@ test("flag on browses without writes and explicitly adopts through the local-fir
   await expect(page.getByText("چای مرجع")).toBeVisible();
   expect(await localCatalogRows(page)).toEqual([]);
 
-  await page.getByRole("link", { name: "افزودن به موجودی" }).click();
+  await page.locator('a[href*="catalogId=7101"]').click();
   await expect(page).toHaveURL(/catalogId=7101/);
   await expect(page.locator('input[value="چای مرجع"]')).toBeVisible();
   await page.locator('input[name="quantity"]').fill("4");
@@ -90,4 +91,12 @@ test("flag off preserves the legacy catalog preferences surface", async ({ page 
   await page.goto("/tools/catalog");
   await expect(page.getByRole("switch", { name: "نمایش محصولات کاتالوگی" })).toBeVisible();
   await expect(page.getByRole("link", { name: "افزودن به موجودی" })).toHaveCount(0);
+});
+
+test("cursor flag off rolls back to the Gate 1 catalog reader", async ({ page }) => {
+  await seed(page, true, false);
+  await page.goto("/tools/catalog");
+  await expect(page.getByText("چای مرجع")).toBeVisible();
+  await expect(page.locator('a[href*="catalogId=7101"]')).toBeVisible();
+  expect(await localCatalogRows(page)).toEqual([]);
 });

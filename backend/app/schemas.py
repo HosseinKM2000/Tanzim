@@ -394,6 +394,7 @@ class LabelOut(BaseModel):
 # =========================================================
 class CatalogAdoptionStatus(BaseModel):
     enabled: bool
+    cursor_read_v2_enabled: bool
 
 
 class CatalogProductBase(BaseModel):
@@ -484,6 +485,12 @@ class CatalogProductOut(BaseModel):
     industry: IndustrySimpleOut
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CatalogProductPage(BaseModel):
+    items: list[CatalogProductOut]
+    next_cursor: str | None
+    has_more: bool
 
 
 # =========================================================

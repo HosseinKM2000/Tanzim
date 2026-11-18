@@ -1,5 +1,6 @@
 import {
   useMutation,
+  useInfiniteQuery,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ import {
   getCatalogProduct,
   getCatalogAdoptionStatus,
   getCatalogProducts,
+  getCatalogProductsPage,
   restoreCatalogProduct,
   updateCatalogProduct,
 } from "../api/catalogs.api";
@@ -41,6 +43,22 @@ export function useCatalogProducts(
 
     // Catalog membership is server-authoritative. Refresh on every visit so
     // records cached before an archive or backend migration cannot reappear.
+    refetchOnMount: "always",
+  });
+}
+
+export function useCatalogProductsInfinite(
+  params?: CatalogProductListParams,
+  enabled = true,
+) {
+  return useInfiniteQuery({
+    queryKey: catalogProductKeys.infinite(params),
+    queryFn: ({ pageParam, signal }) => getCatalogProductsPage(params, pageParam, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.has_more ? lastPage.next_cursor ?? undefined : undefined,
+    enabled,
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
     refetchOnMount: "always",
   });
 }

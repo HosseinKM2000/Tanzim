@@ -1028,13 +1028,68 @@ class SyncApiTest(unittest.TestCase):
                 "/api/catalog-products/adoption-status", headers=self.headers,
             )
         self.assertEqual(disabled.status_code, 200, disabled.text)
-        self.assertEqual(disabled.json(), {"enabled": False})
+        self.assertEqual(disabled.json(), {"enabled": False, "cursor_read_v2_enabled": False})
 
-        with patch.object(settings, "CATALOG_ON_DEMAND_ADOPTION_ENABLED", True):
+        with (
+            patch.object(settings, "CATALOG_ON_DEMAND_ADOPTION_ENABLED", True),
+            patch.object(settings, "CATALOG_CURSOR_READ_V2_ENABLED", True),
+        ):
             enabled = self.client.get(
                 "/api/catalog-products/adoption-status", headers=self.headers,
             )
-        self.assertEqual(enabled.json(), {"enabled": True})
+        self.assertEqual(enabled.json(), {"enabled": True, "cursor_read_v2_enabled": True})
+
+    def test_catalog_cursor_page_is_flagged_stable_and_filter_bound(self) -> None:
+        with patch.object(settings, "CATALOG_CURSOR_READ_V2_ENABLED", False):
+            disabled = self.client.get("/api/catalog-products/page", headers=self.headers)
+        self.assertEqual(disabled.status_code, 404, disabled.text)
+
+        names = ["Cursor alpha", "Cursor beta", "Cursor gamma"]
+        for name in names:
+            created = self.client.post(
+                "/api/catalog-products",
+                headers=self.admin_headers,
+                json={"industry_id": self.industry_id, "name": name, "description": "cursor-test", "brand": "CursorBrand", "image_url": None},
+            )
+            self.assertEqual(created.status_code, 201, created.text)
+        persian = self.client.post(
+            "/api/catalog-products",
+            headers=self.admin_headers,
+            json={"industry_id": self.industry_id, "name": "کالای ایرانی", "description": None, "brand": None, "image_url": None},
+        )
+        self.assertEqual(persian.status_code, 201, persian.text)
+
+        with patch.object(settings, "CATALOG_CURSOR_READ_V2_ENABLED", True):
+            first = self.client.get(
+                f"/api/catalog-products/page?industry_id={self.industry_id}&search=CursorBrand&limit=2",
+                headers=self.headers,
+            )
+            self.assertEqual(first.status_code, 200, first.text)
+            self.assertEqual(len(first.json()["items"]), 2)
+            self.assertTrue(first.json()["has_more"])
+            cursor = first.json()["next_cursor"]
+            second = self.client.get(
+                f"/api/catalog-products/page?industry_id={self.industry_id}&search=CursorBrand&limit=2&cursor={cursor}",
+                headers=self.headers,
+            )
+            self.assertEqual(second.status_code, 200, second.text)
+            ids = [item["id"] for item in first.json()["items"] + second.json()["items"]]
+            self.assertEqual(len(ids), len(set(ids)))
+            self.assertEqual(len(ids), 3)
+            rebound = self.client.get(
+                f"/api/catalog-products/page?industry_id={self.industry_id}&search=other&limit=2&cursor={cursor}",
+                headers=self.headers,
+            )
+            self.assertEqual(rebound.status_code, 400, rebound.text)
+            self.assertEqual(rebound.json()["detail"], "CATALOG_CURSOR_INVALID")
+            invalid = self.client.get("/api/catalog-products/page?cursor=not-a-cursor", headers=self.headers)
+            self.assertEqual(invalid.status_code, 400, invalid.text)
+            normalized = self.client.get(
+                f"/api/catalog-products/page?industry_id={self.industry_id}&search=كالای",
+                headers=self.headers,
+            )
+            self.assertEqual(normalized.status_code, 200, normalized.text)
+            self.assertIn(persian.json()["id"], [item["id"] for item in normalized.json()["items"]])
 
     def test_category_ids_are_client_stable_and_admin_is_guarded(self) -> None:
         category_id = 1_800_000_000_001

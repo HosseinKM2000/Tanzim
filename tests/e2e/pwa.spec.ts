@@ -311,7 +311,9 @@ test("IndexedDB inventory survives a persistent browser-profile restart", async 
 
   let profilePage = persistentContext.pages()[0] ?? await persistentContext.newPage();
   await profilePage.goto(`${baseURL}/dashboard`);
-  await profilePage.evaluate(async ({ id }) => {
+  await expect.poll(async () => {
+    try {
+      await profilePage.evaluate(async ({ id }) => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open("inventory-db");
       request.onsuccess = () => resolve(request.result);
@@ -344,7 +346,13 @@ test("IndexedDB inventory survives a persistent browser-profile restart", async 
       transaction.onerror = () => reject(transaction.error);
     });
     database.close();
-  }, { id: userId });
+      }, { id: userId });
+      return true;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Execution context was destroyed")) return false;
+      throw error;
+    }
+  }).toBe(true);
   await persistentContext.close();
 
   persistentContext = await chromium.launchPersistentContext(userDataDir, launchOptions);

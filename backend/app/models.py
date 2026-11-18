@@ -435,6 +435,14 @@ class CatalogProduct(Base):
             "industry_id",
             "created_at",
         ),
+        Index(
+            "ix_catalog_products_cursor_scope",
+            "is_shared",
+            "is_active",
+            "industry_id",
+            "created_at",
+            "id",
+        ),
     )
 
     id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)

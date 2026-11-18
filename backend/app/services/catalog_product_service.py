@@ -124,6 +124,10 @@ def list_catalog_products(
     return repository.get_catalog_products(db, search, industry_id, is_active=True)
 
 
+def list_catalog_products_page(db: Session, **kwargs):
+    return repository.get_catalog_products_page(db, **kwargs)
+
+
 def list_archived_catalog_products(
     db: Session,
     search: str | None = None,

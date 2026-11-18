@@ -103,6 +103,17 @@ export type CatalogProductListParams = {
   industry_id?: number;
 };
 
+export type CatalogProductPage = {
+  items: CatalogProduct[];
+  next_cursor: string | null;
+  has_more: boolean;
+};
+
+export type CatalogAdoptionStatus = {
+  enabled: boolean;
+  cursor_read_v2_enabled: boolean;
+};
+
 export type SubscriptionPlan = {
   id: string;
   name: string;

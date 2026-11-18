@@ -5,6 +5,8 @@ import type {
   CatalogProductInput,
   CatalogProductListParams,
   CatalogProductUpdate,
+  CatalogProductPage,
+  CatalogAdoptionStatus,
 } from "../types";
 
 function requireOnline() {
@@ -29,7 +31,20 @@ export function getCatalogProducts(params?: CatalogProductListParams) {
 
 export function getCatalogAdoptionStatus() {
   requireOnline();
-  return apiFetch<{ enabled: boolean }>("/catalog-products/adoption-status");
+  return apiFetch<CatalogAdoptionStatus>("/catalog-products/adoption-status");
+}
+
+export function getCatalogProductsPage(
+  params: CatalogProductListParams | undefined,
+  cursor: string | undefined,
+  signal?: AbortSignal,
+) {
+  requireOnline();
+  const query = new URLSearchParams({ limit: "24" });
+  if (params?.search?.trim()) query.set("search", params.search.trim());
+  if (params?.industry_id) query.set("industry_id", String(params.industry_id));
+  if (cursor) query.set("cursor", cursor);
+  return apiFetch<CatalogProductPage>(`/catalog-products/page?${query}`, { signal });
 }
 
 export function getArchivedCatalogProducts(params?: CatalogProductListParams) {

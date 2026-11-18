@@ -1,5 +1,24 @@
 # Catalog safe rollout changelog
 
+## GATE 2 — 2026-11-18
+
+### Scalable browsing
+
+- Added a default-off, independently reversible cursor reader and an additive
+  authenticated page endpoint; the legacy list remains unchanged.
+- Added HMAC query-bound keyset cursors, stable boundary ordering, compatible
+  Persian search variants and the `20261118_0020` traversal index.
+- Added cancellable/debounced infinite queries, responsive row virtualization,
+  lazy image decode and a fixed fallback that does not touch private media,
+  Sync, outbox, OPFS, service-worker or backup contracts.
+- Local PostgreSQL first-page evidence at 1k/5k/10k/50k was
+  5.980/3.741/3.976/3.821 ms; the 50k plan used the cursor scope index.
+- Verification: 418 frontend, 110 fast backend and 25 PostgreSQL tests passed;
+  production build/typecheck/lint passed; production-preview E2E finished with
+  134 passed, 8 established external-prerequisite skips and 0 failed.
+- Development Gate: **GO — DEVELOPMENT ONLY**. Production release remains
+  **NO-GO / NOT ASSESSED**; no merge, push or deployment was performed.
+
 ## GATE 1 — 2026-11-18
 
 ### Adoption decoupling

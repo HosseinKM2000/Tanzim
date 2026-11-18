@@ -48,7 +48,7 @@ class Settings:
     ]
     SYSTEM_ADMIN_PASSWORD: str | None = os.getenv("SYSTEM_ADMIN_PASSWORD")
     APP_BUILD_ID: str = os.getenv("APP_BUILD_ID", "development").strip() or "development"
-    DATABASE_SCHEMA_VERSION: str = "20261116_0019"
+    DATABASE_SCHEMA_VERSION: str = "20261118_0020"
     # Reference data may be deployed before customer adoption. Keep this off
     # until the Code 128 label-capacity and physical release gates are cleared.
     TAXONOMY_ADOPTION_ENABLED: bool = _environment_flag("TAXONOMY_ADOPTION_ENABLED")
@@ -56,6 +56,11 @@ class Settings:
     # explicitly enables on-demand Store adoption.
     CATALOG_ON_DEMAND_ADOPTION_ENABLED: bool = _environment_flag(
         "CATALOG_ON_DEMAND_ADOPTION_ENABLED"
+    )
+    # Gate 2 is independently reversible. It only selects the cursor-backed
+    # catalog reader; the legacy list endpoint remains available to clients.
+    CATALOG_CURSOR_READ_V2_ENABLED: bool = _environment_flag(
+        "CATALOG_CURSOR_READ_V2_ENABLED"
     )
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
     # Product media must survive application/database replacement. Production
