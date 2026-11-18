@@ -11,7 +11,7 @@ from .config import settings
 from sqlalchemy import text
 from .database import engine
 from .exceptions import global_exception_handler
-from .routers import admin, auth, categories, dashboard, plans, backup, industries, products, inventory, export, transactions, custom_products, catalog_products, sync, labels, personnel, files, media, invoices, counterparties, taxonomy
+from .routers import admin, auth, categories, dashboard, plans, backup, industries, products, inventory, export, transactions, custom_products, catalog_products, catalog_reference, sync, labels, personnel, files, media, invoices, counterparties, taxonomy
 
 
 logger = logging.getLogger("tanzim.api")
@@ -89,6 +89,8 @@ app.include_router(custom_products.router, prefix=api)
 app.include_router(backup.router, prefix=api)
 app.include_router(industries.router, prefix=api)
 app.include_router(catalog_products.router, prefix=api)
+app.include_router(catalog_reference.router, prefix=api)
+app.include_router(catalog_reference.assets_router, prefix=api)
 app.include_router(sync.router, prefix=api)
 app.include_router(labels.router, prefix=api)
 app.include_router(personnel.router, prefix=api)

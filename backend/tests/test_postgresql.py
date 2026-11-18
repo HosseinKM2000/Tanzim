@@ -8,6 +8,9 @@ import os
 import base64
 import hashlib
 import json
+import gc
+import tracemalloc
+import uuid
 from time import perf_counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -40,10 +43,12 @@ from fastapi.testclient import TestClient
 from app.database import SessionLocal, engine
 from app.main import app
 from app.config import settings
-from app.models import BarcodeReservation, CatalogProduct, Category, Industry, InventoryItem, InventoryMovement, Invoice, Label, MediaAsset, ProductBarcode, ReferenceCategory, ReferenceSector, Store, StoreMembership, StoreModeTransition, StorePlanGrant, SubscriptionPlan, SyncOperation, User, UserSession
+from app.models import BarcodeReservation, CatalogFamily, CatalogProduct, CatalogRelease, Category, Industry, InventoryItem, InventoryMovement, Invoice, Label, MediaAsset, ProductBarcode, ReferenceCategory, ReferenceMediaAsset, ReferenceSector, Store, StoreMembership, StoreModeTransition, StorePlanGrant, SubscriptionPlan, SyncOperation, User, UserSession
 from app.routers.sync import _duplicate_result
 from app.schemas import SyncOperationIn
 from app.services.catalog_product_service import _reconcile_catalog_assignments
+from app.services.catalog_reference_service import _release_files
+from app.reference_storage import reference_asset_storage
 from app.services.catalog_provisioning_service import provision_industry_inventory
 from app.services.bootstrap_service import ensure_system_admin
 from app.services.subscription_service import seed_default_plans
@@ -61,6 +66,8 @@ EXPECTED_TABLES = {
     "media_assets",
     "invoices", "invoice_lines", "counterparties",
     "reference_sectors", "reference_categories", "barcode_reservations",
+    "catalog_families", "catalog_product_families", "reference_media_assets",
+    "catalog_product_media", "catalog_releases", "catalog_release_pointers",
 }
 MIGRATION_EVIDENCE = {}
 
@@ -426,7 +433,7 @@ def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database
     assert MIGRATION_EVIDENCE["mode_rollback"] == ("20261101_0009", True)
     assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261118_0020"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261118_0021"
         assert "ix_catalog_products_cursor_scope" in {
             index["name"] for index in inspect(engine).get_indexes("catalog_products")
         }
@@ -1509,3 +1516,114 @@ def test_catalog_cursor_query_scales_to_50k_and_uses_scope_index():
         assert "ix_catalog_products_cursor_scope" in plan
         print("CATALOG_CURSOR_BENCHMARK=" + json.dumps(measurements))
         print(plan)
+
+
+@pytest.mark.postgres
+def test_reference_manifest_generation_scales_to_50k_with_bounded_queries(client, tmp_path, monkeypatch):
+    measurements = []
+    monkeypatch.setattr(reference_asset_storage, "root", tmp_path)
+    with SessionLocal() as db:
+        admin = db.scalar(select(User).where(User.is_system_admin.is_(True)))
+        assert admin is not None
+        industry = Industry(name="Reference manifest scale", description="isolated benchmark", is_active=True)
+        db.add(industry)
+        db.flush()
+        primary = CatalogFamily(industry_id=industry.id, slug="all-parts", name="All parts", sort_order=1)
+        overlap = CatalogFamily(industry_id=industry.id, slug="even-parts", name="Even parts", sort_order=2)
+        db.add_all([primary, overlap])
+        assets = []
+        for index in range(100):
+            content = f"synthetic-reference-{index}".encode()
+            digest = hashlib.sha256(content).hexdigest()
+            storage_key = f"blobs/{digest[:2]}/{digest}.webp"
+            reference_asset_storage.put_blob_if_absent(storage_key, content)
+            assets.append(ReferenceMediaAsset(
+                id=str(uuid.uuid4()), source_sha256=hashlib.sha256(b"source-" + content).hexdigest(),
+                content_sha256=digest, mime_type="image/webp", width=320, height=240,
+                byte_size=len(content), storage_key=storage_key, variant_type="preview",
+                validation_status="approved", source_reference="synthetic:benchmark",
+                created_by_user_id=admin.id,
+            ))
+        db.add_all(assets)
+        db.commit()
+        db.refresh(industry)
+        db.refresh(primary)
+        db.refresh(overlap)
+        previous = 0
+        for target in (1_000, 5_000, 10_000, 50_000):
+            db.execute(text("""
+                INSERT INTO catalog_products
+                    (industry_id, name, description, brand, is_shared, is_active, is_packaged, created_at)
+                SELECT :industry_id, 'manifest-' || value, 'technical metadata', 'benchmark',
+                       true, true, false, now()
+                FROM generate_series(CAST(:start AS bigint), CAST(:finish AS bigint)) AS value
+            """), {"industry_id": industry.id, "start": previous + 1, "finish": target})
+            db.execute(text("""
+                INSERT INTO catalog_product_families (catalog_product_id, catalog_family_id)
+                SELECT id, :family_id FROM catalog_products
+                WHERE industry_id = :industry_id
+                ON CONFLICT DO NOTHING
+            """), {"family_id": primary.id, "industry_id": industry.id})
+            db.execute(text("""
+                INSERT INTO catalog_product_families (catalog_product_id, catalog_family_id)
+                SELECT id, :family_id FROM catalog_products
+                WHERE industry_id = :industry_id AND MOD(id, 2) = 0
+                ON CONFLICT DO NOTHING
+            """), {"family_id": overlap.id, "industry_id": industry.id})
+            db.execute(text("""
+                WITH products AS (
+                    SELECT id, row_number() OVER (ORDER BY id) AS position
+                    FROM catalog_products WHERE industry_id = :industry_id
+                ), assets AS (
+                    SELECT id, row_number() OVER (ORDER BY id) AS position
+                    FROM reference_media_assets WHERE source_reference = 'synthetic:benchmark'
+                )
+                INSERT INTO catalog_product_media
+                    (catalog_product_id, media_asset_id, role, sort_order)
+                SELECT products.id, assets.id, 'preview', 0
+                FROM products
+                JOIN assets ON assets.position = MOD(products.position - 1, 100) + 1
+                ON CONFLICT DO NOTHING
+            """), {"industry_id": industry.id})
+            db.commit()
+
+            release = CatalogRelease(
+                id=str(uuid.uuid4()), request_id=str(uuid.uuid4()),
+                industry_id=industry.id, version=target, status="staging",
+                created_by_user_id=admin.id,
+                created_at=datetime.now(timezone.utc),
+            )
+            statements = 0
+
+            def count_statement(*_args):
+                nonlocal statements
+                statements += 1
+
+            gc.collect()
+            tracemalloc.start()
+            event.listen(engine, "before_cursor_execute", count_statement)
+            started = perf_counter()
+            try:
+                files = _release_files(db, release)
+            finally:
+                event.remove(engine, "before_cursor_execute", count_statement)
+            elapsed_ms = round((perf_counter() - started) * 1000, 2)
+            _, peak = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+            total_bytes = sum(len(value) for value in files.values())
+            assert set(files) == {"index.json", "families/all-parts.json", "families/even-parts.json"}
+            assert statements <= 3
+            primary_manifest = json.loads(files["families/all-parts.json"])
+            assert primary_manifest["product_count"] == target
+            assert primary_manifest["asset_count"] == 100
+            measurements.append({
+                "products": target,
+                "relations": target + (target // 2),
+                "manifest_bytes": total_bytes,
+                "generation_ms": elapsed_ms,
+                "peak_memory_bytes": peak,
+                "query_count": statements,
+                "unique_assets": 100,
+            })
+            previous = target
+        print("REFERENCE_MANIFEST_BENCHMARK=" + json.dumps(measurements))

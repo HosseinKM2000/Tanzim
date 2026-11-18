@@ -1,4 +1,5 @@
 import json
+import io
 import os
 import tempfile
 import unittest
@@ -7,6 +8,7 @@ import hashlib
 from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from PIL import Image
 
 
 def _mobile(seed: str) -> str:
@@ -26,6 +28,7 @@ from app.config import settings
 from app.main import app
 from app.models import (
     CatalogProduct,
+    CatalogReleasePointer,
     Counterparty,
     Industry,
     InventoryItem,
@@ -42,6 +45,7 @@ from app.models import (
     SubscriptionPlan,
     User,
     UserSession,
+    ReferenceMediaAsset,
 )
 from app.services import catalog_product_service
 from app.services.bootstrap_service import ensure_system_admin
@@ -49,6 +53,7 @@ from app.services.store_service import create_owner_store
 from app.services.subscription_service import seed_default_plans
 from app.services.subscription_service import entitlement_for_store
 from app.entitlements import SUBSCRIPTION_CAPABILITIES
+from app.reference_storage import reference_asset_storage
 
 
 class SyncApiTest(unittest.TestCase):
@@ -1028,16 +1033,239 @@ class SyncApiTest(unittest.TestCase):
                 "/api/catalog-products/adoption-status", headers=self.headers,
             )
         self.assertEqual(disabled.status_code, 200, disabled.text)
-        self.assertEqual(disabled.json(), {"enabled": False, "cursor_read_v2_enabled": False})
+        self.assertEqual(disabled.json(), {
+            "enabled": False,
+            "cursor_read_v2_enabled": False,
+            "reference_media_v1_enabled": False,
+        })
 
         with (
             patch.object(settings, "CATALOG_ON_DEMAND_ADOPTION_ENABLED", True),
             patch.object(settings, "CATALOG_CURSOR_READ_V2_ENABLED", True),
+            patch.object(settings, "CATALOG_REFERENCE_MEDIA_V1_ENABLED", True),
         ):
             enabled = self.client.get(
                 "/api/catalog-products/adoption-status", headers=self.headers,
             )
-        self.assertEqual(enabled.json(), {"enabled": True, "cursor_read_v2_enabled": True})
+        self.assertEqual(enabled.json(), {
+            "enabled": True,
+            "cursor_read_v2_enabled": True,
+            "reference_media_v1_enabled": True,
+        })
+
+    def test_reference_media_registry_publication_and_security_contract(self) -> None:
+        with SessionLocal() as db:
+            product = CatalogProduct(
+                industry_id=self.industry_id,
+                name=f"Reference product {uuid.uuid4().hex[:8]}",
+                description="technical details remain in description",
+                image_url="/legacy-reference.png",
+                is_shared=True,
+                is_active=True,
+            )
+            other_industry = Industry(name=f"Other reference {uuid.uuid4().hex[:8]}", is_active=True)
+            db.add_all([product, other_industry])
+            db.flush()
+            other_product = CatalogProduct(
+                industry_id=other_industry.id,
+                name=f"Other product {uuid.uuid4().hex[:8]}",
+                is_shared=True,
+                is_active=True,
+            )
+            db.add(other_product)
+            db.commit()
+            product_id, other_product_id = product.id, other_product.id
+            other_industry_id = other_industry.id
+            inventory_before = db.query(InventoryItem).count()
+
+        image_file = io.BytesIO()
+        Image.new("RGB", (640, 480), (20, 80, 160)).save(image_file, format="PNG")
+        image_bytes = image_file.getvalue()
+        other_file = io.BytesIO()
+        Image.new("RGB", (64, 64), (160, 40, 20)).save(other_file, format="PNG")
+
+        with (
+            tempfile.TemporaryDirectory() as reference_dir,
+            patch.object(reference_asset_storage, "root", Path(reference_dir)),
+            patch.object(settings, "CATALOG_REFERENCE_MEDIA_V1_ENABLED", True),
+            patch.object(settings, "CATALOG_CURSOR_READ_V2_ENABLED", True),
+        ):
+            unauthorized = self.client.post(
+                "/api/catalog-reference/families",
+                headers=self.headers,
+                json={"industry_id": self.industry_id, "slug": "starter-parts", "name": "قطعات استارت", "sort_order": 1},
+            )
+            self.assertEqual(unauthorized.status_code, 403, unauthorized.text)
+            family = self.client.post(
+                "/api/catalog-reference/families",
+                headers=self.admin_headers,
+                json={"industry_id": self.industry_id, "slug": "starter-parts", "name": "قطعات استارت", "sort_order": 1},
+            )
+            self.assertEqual(family.status_code, 201, family.text)
+            family_id = family.json()["id"]
+            linked = self.client.post(
+                f"/api/catalog-reference/families/{family_id}/products/{product_id}",
+                headers=self.admin_headers,
+            )
+            self.assertEqual(linked.status_code, 200, linked.text)
+            replay_link = self.client.post(
+                f"/api/catalog-reference/families/{family_id}/products/{product_id}",
+                headers=self.admin_headers,
+            )
+            self.assertEqual(replay_link.status_code, 200, replay_link.text)
+
+            rejected_source = self.client.post(
+                "/api/catalog-reference/media/ingest",
+                headers=self.admin_headers,
+                data={"product_id": product_id, "source_reference": "supplier:test", "rights_confirmed": "false"},
+                files={"file": ("part.png", image_bytes, "image/png")},
+            )
+            self.assertEqual(rejected_source.status_code, 422, rejected_source.text)
+            ingested = self.client.post(
+                "/api/catalog-reference/media/ingest",
+                headers=self.admin_headers,
+                data={"product_id": product_id, "source_reference": "supplier:test", "rights_confirmed": "true"},
+                files={"file": ("part.png", image_bytes, "image/png")},
+            )
+            self.assertEqual(ingested.status_code, 200, ingested.text)
+            self.assertFalse(ingested.json()["deduplicated"])
+            self.assertEqual({item["variant_type"] for item in ingested.json()["assets"]}, {"preview", "detail"})
+            preview = next(item for item in ingested.json()["assets"] if item["variant_type"] == "preview")
+            self.assertLessEqual(preview["width"], settings.REFERENCE_ASSET_PREVIEW_MAX_PX)
+
+            duplicate = self.client.post(
+                "/api/catalog-reference/media/ingest",
+                headers=self.admin_headers,
+                data={"product_id": product_id, "source_reference": "supplier:test", "rights_confirmed": "true"},
+                files={"file": ("part.png", image_bytes, "image/png")},
+            )
+            self.assertEqual(duplicate.status_code, 200, duplicate.text)
+            self.assertTrue(duplicate.json()["deduplicated"])
+            self.assertEqual(
+                {item["id"] for item in ingested.json()["assets"]},
+                {item["id"] for item in duplicate.json()["assets"]},
+            )
+
+            asset_read = self.client.get(
+                f"/api/catalog-reference-assets/{preview['id']}", headers=self.headers,
+            )
+            self.assertEqual(asset_read.status_code, 200, asset_read.text)
+            self.assertEqual(asset_read.headers["x-content-type-options"], "nosniff")
+            self.assertEqual(asset_read.headers["cache-control"], "private, max-age=31536000, immutable")
+
+            other_ingest = self.client.post(
+                "/api/catalog-reference/media/ingest",
+                headers=self.admin_headers,
+                data={"product_id": other_product_id, "source_reference": "supplier:other", "rights_confirmed": "true"},
+                files={"file": ("other.png", other_file.getvalue(), "image/png")},
+            )
+            self.assertEqual(other_ingest.status_code, 200, other_ingest.text)
+            other_asset_id = other_ingest.json()["assets"][0]["id"]
+            isolated = self.client.get(
+                f"/api/catalog-reference-assets/{other_asset_id}", headers=self.headers,
+            )
+            self.assertEqual(isolated.status_code, 404, isolated.text)
+            cross_industry = self.client.get(
+                f"/api/catalog-reference/families?industry_id={other_industry_id}", headers=self.headers,
+            )
+            self.assertEqual(cross_industry.status_code, 404, cross_industry.text)
+
+            spoofed = self.client.post(
+                "/api/catalog-reference/media/ingest",
+                headers=self.admin_headers,
+                data={"product_id": product_id, "source_reference": "supplier:spoof", "rights_confirmed": "true"},
+                files={"file": ("spoof.jpg", image_bytes, "image/jpeg")},
+            )
+            self.assertEqual(spoofed.status_code, 415, spoofed.text)
+            corrupt = self.client.post(
+                "/api/catalog-reference/media/ingest",
+                headers=self.admin_headers,
+                data={"product_id": product_id, "source_reference": "supplier:corrupt", "rights_confirmed": "true"},
+                files={"file": ("bad.png", b"not-an-image", "image/png")},
+            )
+            self.assertEqual(corrupt.status_code, 422, corrupt.text)
+            with patch.object(settings, "REFERENCE_ASSET_MAX_INPUT_BYTES", 4):
+                oversized = self.client.post(
+                    "/api/catalog-reference/media/ingest",
+                    headers=self.admin_headers,
+                    data={"product_id": product_id, "source_reference": "supplier:large", "rights_confirmed": "true"},
+                    files={"file": ("large.png", image_bytes, "image/png")},
+                )
+            self.assertEqual(oversized.status_code, 413, oversized.text)
+            with self.assertRaisesRegex(ValueError, "REFERENCE_ASSET_KEY_INVALID"):
+                reference_asset_storage.path_for("../private.webp")
+
+            page = self.client.get(
+                f"/api/catalog-products/page?industry_id={self.industry_id}&search=Reference+product",
+                headers=self.headers,
+            )
+            self.assertEqual(page.status_code, 200, page.text)
+            projected = next(item for item in page.json()["items"] if item["id"] == product_id)
+            self.assertEqual(projected["reference_preview_url"], preview["read_url"])
+            self.assertEqual(projected["image_url"], "/legacy-reference.png")
+            with patch.object(settings, "CATALOG_REFERENCE_MEDIA_V1_ENABLED", False):
+                legacy = self.client.get(
+                    f"/api/catalog-products/page?industry_id={self.industry_id}&search=Reference+product",
+                    headers=self.headers,
+                )
+            self.assertIsNone(legacy.json()["items"][0]["reference_preview_url"])
+            self.assertEqual(legacy.json()["items"][0]["image_url"], "/legacy-reference.png")
+
+            request_id = str(uuid.uuid4())
+            published = self.client.post(
+                "/api/catalog-reference/releases/publish",
+                headers=self.admin_headers,
+                json={"request_id": request_id, "industry_id": self.industry_id},
+            )
+            self.assertEqual(published.status_code, 200, published.text)
+            self.assertEqual(published.json()["status"], "published")
+            replay = self.client.post(
+                "/api/catalog-reference/releases/publish",
+                headers=self.admin_headers,
+                json={"request_id": request_id, "industry_id": self.industry_id},
+            )
+            self.assertEqual(replay.json()["id"], published.json()["id"])
+            manifest = self.client.get(
+                "/api/catalog-reference/releases/current/manifest?family_slug=starter-parts",
+                headers=self.headers,
+            )
+            self.assertEqual(manifest.status_code, 200, manifest.text)
+            self.assertEqual(manifest.json()["product_count"], 1)
+            self.assertEqual(manifest.json()["products"][0]["id"], product_id)
+
+            with SessionLocal() as db:
+                self.assertEqual(db.query(InventoryItem).count(), inventory_before)
+                pointer_before = db.get(CatalogReleasePointer, self.industry_id).release_id
+                preview_asset = db.get(ReferenceMediaAsset, preview["id"])
+                preview_path = reference_asset_storage.path_for(preview_asset.storage_key)
+                preview_bytes = preview_path.read_bytes()
+                preview_path.unlink()
+            incomplete = self.client.post(
+                "/api/catalog-reference/releases/publish",
+                headers=self.admin_headers,
+                json={"request_id": str(uuid.uuid4()), "industry_id": self.industry_id},
+            )
+            self.assertEqual(incomplete.status_code, 409, incomplete.text)
+            with SessionLocal() as db:
+                self.assertEqual(db.get(CatalogReleasePointer, self.industry_id).release_id, pointer_before)
+                preview_asset = db.get(ReferenceMediaAsset, preview["id"])
+                preview_path = reference_asset_storage._path(preview_asset.storage_key)
+                preview_path.write_bytes(preview_bytes)
+
+            index_path = reference_asset_storage.path_for(published.json()["manifest_path"])
+            index_bytes = index_path.read_bytes()
+            index_path.write_bytes(b"tampered")
+            tampered = self.client.get(
+                "/api/catalog-reference/releases/current", headers=self.headers,
+            )
+            self.assertEqual(tampered.status_code, 503, tampered.text)
+            index_path.write_bytes(index_bytes)
+
+        with patch.object(settings, "CATALOG_REFERENCE_MEDIA_V1_ENABLED", False):
+            hidden = self.client.get(
+                f"/api/catalog-reference-assets/{preview['id']}", headers=self.headers,
+            )
+        self.assertEqual(hidden.status_code, 404, hidden.text)
 
     def test_catalog_cursor_page_is_flagged_stable_and_filter_bound(self) -> None:
         with patch.object(settings, "CATALOG_CURSOR_READ_V2_ENABLED", False):

@@ -1,5 +1,28 @@
 # Catalog safe rollout changelog
 
+## GATE 3 — 2026-11-18
+
+### Families, reference media and safe publication
+
+- Added default-off reference-media infrastructure with additive Alembic
+  `20261118_0021`, industry-scoped families, validated content-addressed WebP
+  variants, immutable deterministic releases and an atomic current pointer.
+- Kept reference bytes private and authenticated; customer scope derives from
+  active Store membership. Added reference-first UI rendering with legacy
+  fallback and no Inventory, Sync, outbox, OPFS, service-worker or Store-backup
+  contract change.
+- Publication scale held at three SQL queries through 50k products/75k family
+  relations; the 50k manifest was 28,843,021 bytes, 25.50 s and ~170 MiB peak
+  traced memory, recorded as an operational rollout budget risk.
+- Verification: 418 frontend, 113 fast backend, 26 PostgreSQL and 140 hosted
+  E2E tests passed; eight established external-prerequisite E2E tests skipped;
+  typecheck, production build, lint and local migration to 0021 passed.
+- Development Gate: **GO — DEVELOPMENT ONLY**. Production release remains
+  **NO-GO / NOT ASSESSED**; no merge, push or deployment was performed.
+
+See `03_REFERENCE_MEDIA_PUBLICATION.md` for the model, access, recovery,
+benchmark, rollback and residual-risk evidence.
+
 ## GATE 2 — 2026-11-18
 
 ### Scalable browsing

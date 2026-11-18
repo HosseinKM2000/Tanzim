@@ -7,20 +7,19 @@ import { ClipboardIcon, ImageIcon, MagnifyingGlassIcon } from "@radix-ui/react-i
 import { PageGuide } from "@/features/app/layout/page-guide";
 import { useProducts } from "@/features/app/inventory/mutations/use-products";
 import { accessState } from "@/shared/access/access-state";
-import { resolveAssetUrl } from "@/shared/api/client";
 import { useAuth } from "@/shared/auth/use-auth";
+import { useCatalogImage } from "../hooks/use-catalog-image";
 import { useCatalogProductsInfinite } from "../mutations/use-catalog";
 import type { CatalogProduct } from "../types";
 
 const ROW_HEIGHT = 390;
 
 function CatalogImage({ product }: { product: CatalogProduct }) {
-  const [failed, setFailed] = useState(false);
-  const src = resolveAssetUrl(product.image_url);
+  const image = useCatalogImage(null, product.reference_preview_url, product.image_url);
   return (
     <Flex height="150px" align="center" justify="center" className="overflow-hidden rounded-md bg-gray-3">
-      {src && !failed ? (
-        <img src={src} alt={product.name} loading="lazy" decoding="async" onError={() => setFailed(true)}
+      {image.src ? (
+        <img src={image.src} alt={product.name} loading="lazy" decoding="async" onError={image.onError}
           className="h-full w-full object-cover" />
       ) : <ImageIcon width="32" height="32" aria-label="بدون تصویر" />}
     </Flex>

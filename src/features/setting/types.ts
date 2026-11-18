@@ -69,6 +69,10 @@ export type CatalogProduct = {
 
   image_url: string | null;
 
+  reference_preview_url?: string | null;
+
+  reference_detail_url?: string | null;
+
   is_packaged: boolean;
 
   pack_size: number | null;
@@ -112,6 +116,7 @@ export type CatalogProductPage = {
 export type CatalogAdoptionStatus = {
   enabled: boolean;
   cursor_read_v2_enabled: boolean;
+  reference_media_v1_enabled: boolean;
 };
 
 export type SubscriptionPlan = {

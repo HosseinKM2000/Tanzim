@@ -13,12 +13,22 @@ const catalog = {
   description: "محصول مشترک کاتالوگ", brand: "تنظیم", image_url: null,
   is_packaged: false, pack_size: null, created_at: now,
 };
+const imageBody = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64",
+);
 
 async function json(route: Route, body: unknown) {
   await route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
 }
 
-async function seed(page: Page, enabled: boolean, cursorV2 = enabled) {
+async function seed(
+  page: Page,
+  enabled: boolean,
+  cursorV2 = enabled,
+  referenceMedia = false,
+  assetFails = false,
+) {
   await page.addInitScript(({ seededUser, captured }) => {
     localStorage.setItem("access_token", JSON.stringify("catalog-adoption-token"));
     localStorage.setItem("inventory-last-user", JSON.stringify(seededUser));
@@ -31,8 +41,18 @@ async function seed(page: Page, enabled: boolean, cursorV2 = enabled) {
       limits: { inventory_items: null }, tools: { catalog: true },
     }));
   }, { seededUser: user, captured: now });
-  await page.route("http://localhost:8000/api/**", async (route) => {
+  await page.route("http://localhost:8000/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === "/api/catalog-reference-assets/preview-7101") {
+      if (route.request().headers().authorization !== "Bearer catalog-adoption-token") {
+        return route.fulfill({ status: 401 });
+      }
+      if (assetFails) return route.fulfill({ status: 404 });
+      return route.fulfill({ contentType: "image/png", body: imageBody });
+    }
+    if (path === "/legacy-catalog.png") {
+      return route.fulfill({ contentType: "image/png", body: imageBody });
+    }
     if (path === "/api/auth/me") return json(route, user);
     if (path === "/api/plans/current") return json(route, {
       user_id: user.id, store_id: user.store_id, plan: "pro", label: "Pro", status: "active",
@@ -41,10 +61,18 @@ async function seed(page: Page, enabled: boolean, cursorV2 = enabled) {
       capabilities: { "inventory.read": true, "inventory.write": true, sync: true },
       limits: { inventory_items: null }, tools: { catalog: true },
     });
-    if (path === "/api/catalog-products/adoption-status") return json(route, { enabled, cursor_read_v2_enabled: cursorV2 });
-    if (path === "/api/catalog-products/7101") return json(route, catalog);
-    if (path === "/api/catalog-products") return json(route, [catalog]);
-    if (path === "/api/catalog-products/page") return json(route, { items: [catalog], next_cursor: null, has_more: false });
+    if (path === "/api/catalog-products/adoption-status") return json(route, {
+      enabled, cursor_read_v2_enabled: cursorV2, reference_media_v1_enabled: referenceMedia,
+    });
+    const catalogResponse = {
+      ...catalog,
+      image_url: "/legacy-catalog.png",
+      reference_preview_url: referenceMedia ? "/api/catalog-reference-assets/preview-7101" : null,
+      reference_detail_url: null,
+    };
+    if (path === "/api/catalog-products/7101") return json(route, catalogResponse);
+    if (path === "/api/catalog-products") return json(route, [catalogResponse]);
+    if (path === "/api/catalog-products/page") return json(route, { items: [catalogResponse], next_cursor: null, has_more: false });
     if (path === "/api/categories" || path === "/api/labels") return json(route, []);
     if (path === "/api/sync/changes") return json(route, { cursor: 0, changes: [] });
     if (path === "/api/sync/categories" || path === "/api/sync/barcodes") return json(route, { items: [] });
@@ -99,4 +127,27 @@ test("cursor flag off rolls back to the Gate 1 catalog reader", async ({ page })
   await expect(page.getByText("چای مرجع")).toBeVisible();
   await expect(page.locator('a[href*="catalogId=7101"]')).toBeVisible();
   expect(await localCatalogRows(page)).toEqual([]);
+});
+
+test("reference preview is preferred when Gate 3 is enabled", async ({ page }) => {
+  await seed(page, true, true, true);
+  await page.goto("/tools/catalog");
+  const image = page.getByRole("img", { name: catalog.name });
+  await expect(image).toHaveAttribute("src", /^blob:/);
+  await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.naturalWidth)).toBeGreaterThan(0);
+});
+
+test("a failed reference preview falls back to the legacy image", async ({ page }) => {
+  await seed(page, true, true, true, true);
+  await page.goto("/tools/catalog");
+  const image = page.getByRole("img", { name: catalog.name });
+  await expect(image).toHaveAttribute("src", "http://localhost:8000/legacy-catalog.png");
+  await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.naturalWidth)).toBeGreaterThan(0);
+});
+
+test("Gate 3 flag off preserves the legacy image path", async ({ page }) => {
+  await seed(page, true, true, false);
+  await page.goto("/tools/catalog");
+  await expect(page.getByRole("img", { name: catalog.name }))
+    .toHaveAttribute("src", "http://localhost:8000/legacy-catalog.png");
 });

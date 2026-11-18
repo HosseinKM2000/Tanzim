@@ -5,9 +5,9 @@ import json
 from datetime import datetime
 
 from sqlalchemy import and_, or_, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
-from ..models import CatalogProduct
+from ..models import CatalogProduct, CatalogProductMedia
 from ..config import settings
 from ..schemas import (
     CatalogProductCreate,
@@ -32,6 +32,17 @@ def _search_clause(search: str):
         for pattern in _search_patterns(search)
         for column in (CatalogProduct.name, CatalogProduct.brand, CatalogProduct.description)
     ))
+
+
+def _catalog_load_options():
+    options = [joinedload(CatalogProduct.industry)]
+    if settings.CATALOG_REFERENCE_MEDIA_V1_ENABLED:
+        options.append(
+            selectinload(CatalogProduct.reference_media_links).joinedload(
+                CatalogProductMedia.media_asset
+            )
+        )
+    return options
 
 
 def _query_fingerprint(search: str | None, industry_id: int | None) -> str:
@@ -82,7 +93,7 @@ def get_catalog_products_page(
     fingerprint = _query_fingerprint(search, industry_id)
     stmt = (
         select(CatalogProduct)
-        .options(joinedload(CatalogProduct.industry))
+        .options(*_catalog_load_options())
         .where(CatalogProduct.is_shared.is_(True), CatalogProduct.is_active.is_(True))
     )
     if industry_id:
@@ -109,7 +120,7 @@ def get_catalog_products(
 ):
     stmt = (
         select(CatalogProduct)
-        .options(joinedload(CatalogProduct.industry))
+        .options(*_catalog_load_options())
         .where(
             CatalogProduct.is_shared.is_(True),
             CatalogProduct.is_active.is_(is_active),
@@ -138,7 +149,7 @@ def get_catalog_product(
 ):
     return db.scalar(
         select(CatalogProduct)
-        .options(joinedload(CatalogProduct.industry))
+        .options(*_catalog_load_options())
         .where(
             CatalogProduct.id == catalog_id,
             CatalogProduct.is_shared.is_(True),
@@ -153,7 +164,7 @@ def get_catalog_product_any_state(
 ):
     return db.scalar(
         select(CatalogProduct)
-        .options(joinedload(CatalogProduct.industry))
+        .options(*_catalog_load_options())
         .where(
             CatalogProduct.id == catalog_id,
             CatalogProduct.is_shared.is_(True),

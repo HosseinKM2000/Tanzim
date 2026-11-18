@@ -24,6 +24,7 @@ def catalog_adoption_status(_: CurrentCatalogUser):
     return CatalogAdoptionStatus(
         enabled=settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED,
         cursor_read_v2_enabled=settings.CATALOG_CURSOR_READ_V2_ENABLED,
+        reference_media_v1_enabled=settings.CATALOG_REFERENCE_MEDIA_V1_ENABLED,
     )
 
 
