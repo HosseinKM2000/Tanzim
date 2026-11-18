@@ -73,6 +73,12 @@ export type CatalogProduct = {
 
   reference_detail_url?: string | null;
 
+  reference_preview?: CatalogReferenceAssetSummary | null;
+
+  reference_detail?: CatalogReferenceAssetSummary | null;
+
+  reference_family_slug?: string | null;
+
   is_packaged: boolean;
 
   pack_size: number | null;
@@ -82,6 +88,15 @@ export type CatalogProduct = {
   // Keep industry_id as the stable source of truth. Legacy API responses may
   // not contain the expanded relation, so consumers must handle its absence.
   industry?: Pick<Industry, "id" | "name"> | null;
+};
+
+export type CatalogReferenceAssetSummary = {
+  asset_id: string;
+  content_hash: string;
+  storage_key: string;
+  width: number;
+  height: number;
+  byte_size: number;
 };
 
 export type CatalogProductInput = {
@@ -117,6 +132,7 @@ export type CatalogAdoptionStatus = {
   enabled: boolean;
   cursor_read_v2_enabled: boolean;
   reference_media_v1_enabled: boolean;
+  offline_families_v1_enabled: boolean;
 };
 
 export type SubscriptionPlan = {

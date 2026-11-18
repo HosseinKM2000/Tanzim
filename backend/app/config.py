@@ -67,6 +67,9 @@ class Settings:
     CATALOG_REFERENCE_MEDIA_V1_ENABLED: bool = _environment_flag(
         "CATALOG_REFERENCE_MEDIA_V1_ENABLED"
     )
+    CATALOG_OFFLINE_FAMILIES_V1_ENABLED: bool = _environment_flag(
+        "CATALOG_OFFLINE_FAMILIES_V1_ENABLED"
+    )
     REFERENCE_ASSET_MAX_INPUT_BYTES: int = int(
         os.getenv("REFERENCE_ASSET_MAX_INPUT_BYTES", str(8 * 1024 * 1024))
     )

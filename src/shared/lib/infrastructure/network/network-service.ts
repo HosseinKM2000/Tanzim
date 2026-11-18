@@ -19,11 +19,11 @@ class NetworkService {
   }
 
   isOnline() {
-    return this.online;
+    return this.online && navigator.onLine;
   }
 
   isOffline() {
-    return !this.online;
+    return !this.online || !navigator.onLine;
   }
 
   subscribe(listener: Listener) {

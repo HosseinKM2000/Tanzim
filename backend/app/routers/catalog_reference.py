@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from ..config import settings
 from ..deps import CurrentCatalogManager, CurrentCatalogUser, DbSession
-from ..models import CatalogProduct, CatalogProductMedia, ReferenceMediaAsset
+from ..models import CatalogProduct, CatalogProductMedia, CatalogRelease, ReferenceMediaAsset
 from ..reference_storage import reference_asset_storage
 from ..schemas import (
     CatalogFamilyCreate,
@@ -109,16 +109,60 @@ def get_current_manifest(
     )
 
 
+@router.get("/releases/{release_id}/manifest")
+def get_release_manifest(
+    release_id: str,
+    current_user: CurrentCatalogUser,
+    db: DbSession,
+    family_slug: str = Query(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$"),
+    industry_id: int | None = Query(default=None, gt=0),
+):
+    return service.read_release_family_manifest(
+        db,
+        _authorized_industry(db, current_user, industry_id),
+        release_id,
+        family_slug,
+    )
+
+
 @assets_router.get("/{asset_id}")
 def read_reference_asset(
     asset_id: str,
     current_user: CurrentCatalogUser,
     db: DbSession,
+    release_id: str | None = Query(default=None),
+    family_slug: str | None = Query(
+        default=None, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    ),
 ):
     service.require_reference_media_enabled()
     asset = db.get(ReferenceMediaAsset, asset_id)
     if asset is None or asset.validation_status != "approved":
         raise HTTPException(status_code=404, detail="REFERENCE_ASSET_NOT_FOUND")
+    authorized_industry = None if is_admin(current_user) else _authorized_industry(db, current_user, None)
+    if family_slug is not None and release_id is None:
+        raise HTTPException(status_code=422, detail="CATALOG_RELEASE_SCOPE_INCOMPLETE")
+    if release_id is not None:
+        if authorized_industry is None:
+            release = db.get(CatalogRelease, release_id)
+            if release is None:
+                raise HTTPException(status_code=404, detail="REFERENCE_ASSET_NOT_FOUND")
+            authorized_industry = release.industry_id
+        if family_slug is not None:
+            service.authorize_release_asset(
+                db,
+                industry_id=authorized_industry,
+                release_id=release_id,
+                family_slug=family_slug,
+                asset_id=asset.id,
+            )
+        else:
+            service.authorize_release_asset_any_family(
+                db,
+                industry_id=authorized_industry,
+                release_id=release_id,
+                asset_id=asset.id,
+            )
     statement = (
         select(CatalogProduct.id)
         .join(CatalogProductMedia, CatalogProductMedia.catalog_product_id == CatalogProduct.id)
@@ -130,7 +174,7 @@ def read_reference_asset(
     )
     if not is_admin(current_user):
         statement = statement.where(
-            CatalogProduct.industry_id == _authorized_industry(db, current_user, None)
+            CatalogProduct.industry_id == authorized_industry
         )
     if db.scalar(statement.limit(1)) is None:
         raise HTTPException(status_code=404, detail="REFERENCE_ASSET_NOT_FOUND")

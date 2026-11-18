@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
+import { createHash } from "node:crypto";
 
 const now = "2026-11-18T00:00:00.000Z";
 const user = {
@@ -17,6 +18,31 @@ const imageBody = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
   "base64",
 );
+const webpBody = Buffer.from("UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA", "base64");
+
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value && typeof value === "object") return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, child]) => `${JSON.stringify(key)}:${canonical(child)}`).join(",")}}`;
+  return JSON.stringify(value) ?? "null";
+}
+
+function offlineManifest() {
+  const asset = {
+    asset_id: "offline-preview-7101",
+    content_hash: createHash("sha256").update(webpBody).digest("hex"),
+    storage_key: "blobs/offline-preview-7101.webp",
+    width: 1,
+    height: 1,
+    byte_size: webpBody.byteLength,
+  };
+  const body = {
+    schema_version: 1 as const, industry_id: 71, family_id: 171, family_slug: "offline-family",
+    release_id: "11111111-1111-4111-8111-111111111111", release_version: 1, generated_at: now,
+    product_count: 1, asset_count: 1, total_bytes: asset.byte_size,
+    products: [{ ...catalog, preview: asset, detail: null }],
+  };
+  return { ...body, content_hash: createHash("sha256").update(canonical(body)).digest("hex") };
+}
 
 async function json(route: Route, body: unknown) {
   await route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
@@ -95,6 +121,60 @@ async function localCatalogRows(page: Page) {
   });
 }
 
+async function seedOfflineFamily(page: Page) {
+  const manifest = offlineManifest();
+  let assetRequests = 0;
+  await page.addInitScript(({ seededUser, captured }) => {
+    localStorage.setItem("access_token", JSON.stringify("catalog-adoption-token"));
+    localStorage.setItem("inventory-last-user", JSON.stringify(seededUser));
+    localStorage.setItem(`inventory-entitlement-v2:${seededUser.id}:${seededUser.store_id}`, JSON.stringify({
+      user_id: seededUser.id, store_id: seededUser.store_id, plan: "pro", label: "Pro", status: "active",
+      account_status: "active", started_at: captured, expires_at: "2099-01-01T00:00:00.000Z",
+      server_time: captured, synced_at: captured, verified_at: captured, captured_at_ms: Date.now(), last_observed_at_ms: Date.now(),
+      capabilities: { "inventory.read": true, "inventory.write": true, sync: true }, limits: { inventory_items: null }, tools: { catalog: true },
+    }));
+  }, { seededUser: user, captured: now });
+  await page.route("http://localhost:8000/**", async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+    if (path === "/api/auth/me") return json(route, user);
+    if (path === "/api/plans/current") return json(route, {
+      user_id: user.id, store_id: user.store_id, plan: "pro", label: "Pro", status: "active", account_status: "active",
+      started_at: now, expires_at: "2099-01-01T00:00:00.000Z", server_time: now, synced_at: now,
+      capabilities: { "inventory.read": true, "inventory.write": true, sync: true }, limits: { inventory_items: null }, tools: { catalog: true },
+    });
+    if (path === "/api/catalog-products/adoption-status") return json(route, {
+      enabled: true, cursor_read_v2_enabled: true, reference_media_v1_enabled: true, offline_families_v1_enabled: true,
+    });
+    if (path === "/api/catalog-reference/families") return json(route, [{ id: 171, industry_id: 71, slug: "offline-family", name: "خانواده آفلاین", is_active: true, sort_order: 1 }]);
+    if (path === "/api/catalog-reference/releases/current") return json(route, {
+      id: manifest.release_id, industry_id: 71, version: 1, status: "published", manifest_hash: "a".repeat(64), published_at: now,
+    });
+    if (path === `/api/catalog-reference/releases/${manifest.release_id}/manifest`) return json(route, manifest);
+    if (path === "/api/catalog-reference-assets/offline-preview-7101") {
+      assetRequests += 1;
+      expect(route.request().headers().authorization).toBe("Bearer catalog-adoption-token");
+      expect(url.searchParams.get("release_id")).toBe(manifest.release_id);
+      expect(url.searchParams.get("family_slug")).toBe("offline-family");
+      return route.fulfill({ contentType: "image/webp", body: webpBody });
+    }
+    if (path === "/api/catalog-products/page") return json(route, { items: [{
+      ...catalog,
+      reference_preview_url: "/api/catalog-reference-assets/offline-preview-7101",
+      reference_detail_url: null,
+      reference_preview: manifest.products[0].preview,
+      reference_detail: null,
+      reference_family_slug: "offline-family",
+    }], next_cursor: null, has_more: false });
+    if (path === "/api/catalog-products/7101") return json(route, catalog);
+    if (path === "/api/categories" || path === "/api/labels") return json(route, []);
+    if (path === "/api/sync/changes") return json(route, { cursor: 0, changes: [] });
+    if (path === "/api/sync/categories" || path === "/api/sync/barcodes") return json(route, { items: [] });
+    return route.abort();
+  });
+  return { assetRequests: () => assetRequests };
+}
+
 test("flag on browses without writes and explicitly adopts through the local-first inventory workflow", async ({ page }) => {
   await seed(page, true);
   await page.goto("/tools/catalog");
@@ -150,4 +230,42 @@ test("Gate 3 flag off preserves the legacy image path", async ({ page }) => {
   await page.goto("/tools/catalog");
   await expect(page.getByRole("img", { name: catalog.name }))
     .toHaveAttribute("src", "http://localhost:8000/legacy-catalog.png");
+});
+
+test("downloads a verified family and reopens its metadata and image offline", async ({ page, context }) => {
+  await seedOfflineFamily(page);
+  await page.goto("/setting/catalog-images");
+  await expect(page.getByText("خانواده آفلاین")).toBeVisible();
+  await page.getByRole("button", { name: "دانلود سبک" }).click();
+  await expect(page.getByText("کامل", { exact: true }).last()).toBeVisible({ timeout: 15_000 });
+
+  await page.goto("/tools/catalog");
+  await expect(page.getByText(catalog.name)).toBeVisible();
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) {
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+  }
+  // Playwright route fulfillment bypasses the browser's offline signal. Force
+  // the next document's capability signal as well as blocking real network.
+  await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "onLine", { configurable: true, get: () => false }));
+  await context.setOffline(true);
+  await page.reload();
+  expect(await page.evaluate(() => navigator.onLine)).toBe(false);
+  await expect(page.getByRole("heading", { name: "کاتالوگ آفلاین" })).toBeVisible();
+  await expect(page.getByText(catalog.name)).toBeVisible();
+  const image = page.getByRole("img", { name: catalog.name });
+  await expect(image).toHaveAttribute("src", /^blob:/);
+  await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.naturalWidth)).toBeGreaterThan(0);
+});
+
+test("automatically caches a published visible reference without a repeat transfer", async ({ page }) => {
+  const tracker = await seedOfflineFamily(page);
+  await page.goto("/tools/catalog");
+  const image = page.getByRole("img", { name: catalog.name });
+  await expect(image).toHaveAttribute("src", /^blob:/);
+  await expect.poll(tracker.assetRequests).toBe(1);
+  await page.reload();
+  await expect(page.getByRole("img", { name: catalog.name })).toHaveAttribute("src", /^blob:/);
+  await expect.poll(tracker.assetRequests).toBe(1);
 });

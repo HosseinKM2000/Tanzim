@@ -333,9 +333,14 @@ def _release_files(db: Session, release: CatalogRelease) -> dict[str, bytes]:
                 }
             products.append({
                 "id": product.id,
+                "industry_id": product.industry_id,
                 "name": product.name,
                 "brand": product.brand,
                 "description": product.description,
+                "image_url": product.image_url,
+                "is_packaged": product.is_packaged,
+                "pack_size": product.pack_size,
+                "created_at": product.created_at.astimezone(timezone.utc).isoformat(),
                 "preview": asset_values["preview"],
                 "detail": asset_values["detail"],
             })
@@ -509,3 +514,94 @@ def read_current_manifest(
     ):
         raise HTTPException(status_code=503, detail="CATALOG_MANIFEST_TAMPERED")
     return {**sealed, "content_hash": content_hash}
+
+
+def read_release_family_manifest(
+    db: Session, industry_id: int, release_id: str, family_slug: str
+) -> dict:
+    require_reference_media_enabled()
+    try:
+        normalized_release = str(uuid.UUID(release_id))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="CATALOG_RELEASE_ID_INVALID") from error
+    release = db.get(CatalogRelease, normalized_release)
+    if (
+        release is None
+        or release.industry_id != industry_id
+        or release.status not in {"published", "superseded"}
+        or not release.manifest_path
+        or not release.manifest_hash
+    ):
+        raise HTTPException(status_code=404, detail="CATALOG_RELEASE_NOT_FOUND")
+    try:
+        index_content = reference_asset_storage.path_for(release.manifest_path).read_bytes()
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=503, detail="CATALOG_RELEASE_BYTES_UNAVAILABLE") from error
+    if hashlib.sha256(index_content).hexdigest() != release.manifest_hash:
+        raise HTTPException(status_code=503, detail="CATALOG_MANIFEST_TAMPERED")
+    index = json.loads(index_content)
+    entry = next(
+        (item for item in index.get("families", []) if item.get("slug") == family_slug),
+        None,
+    )
+    if entry is None:
+        raise HTTPException(status_code=404, detail="CATALOG_FAMILY_NOT_FOUND")
+    family_key = f"releases/{release.id}/{entry['manifest_path']}"
+    try:
+        family_content = reference_asset_storage.path_for(family_key).read_bytes()
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=503, detail="CATALOG_RELEASE_BYTES_UNAVAILABLE") from error
+    sealed = json.loads(family_content)
+    content_hash = sealed.pop("content_hash", None)
+    if (
+        content_hash != entry.get("manifest_hash")
+        or hashlib.sha256(_canonical_json(sealed)).hexdigest() != content_hash
+    ):
+        raise HTTPException(status_code=503, detail="CATALOG_MANIFEST_TAMPERED")
+    return {**sealed, "content_hash": content_hash}
+
+
+def authorize_release_asset(
+    db: Session,
+    *,
+    industry_id: int,
+    release_id: str,
+    family_slug: str,
+    asset_id: str,
+) -> None:
+    manifest = read_release_family_manifest(db, industry_id, release_id, family_slug)
+    for product in manifest.get("products", []):
+        for role in ("preview", "detail"):
+            if (product.get(role) or {}).get("asset_id") == asset_id:
+                return
+    raise HTTPException(status_code=404, detail="REFERENCE_ASSET_NOT_PUBLISHED")
+
+
+def authorize_release_asset_any_family(
+    db: Session, *, industry_id: int, release_id: str, asset_id: str
+) -> None:
+    """Prove publication without requiring the client to preload family ownership."""
+    release = db.get(CatalogRelease, release_id)
+    if (
+        release is None
+        or release.industry_id != industry_id
+        or release.status not in {"published", "superseded"}
+        or not release.manifest_path
+        or not release.manifest_hash
+    ):
+        raise HTTPException(status_code=404, detail="CATALOG_RELEASE_NOT_FOUND")
+    try:
+        index_content = reference_asset_storage.path_for(release.manifest_path).read_bytes()
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=503, detail="CATALOG_RELEASE_BYTES_UNAVAILABLE") from error
+    if hashlib.sha256(index_content).hexdigest() != release.manifest_hash:
+        raise HTTPException(status_code=503, detail="CATALOG_MANIFEST_TAMPERED")
+    for entry in json.loads(index_content).get("families", []):
+        manifest = read_release_family_manifest(db, industry_id, release_id, entry.get("slug", ""))
+        for product in manifest.get("products", []):
+            if any(
+                (product.get(role) or {}).get("asset_id") == asset_id
+                for role in ("preview", "detail")
+            ):
+                return
+    raise HTTPException(status_code=404, detail="REFERENCE_ASSET_NOT_PUBLISHED")

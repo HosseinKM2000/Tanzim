@@ -515,6 +515,23 @@ class CatalogProduct(Base):
                 return f"/api/catalog-reference-assets/{link.media_asset.id}"
         return None
 
+    def _reference_asset(self, role: str) -> dict | None:
+        from .config import settings
+        if not settings.CATALOG_REFERENCE_MEDIA_V1_ENABLED:
+            return None
+        for link in self.reference_media_links:
+            asset = link.media_asset
+            if link.role == role and asset.validation_status == "approved":
+                return {
+                    "asset_id": asset.id,
+                    "content_hash": asset.content_sha256,
+                    "storage_key": asset.storage_key,
+                    "width": asset.width,
+                    "height": asset.height,
+                    "byte_size": asset.byte_size,
+                }
+        return None
+
     @property
     def reference_preview_url(self) -> str | None:
         return self._reference_url("preview")
@@ -522,6 +539,24 @@ class CatalogProduct(Base):
     @property
     def reference_detail_url(self) -> str | None:
         return self._reference_url("detail")
+
+    @property
+    def reference_preview(self) -> dict | None:
+        return self._reference_asset("preview")
+
+    @property
+    def reference_detail(self) -> dict | None:
+        return self._reference_asset("detail")
+
+    @property
+    def reference_family_slug(self) -> str | None:
+        from .config import settings
+        if not settings.CATALOG_REFERENCE_MEDIA_V1_ENABLED:
+            return None
+        for link in self.family_links:
+            if link.family.is_active:
+                return link.family.slug
+        return None
 
 
 class CatalogFamily(Base):

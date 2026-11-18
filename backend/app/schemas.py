@@ -396,6 +396,7 @@ class CatalogAdoptionStatus(BaseModel):
     enabled: bool
     cursor_read_v2_enabled: bool
     reference_media_v1_enabled: bool
+    offline_families_v1_enabled: bool
 
 
 class CatalogProductBase(BaseModel):
@@ -462,6 +463,15 @@ class CatalogProductUpdate(BaseModel):
             return None
         return value.strip() or None
 
+class CatalogReferenceAssetSummary(BaseModel):
+    asset_id: str
+    content_hash: str
+    storage_key: str
+    width: int
+    height: int
+    byte_size: int
+
+
 class CatalogProductOut(BaseModel):
     id: int
 
@@ -480,6 +490,12 @@ class CatalogProductOut(BaseModel):
     reference_preview_url: str | None = None
 
     reference_detail_url: str | None = None
+
+    reference_preview: CatalogReferenceAssetSummary | None = None
+
+    reference_detail: CatalogReferenceAssetSummary | None = None
+
+    reference_family_slug: str | None = None
 
     is_packaged: bool
 

@@ -1037,12 +1037,14 @@ class SyncApiTest(unittest.TestCase):
             "enabled": False,
             "cursor_read_v2_enabled": False,
             "reference_media_v1_enabled": False,
+            "offline_families_v1_enabled": False,
         })
 
         with (
             patch.object(settings, "CATALOG_ON_DEMAND_ADOPTION_ENABLED", True),
             patch.object(settings, "CATALOG_CURSOR_READ_V2_ENABLED", True),
             patch.object(settings, "CATALOG_REFERENCE_MEDIA_V1_ENABLED", True),
+            patch.object(settings, "CATALOG_OFFLINE_FAMILIES_V1_ENABLED", True),
         ):
             enabled = self.client.get(
                 "/api/catalog-products/adoption-status", headers=self.headers,
@@ -1051,6 +1053,7 @@ class SyncApiTest(unittest.TestCase):
             "enabled": True,
             "cursor_read_v2_enabled": True,
             "reference_media_v1_enabled": True,
+            "offline_families_v1_enabled": True,
         })
 
     def test_reference_media_registry_publication_and_security_contract(self) -> None:
@@ -1202,6 +1205,8 @@ class SyncApiTest(unittest.TestCase):
             self.assertEqual(page.status_code, 200, page.text)
             projected = next(item for item in page.json()["items"] if item["id"] == product_id)
             self.assertEqual(projected["reference_preview_url"], preview["read_url"])
+            self.assertEqual(projected["reference_preview"]["content_hash"], preview["content_sha256"])
+            self.assertEqual(projected["reference_family_slug"], "starter-parts")
             self.assertEqual(projected["image_url"], "/legacy-reference.png")
             with patch.object(settings, "CATALOG_REFERENCE_MEDIA_V1_ENABLED", False):
                 legacy = self.client.get(
@@ -1232,6 +1237,37 @@ class SyncApiTest(unittest.TestCase):
             self.assertEqual(manifest.status_code, 200, manifest.text)
             self.assertEqual(manifest.json()["product_count"], 1)
             self.assertEqual(manifest.json()["products"][0]["id"], product_id)
+            exact_manifest = self.client.get(
+                f"/api/catalog-reference/releases/{published.json()['id']}/manifest?family_slug=starter-parts",
+                headers=self.headers,
+            )
+            self.assertEqual(exact_manifest.status_code, 200, exact_manifest.text)
+            self.assertEqual(exact_manifest.json()["content_hash"], manifest.json()["content_hash"])
+            scoped_asset = self.client.get(
+                f"/api/catalog-reference-assets/{preview['id']}?release_id={published.json()['id']}&family_slug=starter-parts",
+                headers=self.headers,
+            )
+            self.assertEqual(scoped_asset.status_code, 200, scoped_asset.text)
+            release_scoped_asset = self.client.get(
+                f"/api/catalog-reference-assets/{preview['id']}?release_id={published.json()['id']}",
+                headers=self.headers,
+            )
+            self.assertEqual(release_scoped_asset.status_code, 200, release_scoped_asset.text)
+            forged_family = self.client.get(
+                f"/api/catalog-reference-assets/{preview['id']}?release_id={published.json()['id']}&family_slug=unknown-family",
+                headers=self.headers,
+            )
+            self.assertEqual(forged_family.status_code, 404, forged_family.text)
+            forged_asset = self.client.get(
+                f"/api/catalog-reference-assets/{other_asset_id}?release_id={published.json()['id']}&family_slug=starter-parts",
+                headers=self.headers,
+            )
+            self.assertEqual(forged_asset.status_code, 404, forged_asset.text)
+            release_scoped_forged_asset = self.client.get(
+                f"/api/catalog-reference-assets/{other_asset_id}?release_id={published.json()['id']}",
+                headers=self.headers,
+            )
+            self.assertEqual(release_scoped_forged_asset.status_code, 404, release_scoped_forged_asset.text)
 
             with SessionLocal() as db:
                 self.assertEqual(db.query(InventoryItem).count(), inventory_before)

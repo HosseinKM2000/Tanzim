@@ -1,5 +1,30 @@
 # Catalog safe rollout changelog
 
+## GATE 4 — 2026-11-18
+
+### Offline families and verified reference-image cache
+
+- Added default-off, Store/account/industry-partitioned offline family metadata,
+  persistent download journals, an isolated content-addressed OPFS repository and
+  a shared bounded image loader (four total/two bulk by default).
+- Added authenticated exact-release family manifests and release/family-scoped asset
+  authorization, atomic local release activation, incremental reuse, pinned-family
+  protection, budgeted unpinned LRU cleanup, and Settings/offline Catalog surfaces.
+- Preserved ProductForm/outbox adoption, Inventory media, Sync, backup, service-worker,
+  PostgreSQL, and Gate 1–3 contracts. Alembic remains `20261118_0021`; operational
+  Dexie remains v14 and the additive Catalog database is independently versioned v1.
+- Production-preview E2E verified download, reload, offline search metadata, and OPFS
+  image display on desktop and Pixel 7 emulation. Synthetic Chromium measurements
+  and the 50k metadata warning are recorded in the Gate report.
+- Closing verification passed 425 frontend, 113 fast backend, 26 isolated PostgreSQL,
+  and 144 production-preview E2E tests; the established eight external-prerequisite
+  E2E tests were skipped and no test failed. Typecheck, build, and lint passed.
+- Development Gate: **GO — DEVELOPMENT ONLY**. Production remains
+  **NO-GO / NOT ASSESSED**; no merge, push, deploy, or later Gate was performed.
+
+See `04_OFFLINE_CATALOG_AND_IMAGES.md` for policy, contracts, measurements,
+verification, rollback, and residual risks.
+
 ## GATE 3 — 2026-11-18
 
 ### Families, reference media and safe publication

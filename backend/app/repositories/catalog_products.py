@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from ..models import CatalogProduct, CatalogProductMedia
+from ..models import CatalogProduct, CatalogProductFamily, CatalogProductMedia
 from ..config import settings
 from ..schemas import (
     CatalogProductCreate,
@@ -40,6 +40,11 @@ def _catalog_load_options():
         options.append(
             selectinload(CatalogProduct.reference_media_links).joinedload(
                 CatalogProductMedia.media_asset
+            )
+        )
+        options.append(
+            selectinload(CatalogProduct.family_links).joinedload(
+                CatalogProductFamily.family
             )
         )
     return options

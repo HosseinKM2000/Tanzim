@@ -6,7 +6,7 @@ import { ActivityLogIcon, ArchiveIcon, BookmarkIcon, ClipboardIcon, CubeIcon, Da
 import type { ComponentType } from "react";
 
 export type NavigationGroup = "primary" | "settings" | "tools" | "management";
-export type NavigationRoute = "/dashboard" | "/inventory/list" | "/setting" | "/setting/sync" | "/setting/update" | "/setting/profile" | "/setting/security" | "/setting/appearance" | "/setting/backup" | "/setting/industry" | "/setting/subscription" | "/setting/personnel" | "/setting/roles" | "/tools" | "/tools/invoices" | "/tools/counterparties" | "/tools/scanner" | "/tools/categories" | "/tools/export" | "/tools/catalog" | "/tools/recovery" | "/tools/import" | "/tools/labels" | "/tools/help" | "/tools/activity" | "/management" | "/management/subscriptions" | "/management/users" | "/management/catalogs" | "/management/industries";
+export type NavigationRoute = "/dashboard" | "/inventory/list" | "/setting" | "/setting/sync" | "/setting/update" | "/setting/profile" | "/setting/security" | "/setting/appearance" | "/setting/backup" | "/setting/catalog-images" | "/setting/industry" | "/setting/subscription" | "/setting/personnel" | "/setting/roles" | "/tools" | "/tools/invoices" | "/tools/counterparties" | "/tools/scanner" | "/tools/categories" | "/tools/export" | "/tools/catalog" | "/tools/recovery" | "/tools/import" | "/tools/labels" | "/tools/help" | "/tools/activity" | "/management" | "/management/subscriptions" | "/management/users" | "/management/catalogs" | "/management/industries";
 type NavigationIcon = ComponentType<{ width?: number | string; height?: number | string }>;
 
 export type NavigationItem = { id: string; label: string; description?: string; to: NavigationRoute; icon: NavigationIcon; group: NavigationGroup; adminOnly?: boolean; ownerOnly?: boolean; storePermission?: string; capabilities?: string[]; requiresOnline?: boolean; toolId?: DomainToolId };
@@ -27,6 +27,7 @@ export const settingsNavigationItems = [
   { id: "roles", label: "نقش‌ها", description: "نقش‌های مجموعه و مجوزهای هر نقش", to: "/setting/roles", icon: LockClosedIcon, group: "settings", ownerOnly: true, requiresOnline: true },
   { id: "sync", label: "همگام‌سازی", description: "وضعیت اتصال، صف تغییرات، آخرین رویدادها و خطاهای همگام‌سازی", to: "/setting/sync", icon: ReloadIcon, group: "settings" },
   { id: "local-backup", label: "فایل پشتیبان محلی", description: "ذخیره و بازیابی نسخه کامل داده‌ها روی همین دستگاه", to: "/setting/backup", icon: ArchiveIcon, group: "settings", ownerOnly: true },
+  { id: "catalog-images", toolId: "catalog", label: "کاتالوگ آفلاین", description: "دانلود و مدیریت خانواده‌ها و تصاویر مرجع", to: "/setting/catalog-images", icon: DownloadIcon, group: "settings" },
   { id: "subscription", label: "اشتراک", description: "طرح، محدودیت‌ها و وضعیت اشتراک مجموعه", to: "/setting/subscription", icon: StarIcon, group: "settings", ownerOnly: true, requiresOnline: true },
   { id: "app-update", label: "بروزرسانی", description: "بررسی و نصب آخرین نسخه برنامه و مشاهده امکانات تازه", to: "/setting/update", icon: DownloadIcon, group: "settings" },
 ] as const satisfies readonly NavigationItem[];

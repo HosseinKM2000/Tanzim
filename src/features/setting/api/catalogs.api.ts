@@ -1,5 +1,8 @@
 import { apiFetch } from "@/shared/api/client";
 import { networkService } from "@/shared/lib/infrastructure/network/network-service";
+import { catalogOfflineRepository } from "@/features/catalog-offline/catalog-offline.repository";
+import { currentCatalogScope } from "@/features/catalog-offline/scope";
+import { getCurrentCatalogRelease } from "@/features/catalog-offline/catalog-offline.api";
 import type {
   CatalogProduct,
   CatalogProductInput,
@@ -29,9 +32,39 @@ export function getCatalogProducts(params?: CatalogProductListParams) {
   );
 }
 
-export function getCatalogAdoptionStatus() {
-  requireOnline();
-  return apiFetch<CatalogAdoptionStatus>("/catalog-products/adoption-status");
+export async function getCatalogAdoptionStatus() {
+  const scope = currentCatalogScope();
+  if (networkService.isOffline()) {
+    const saved = scope ? await catalogOfflineRepository.latestRelease(scope) : undefined;
+    if (!saved) requireOnline();
+    return {
+      enabled: saved!.adoptionEnabled,
+      cursor_read_v2_enabled: saved!.cursorEnabled,
+      reference_media_v1_enabled: saved!.referenceEnabled,
+      offline_families_v1_enabled: saved!.offlineEnabled,
+    };
+  }
+  const status = await apiFetch<CatalogAdoptionStatus>("/catalog-products/adoption-status");
+  if (scope && status.offline_families_v1_enabled) {
+    const release = await getCurrentCatalogRelease();
+    if (release) {
+      await catalogOfflineRepository.saveRelease(scope, {
+        key: `${scope.scopeKey}:release:${release.id}`,
+        scopeKey: scope.scopeKey,
+        releaseId: release.id,
+        industryId: scope.industryId,
+        version: release.version,
+        status: release.status,
+        manifestHash: release.manifest_hash,
+        checkedAt: Date.now(),
+        adoptionEnabled: status.enabled,
+        cursorEnabled: status.cursor_read_v2_enabled,
+        referenceEnabled: status.reference_media_v1_enabled,
+        offlineEnabled: status.offline_families_v1_enabled,
+      });
+    }
+  }
+  return status;
 }
 
 export function getCatalogProductsPage(
@@ -60,8 +93,13 @@ export function getArchivedCatalogProducts(params?: CatalogProductListParams) {
   );
 }
 
-export function getCatalogProduct(id: number) {
-  requireOnline();
+export async function getCatalogProduct(id: number) {
+  if (networkService.isOffline()) {
+    const scope = currentCatalogScope();
+    const product = scope ? await catalogOfflineRepository.product(scope, id) : undefined;
+    if (product) return product;
+    requireOnline();
+  }
   return apiFetch<CatalogProduct>(`/catalog-products/${id}`);
 }
 
