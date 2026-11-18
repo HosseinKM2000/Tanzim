@@ -1,5 +1,31 @@
 # Catalog safe rollout changelog
 
+## GATE 5 — 2026-11-18
+
+### Field validation and controlled release readiness
+
+- Revalidated 425 frontend, 113 backend and 26 isolated PostgreSQL tests, plus
+  production build, typecheck and lint; the unchanged hosted baseline remained
+  144 passed with eight prerequisite skips.
+- Provisioned a disposable PostgreSQL/backend/media environment and executed all
+  four previously skipped journeys in both browser projects: authentication,
+  live media recovery, two-build PWA update and live operation resolution.
+- Corrected only evidence-driven E2E prerequisite defects: exact selectors,
+  bounded usernames, explicit Sync entitlement, configured API routing and
+  ephemeral two-build test ports. Runtime/schema contracts were unchanged.
+- Repeated 100/1k/5k/10k/50k Catalog metadata and OPFS measurements; 50k still
+  required about 49–52 seconds of IndexedDB writing. Defined a temporary pilot
+  envelope of 5k products/3 MiB metadata pending chunked delivery and real-device
+  evidence.
+- Rehearsed disposable PostgreSQL/private-media backup and restore at Alembic
+  `20261118_0021`, with matching media hashes.
+- Development validation: **GO — DEVELOPMENT ONLY**. Field validation:
+  **BLOCKED**. Production release: **NO-GO**. No merge, push, deployment,
+  production migration or feature activation was performed.
+
+See `05_FIELD_VALIDATION_AND_RELEASE_READINESS.md` for commands, measurements,
+manual device checklist, rollout/rollback plan and exact remaining blockers.
+
 ## GATE 4 — 2026-11-18
 
 ### Offline families and verified reference-image cache
