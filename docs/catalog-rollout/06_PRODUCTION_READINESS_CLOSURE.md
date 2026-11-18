@@ -1,9 +1,13 @@
 # GATE 6 - Production Readiness Closure
 
-Date: 2026-11-18  
-Branch: `chore/catalog-production-readiness-closure`  
-Baseline: `938ffaf21e35814e773e186fd6e39e6232c55cf2`  
-Alembic: `20261118_0021`  
+Date: 2026-11-18
+
+Branch: `chore/catalog-production-readiness-closure`
+
+Baseline: `938ffaf21e35814e773e186fd6e39e6232c55cf2`
+
+Alembic: `20261118_0021`
+
 Authorization: development and validation only
 
 ## Decisions
