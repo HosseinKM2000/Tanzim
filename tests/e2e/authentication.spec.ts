@@ -12,10 +12,10 @@ test.describe("authenticated browser journey", () => {
     await page.locator('input[name="password"]').fill(password!);
     await page.locator('button[type="submit"]').click();
     await expect(page).toHaveURL(/\/(dashboard|industry|inventory)/);
-    await expect(page.locator("main")).toBeVisible();
+    await expect(page.getByRole("main").first()).toBeVisible();
 
     await page.goto("/setting");
-    await page.getByRole("button", { name: /خروج|ط®ط±ظˆط¬/ }).click();
+    await page.getByRole("button", { name: "خروج از حساب کاربری", exact: true }).click();
     await expect(page).toHaveURL(/\/auth\/login/);
     await page.goto("/inventory/list");
     await expect(page).toHaveURL(/\/auth\/login/);

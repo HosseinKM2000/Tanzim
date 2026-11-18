@@ -49,7 +49,7 @@ test("real two-build update preserves durable work, old tabs, and offline bytes"
       response.writeHead(500).end();
     }
   });
-  await new Promise<void>((resolve) => server.listen(43125, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("test server did not bind");
   const origin = `http://127.0.0.1:${address.port}`;

@@ -65,13 +65,15 @@ test("display presets scale application typography and controls with Vazirmatn",
   const measurements: Array<{ body: number; button: number; control: number }> = [];
 
   for (const size of ["compact", "normal", "large"] as const) {
-    await page.addInitScript((value) => localStorage.setItem("inventory-display-size", value), size);
     await page.goto("/auth/login");
+    await page.evaluate((value) => localStorage.setItem("inventory-display-size", value), size);
     await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("data-display-size", size);
     await expect(page.locator("button[type='submit']")).toBeVisible();
+    await expect(page.locator("button[aria-label='Show password']")).toBeVisible();
     await page.evaluate(() => document.fonts.load("400 16px Vazirmatn"));
     const values = await page.evaluate(() => {
-      const button = document.querySelector<HTMLElement>("button");
+      const button = document.querySelector<HTMLElement>("button[aria-label='Show password']");
       if (!button) throw new Error("Login button is missing");
       const body = getComputedStyle(document.body);
       const control = getComputedStyle(button);

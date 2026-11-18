@@ -1,12 +1,12 @@
 import type { User } from "@/features/auth/types";
 import { isAdmin } from "@/shared/access/authorization";
-import { accessState } from "@/shared/access/access-state";
+import { accessState, type EntitlementEvaluation } from "@/shared/access/access-state";
 import type { DomainToolId } from "@/shared/access/tools";
 import { ActivityLogIcon, ArchiveIcon, BookmarkIcon, ClipboardIcon, CubeIcon, DashboardIcon, DownloadIcon, FileTextIcon, GearIcon, LayersIcon, LockClosedIcon, MagnifyingGlassIcon, MixIcon, MixerHorizontalIcon, PersonIcon, QuestionMarkCircledIcon, ReloadIcon, StarIcon, UploadIcon } from "@radix-ui/react-icons";
 import type { ComponentType } from "react";
 
 export type NavigationGroup = "primary" | "settings" | "tools" | "management";
-export type NavigationRoute = "/dashboard" | "/inventory/list" | "/setting" | "/setting/sync" | "/setting/update" | "/setting/profile" | "/setting/security" | "/setting/appearance" | "/setting/backup" | "/setting/industry" | "/setting/subscription" | "/setting/personnel" | "/setting/roles" | "/tools" | "/tools/invoices" | "/tools/counterparties" | "/tools/scanner" | "/tools/categories" | "/tools/export" | "/tools/catalog" | "/tools/recovery" | "/tools/import" | "/tools/labels" | "/tools/help" | "/tools/activity" | "/management" | "/management/subscriptions" | "/management/users" | "/management/catalogs" | "/management/industries";
+export type NavigationRoute = "/dashboard" | "/inventory/list" | "/setting" | "/setting/sync" | "/setting/update" | "/setting/profile" | "/setting/security" | "/setting/appearance" | "/setting/backup" | "/setting/catalog-images" | "/setting/industry" | "/setting/subscription" | "/setting/personnel" | "/setting/roles" | "/tools" | "/tools/invoices" | "/tools/counterparties" | "/tools/scanner" | "/tools/categories" | "/tools/export" | "/tools/catalog" | "/tools/recovery" | "/tools/import" | "/tools/labels" | "/tools/help" | "/tools/activity" | "/management" | "/management/subscriptions" | "/management/users" | "/management/catalogs" | "/management/industries";
 type NavigationIcon = ComponentType<{ width?: number | string; height?: number | string }>;
 
 export type NavigationItem = { id: string; label: string; description?: string; to: NavigationRoute; icon: NavigationIcon; group: NavigationGroup; adminOnly?: boolean; ownerOnly?: boolean; storePermission?: string; capabilities?: string[]; requiresOnline?: boolean; toolId?: DomainToolId };
@@ -27,6 +27,7 @@ export const settingsNavigationItems = [
   { id: "roles", label: "نقش‌ها", description: "نقش‌های مجموعه و مجوزهای هر نقش", to: "/setting/roles", icon: LockClosedIcon, group: "settings", ownerOnly: true, requiresOnline: true },
   { id: "sync", label: "همگام‌سازی", description: "وضعیت اتصال، صف تغییرات، آخرین رویدادها و خطاهای همگام‌سازی", to: "/setting/sync", icon: ReloadIcon, group: "settings" },
   { id: "local-backup", label: "فایل پشتیبان محلی", description: "ذخیره و بازیابی نسخه کامل داده‌ها روی همین دستگاه", to: "/setting/backup", icon: ArchiveIcon, group: "settings", ownerOnly: true },
+  { id: "catalog-images", toolId: "catalog", label: "کاتالوگ آفلاین", description: "دانلود و مدیریت خانواده‌ها و تصاویر مرجع", to: "/setting/catalog-images", icon: DownloadIcon, group: "settings" },
   { id: "subscription", label: "اشتراک", description: "طرح، محدودیت‌ها و وضعیت اشتراک مجموعه", to: "/setting/subscription", icon: StarIcon, group: "settings", ownerOnly: true, requiresOnline: true },
   { id: "app-update", label: "بروزرسانی", description: "بررسی و نصب آخرین نسخه برنامه و مشاهده امکانات تازه", to: "/setting/update", icon: DownloadIcon, group: "settings" },
 ] as const satisfies readonly NavigationItem[];
@@ -52,5 +53,18 @@ export const managementNavigationItems = [
   { id: "industry-management", label: "مدیریت حوزه‌ها", description: "ایجاد و نگهداری حوزه‌های کاری", to: "/management/industries", icon: GearIcon, group: "management", adminOnly: true, requiresOnline: true },
 ] as const satisfies readonly NavigationItem[];
 
-export function visibleNavigationItems(items: readonly NavigationItem[], user: User | null | undefined) { const administrator = isAdmin(user); return items.filter((item) => (!item.adminOnly || administrator) && (!item.ownerOnly || administrator || user?.is_store_owner !== false) && (!item.storePermission || accessState.hasStorePermission(item.storePermission)) && (!item.capabilities || item.capabilities.some((key) => accessState.canUse(key))) && (!item.toolId || accessState.canUseTool(item.toolId))); }
+export function visibleNavigationItems(
+  items: readonly NavigationItem[],
+  user: User | null | undefined,
+  access?: EntitlementEvaluation,
+) {
+  const administrator = isAdmin(user);
+  return items.filter((item) =>
+    (!item.adminOnly || administrator)
+    && (!item.ownerOnly || administrator || user?.is_store_owner !== false)
+    && (!item.storePermission || accessState.hasStorePermission(item.storePermission))
+    && (!item.capabilities || ((administrator || !access?.requiresOnlineVerification) && item.capabilities.some((key) => accessState.canUse(key))))
+    && (!item.toolId || ((administrator || !access?.requiresOnlineVerification) && accessState.canUseTool(item.toolId)))
+  );
+}
 export function primaryNavigationItems(user: User | null | undefined) { void user; return [...basePrimaryNavigationItems]; }

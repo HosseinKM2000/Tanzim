@@ -75,6 +75,17 @@ describe("local-first inventory service", () => {
     }));
   });
 
+  it("returns the existing local catalog adoption without consuming capacity or queuing a duplicate", async () => {
+    const existing = product({ id: 42, catalog_product_id: 9, is_catalog_backed: true, quantity: 3 });
+    const duplicate = product({ id: 99, catalog_product_id: 9, is_catalog_backed: true, quantity: 8 });
+    mocks.getAll.mockResolvedValue([existing]);
+
+    await expect(inventoryService.create(duplicate)).resolves.toMatchObject({ id: 42, quantity: 3 });
+    expect(mocks.requireInventoryCapacity).not.toHaveBeenCalled();
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(mocks.enqueue).not.toHaveBeenCalled();
+  });
+
   it("durably chooses the internal barcode before dispatch for an adopted Solo category", async () => {
     await categoryStorage.save({
       id: 7, name: "سیستم", description: "", code: "03", sector_code: "01", origin: "system",

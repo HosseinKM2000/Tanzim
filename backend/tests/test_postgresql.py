@@ -8,6 +8,10 @@ import os
 import base64
 import hashlib
 import json
+import gc
+import tracemalloc
+import uuid
+from time import perf_counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -15,7 +19,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, func, inspect, select, text
+from sqlalchemy import create_engine, event, func, inspect, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
@@ -39,10 +43,13 @@ from fastapi.testclient import TestClient
 from app.database import SessionLocal, engine
 from app.main import app
 from app.config import settings
-from app.models import BarcodeReservation, CatalogProduct, Category, Industry, InventoryItem, InventoryMovement, Invoice, Label, MediaAsset, ProductBarcode, ReferenceCategory, ReferenceSector, Store, StoreMembership, StoreModeTransition, StorePlanGrant, SubscriptionPlan, SyncOperation, User, UserSession
+from app.models import BarcodeReservation, CatalogFamily, CatalogProduct, CatalogRelease, Category, Industry, InventoryItem, InventoryMovement, Invoice, Label, MediaAsset, ProductBarcode, ReferenceCategory, ReferenceMediaAsset, ReferenceSector, Store, StoreMembership, StoreModeTransition, StorePlanGrant, SubscriptionPlan, SyncOperation, User, UserSession
 from app.routers.sync import _duplicate_result
 from app.schemas import SyncOperationIn
 from app.services.catalog_product_service import _reconcile_catalog_assignments
+from app.services.catalog_reference_service import _release_files
+from app.reference_storage import reference_asset_storage
+from app.services.catalog_provisioning_service import provision_industry_inventory
 from app.services.bootstrap_service import ensure_system_admin
 from app.services.subscription_service import seed_default_plans
 
@@ -59,6 +66,8 @@ EXPECTED_TABLES = {
     "media_assets",
     "invoices", "invoice_lines", "counterparties",
     "reference_sectors", "reference_categories", "barcode_reservations",
+    "catalog_families", "catalog_product_families", "reference_media_assets",
+    "catalog_product_media", "catalog_releases", "catalog_release_pointers",
 }
 MIGRATION_EVIDENCE = {}
 
@@ -424,7 +433,10 @@ def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database
     assert MIGRATION_EVIDENCE["mode_rollback"] == ("20261101_0009", True)
     assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261116_0019"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261118_0021"
+        assert "ix_catalog_products_cursor_scope" in {
+            index["name"] for index in inspect(engine).get_indexes("catalog_products")
+        }
         assert "MOBILE_PHONE_PREFLIGHT" in MIGRATION_EVIDENCE["mobile_preflight"]
         assert "malformed_count=1:user_ids=9401" in MIGRATION_EVIDENCE["mobile_preflight"]
         assert "duplicate_groups=1:user_ids=9101,9201" in MIGRATION_EVIDENCE["mobile_preflight"]
@@ -874,6 +886,115 @@ def test_concurrent_inventory_admission_respects_finite_capacity_atomically(clie
     assert next(result for result in results if result["status"] == "fatal_error")["error"] == "INVENTORY_LIMIT_REACHED"
     with SessionLocal() as db:
         assert db.scalar(select(func.count(InventoryItem.id)).where(InventoryItem.store_id == store_id)) == 1
+
+
+@pytest.mark.postgres
+def test_concurrent_catalog_adoption_converges_on_one_stable_assignment(client, monkeypatch):
+    created = signup(client)
+    user_id = created.json()["user"]["id"]
+    headers = {
+        "Authorization": f"Bearer {created.json()['access_token']}",
+        "X-Device-Fingerprint": "postgres-device", "X-Client-Data-Schema": "2",
+    }
+    with SessionLocal() as db:
+        industry = Industry(name="On-demand adoption", is_active=True)
+        db.add(industry)
+        db.flush()
+        user = db.get(User, user_id)
+        store = db.scalar(select(Store).where(Store.owner_user_id == user_id))
+        user.industry_id = store.industry_id = industry.id
+        free = db.get(SubscriptionPlan, "free")
+        features = json.loads(free.features_json)
+        features["sync"] = True
+        free.features_json = json.dumps(features)
+        catalog = CatalogProduct(
+            industry_id=industry.id, name="Shared adoption", is_shared=True, is_active=True,
+        )
+        db.add(catalog)
+        db.commit()
+        store_id, catalog_id = store.id, catalog.id
+
+    monkeypatch.setattr(settings, "CATALOG_ON_DEMAND_ADOPTION_ENABLED", True)
+
+    def adopt(index: int):
+        operation = {
+            "operation_id": f"catalog-adoption-{index}", "entity": "product",
+            "entity_id": 1_700_003_000_000 + index, "operation": "CREATE",
+            "payload": {
+                "quantity": index, "price": 100, "custom_label": f"Device {index}",
+                "low_stock_threshold": 0, "low_stock_alert": False, "is_hidden": False,
+                "catalog_product": {"id": catalog_id, "name": "untrusted snapshot"},
+            },
+        }
+        # Each concurrent request needs its own AnyIO portal while the other
+        # request deliberately waits for the store row lock.
+        with TestClient(app) as isolated_client:
+            return isolated_client.post("/api/sync/batch", headers=headers, data={
+                "operations_json": json.dumps({"operations": [operation]}),
+            })
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(adopt, [1, 2]))
+    assert all(response.status_code == 200 for response in responses)
+    results = [response.json()["results"][0] for response in responses]
+    assert sorted(result["status"] for result in results) == ["applied", "conflict"]
+    assert next(result for result in results if result["status"] == "conflict")["error"] == "CATALOG_ALREADY_ADOPTED"
+    assert len({result["entity_id"] for result in results}) == 1
+    with SessionLocal() as db:
+        assert db.scalar(select(func.count(InventoryItem.id)).where(
+            InventoryItem.store_id == store_id,
+            InventoryItem.catalog_product_id == catalog_id,
+        )) == 1
+
+
+@pytest.mark.postgres
+def test_on_demand_provisioning_scale_has_constant_database_work(client, monkeypatch):
+    created = signup(client)
+    user_id = created.json()["user"]["id"]
+    with SessionLocal() as db:
+        industry = Industry(name="Gate 1 scale", is_active=True)
+        db.add(industry)
+        db.commit()
+        industry_id = industry.id
+
+    monkeypatch.setattr(settings, "CATALOG_ON_DEMAND_ADOPTION_ENABLED", True)
+    observed: list[tuple[int, int, int, float]] = []
+    seeded = 0
+    for target in (1_000, 5_000, 10_000):
+        with engine.begin() as connection:
+            connection.execute(text("""
+                INSERT INTO catalog_products
+                    (industry_id, name, is_shared, is_active, is_packaged)
+                SELECT :industry_id, 'Gate 1 catalog ' || value, true, true, false
+                FROM generate_series(CAST(:start AS bigint), CAST(:finish AS bigint)) AS value
+            """), {"industry_id": industry_id, "start": seeded + 1, "finish": target})
+        seeded = target
+        statements = 0
+
+        def count_statement(*_args):
+            nonlocal statements
+            statements += 1
+
+        event.listen(engine, "before_cursor_execute", count_statement)
+        started = perf_counter()
+        try:
+            with SessionLocal() as db:
+                provision_industry_inventory(db, db.get(User, user_id), industry_id)
+        finally:
+            elapsed_ms = (perf_counter() - started) * 1_000
+            event.remove(engine, "before_cursor_execute", count_statement)
+        with SessionLocal() as db:
+            rows = db.scalar(select(func.count(InventoryItem.id)).where(
+                InventoryItem.store_id == select(Store.id).where(Store.owner_user_id == user_id).scalar_subquery(),
+            )) or 0
+        observed.append((target, statements, rows, elapsed_ms))
+
+    print("GATE1_SCALE", observed)
+    assert [entry[2] for entry in observed] == [0, 0, 0]
+    # The first industry selection performs two one-time compatibility writes;
+    # catalog cardinality itself adds no statements.
+    assert max(entry[1] for entry in observed) <= 11
+    assert observed[1][1] == observed[2][1]
 
 
 @pytest.mark.postgres
@@ -1342,3 +1463,167 @@ def test_recategorization_fault_rolls_back_category_and_barcode_lifecycle(client
             assert db.scalar(select(func.count(SyncOperation.id)).where(SyncOperation.operation_id == "pg-fault-recategory")) == 0
     finally:
         settings.TAXONOMY_ADOPTION_ENABLED = previous_gate
+
+
+@pytest.mark.postgres
+def test_catalog_cursor_query_scales_to_50k_and_uses_scope_index():
+    """Synthetic read-only evidence; the module fixture drops the test schema."""
+    measurements = []
+    with SessionLocal() as db:
+        industry = Industry(name="Catalog cursor scale", description="isolated benchmark", is_active=True)
+        db.add(industry)
+        db.commit()
+        db.refresh(industry)
+        previous = 0
+        last_boundary = None
+        for target in (1_000, 5_000, 10_000, 50_000):
+            increment = target - previous
+            db.execute(text("""
+                INSERT INTO catalog_products
+                    (industry_id, name, description, brand, is_shared, is_active, is_packaged, created_at)
+                SELECT :industry_id, 'scale-' || value, 'scale', 'benchmark', true, true, false,
+                       now() - (value * interval '1 millisecond')
+                FROM generate_series(CAST(:start AS bigint), CAST(:finish AS bigint)) AS value
+            """), {"industry_id": industry.id, "start": previous + 1, "finish": previous + increment})
+            db.commit()
+            db.execute(text("ANALYZE catalog_products"))
+            started = perf_counter()
+            rows = db.execute(text("""
+                SELECT id, created_at FROM catalog_products
+                WHERE is_shared = true AND is_active = true AND industry_id = :industry_id
+                ORDER BY created_at DESC, id DESC LIMIT 25
+            """), {"industry_id": industry.id}).all()
+            elapsed_ms = round((perf_counter() - started) * 1000, 3)
+            assert len(rows) == 25
+            if last_boundary is not None:
+                next_rows = db.execute(text("""
+                    SELECT id, created_at FROM catalog_products
+                    WHERE is_shared = true AND is_active = true AND industry_id = :industry_id
+                      AND (created_at < :created_at OR (created_at = :created_at AND id < :catalog_id))
+                    ORDER BY created_at DESC, id DESC LIMIT 25
+                """), {"industry_id": industry.id, "created_at": last_boundary.created_at, "catalog_id": last_boundary.id}).all()
+                assert not ({row.id for row in rows} & {row.id for row in next_rows})
+            last_boundary = rows[-1]
+            measurements.append({"rows": target, "first_page_ms": elapsed_ms})
+            previous = target
+
+        plan = "\n".join(row[0] for row in db.execute(text("""
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+            SELECT id, created_at FROM catalog_products
+            WHERE is_shared = true AND is_active = true AND industry_id = :industry_id
+            ORDER BY created_at DESC, id DESC LIMIT 25
+        """), {"industry_id": industry.id}))
+        assert "ix_catalog_products_cursor_scope" in plan
+        print("CATALOG_CURSOR_BENCHMARK=" + json.dumps(measurements))
+        print(plan)
+
+
+@pytest.mark.postgres
+def test_reference_manifest_generation_scales_to_50k_with_bounded_queries(client, tmp_path, monkeypatch):
+    measurements = []
+    monkeypatch.setattr(reference_asset_storage, "root", tmp_path)
+    with SessionLocal() as db:
+        admin = db.scalar(select(User).where(User.is_system_admin.is_(True)))
+        assert admin is not None
+        industry = Industry(name="Reference manifest scale", description="isolated benchmark", is_active=True)
+        db.add(industry)
+        db.flush()
+        primary = CatalogFamily(industry_id=industry.id, slug="all-parts", name="All parts", sort_order=1)
+        overlap = CatalogFamily(industry_id=industry.id, slug="even-parts", name="Even parts", sort_order=2)
+        db.add_all([primary, overlap])
+        assets = []
+        for index in range(100):
+            content = f"synthetic-reference-{index}".encode()
+            digest = hashlib.sha256(content).hexdigest()
+            storage_key = f"blobs/{digest[:2]}/{digest}.webp"
+            reference_asset_storage.put_blob_if_absent(storage_key, content)
+            assets.append(ReferenceMediaAsset(
+                id=str(uuid.uuid4()), source_sha256=hashlib.sha256(b"source-" + content).hexdigest(),
+                content_sha256=digest, mime_type="image/webp", width=320, height=240,
+                byte_size=len(content), storage_key=storage_key, variant_type="preview",
+                validation_status="approved", source_reference="synthetic:benchmark",
+                created_by_user_id=admin.id,
+            ))
+        db.add_all(assets)
+        db.commit()
+        db.refresh(industry)
+        db.refresh(primary)
+        db.refresh(overlap)
+        previous = 0
+        for target in (1_000, 5_000, 10_000, 50_000):
+            db.execute(text("""
+                INSERT INTO catalog_products
+                    (industry_id, name, description, brand, is_shared, is_active, is_packaged, created_at)
+                SELECT :industry_id, 'manifest-' || value, 'technical metadata', 'benchmark',
+                       true, true, false, now()
+                FROM generate_series(CAST(:start AS bigint), CAST(:finish AS bigint)) AS value
+            """), {"industry_id": industry.id, "start": previous + 1, "finish": target})
+            db.execute(text("""
+                INSERT INTO catalog_product_families (catalog_product_id, catalog_family_id)
+                SELECT id, :family_id FROM catalog_products
+                WHERE industry_id = :industry_id
+                ON CONFLICT DO NOTHING
+            """), {"family_id": primary.id, "industry_id": industry.id})
+            db.execute(text("""
+                INSERT INTO catalog_product_families (catalog_product_id, catalog_family_id)
+                SELECT id, :family_id FROM catalog_products
+                WHERE industry_id = :industry_id AND MOD(id, 2) = 0
+                ON CONFLICT DO NOTHING
+            """), {"family_id": overlap.id, "industry_id": industry.id})
+            db.execute(text("""
+                WITH products AS (
+                    SELECT id, row_number() OVER (ORDER BY id) AS position
+                    FROM catalog_products WHERE industry_id = :industry_id
+                ), assets AS (
+                    SELECT id, row_number() OVER (ORDER BY id) AS position
+                    FROM reference_media_assets WHERE source_reference = 'synthetic:benchmark'
+                )
+                INSERT INTO catalog_product_media
+                    (catalog_product_id, media_asset_id, role, sort_order)
+                SELECT products.id, assets.id, 'preview', 0
+                FROM products
+                JOIN assets ON assets.position = MOD(products.position - 1, 100) + 1
+                ON CONFLICT DO NOTHING
+            """), {"industry_id": industry.id})
+            db.commit()
+
+            release = CatalogRelease(
+                id=str(uuid.uuid4()), request_id=str(uuid.uuid4()),
+                industry_id=industry.id, version=target, status="staging",
+                created_by_user_id=admin.id,
+                created_at=datetime.now(timezone.utc),
+            )
+            statements = 0
+
+            def count_statement(*_args):
+                nonlocal statements
+                statements += 1
+
+            gc.collect()
+            tracemalloc.start()
+            event.listen(engine, "before_cursor_execute", count_statement)
+            started = perf_counter()
+            try:
+                files = _release_files(db, release)
+            finally:
+                event.remove(engine, "before_cursor_execute", count_statement)
+            elapsed_ms = round((perf_counter() - started) * 1000, 2)
+            _, peak = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+            total_bytes = sum(len(value) for value in files.values())
+            assert set(files) == {"index.json", "families/all-parts.json", "families/even-parts.json"}
+            assert statements <= 3
+            primary_manifest = json.loads(files["families/all-parts.json"])
+            assert primary_manifest["product_count"] == target
+            assert primary_manifest["asset_count"] == 100
+            measurements.append({
+                "products": target,
+                "relations": target + (target // 2),
+                "manifest_bytes": total_bytes,
+                "generation_ms": elapsed_ms,
+                "peak_memory_bytes": peak,
+                "query_count": statements,
+                "unique_assets": 100,
+            })
+            previous = target
+        print("REFERENCE_MANIFEST_BENCHMARK=" + json.dumps(measurements))

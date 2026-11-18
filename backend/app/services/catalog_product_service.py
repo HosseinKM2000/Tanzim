@@ -72,6 +72,13 @@ def _reconcile_catalog_assignments(db: Session, product: CatalogProduct) -> None
         item.is_catalog_backed = True
         changed.append(item)
 
+    if settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED:
+        db.flush()
+        for item in changed:
+            _record_inventory_change(db, item)
+        db.flush()
+        return
+
     stores = list(
         db.scalars(
             select(Store)
@@ -115,6 +122,10 @@ def list_catalog_products(
     industry_id: int | None = None,
 ):
     return repository.get_catalog_products(db, search, industry_id, is_active=True)
+
+
+def list_catalog_products_page(db: Session, **kwargs):
+    return repository.get_catalog_products_page(db, **kwargs)
 
 
 def list_archived_catalog_products(

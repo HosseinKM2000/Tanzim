@@ -435,6 +435,14 @@ class CatalogProduct(Base):
             "industry_id",
             "created_at",
         ),
+        Index(
+            "ix_catalog_products_cursor_scope",
+            "is_shared",
+            "is_active",
+            "industry_id",
+            "created_at",
+            "id",
+        ),
     )
 
     id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
@@ -488,6 +496,200 @@ class CatalogProduct(Base):
     inventory_items: Mapped[list["InventoryItem"]] = relationship(
         back_populates="catalog_product"
     )
+    family_links: Mapped[list["CatalogProductFamily"]] = relationship(
+        back_populates="catalog_product", cascade="all, delete-orphan"
+    )
+    reference_media_links: Mapped[list["CatalogProductMedia"]] = relationship(
+        back_populates="catalog_product", cascade="all, delete-orphan"
+    )
+
+    def _reference_url(self, role: str) -> str | None:
+        from .config import settings
+        if not settings.CATALOG_REFERENCE_MEDIA_V1_ENABLED:
+            return None
+        for link in self.reference_media_links:
+            if (
+                link.role == role
+                and link.media_asset.validation_status == "approved"
+            ):
+                return f"/api/catalog-reference-assets/{link.media_asset.id}"
+        return None
+
+    def _reference_asset(self, role: str) -> dict | None:
+        from .config import settings
+        if not settings.CATALOG_REFERENCE_MEDIA_V1_ENABLED:
+            return None
+        for link in self.reference_media_links:
+            asset = link.media_asset
+            if link.role == role and asset.validation_status == "approved":
+                return {
+                    "asset_id": asset.id,
+                    "content_hash": asset.content_sha256,
+                    "storage_key": asset.storage_key,
+                    "width": asset.width,
+                    "height": asset.height,
+                    "byte_size": asset.byte_size,
+                }
+        return None
+
+    @property
+    def reference_preview_url(self) -> str | None:
+        return self._reference_url("preview")
+
+    @property
+    def reference_detail_url(self) -> str | None:
+        return self._reference_url("detail")
+
+    @property
+    def reference_preview(self) -> dict | None:
+        return self._reference_asset("preview")
+
+    @property
+    def reference_detail(self) -> dict | None:
+        return self._reference_asset("detail")
+
+    @property
+    def reference_family_slug(self) -> str | None:
+        from .config import settings
+        if not settings.CATALOG_REFERENCE_MEDIA_V1_ENABLED:
+            return None
+        for link in self.family_links:
+            if link.family.is_active:
+                return link.family.slug
+        return None
+
+
+class CatalogFamily(Base):
+    __tablename__ = "catalog_families"
+    __table_args__ = (
+        UniqueConstraint("industry_id", "slug", name="uq_catalog_families_industry_slug"),
+        CheckConstraint("sort_order >= 0", name="ck_catalog_families_sort_order"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    industry_id: Mapped[int] = mapped_column(
+        ForeignKey("industries.id", ondelete="RESTRICT"), index=True
+    )
+    slug: Mapped[str] = mapped_column(String(120))
+    name: Mapped[str] = mapped_column(String(200))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
+
+    product_links: Mapped[list["CatalogProductFamily"]] = relationship(
+        back_populates="family", cascade="all, delete-orphan"
+    )
+
+
+class CatalogProductFamily(Base):
+    __tablename__ = "catalog_product_families"
+
+    catalog_product_id: Mapped[int] = mapped_column(
+        ForeignKey("catalog_products.id", ondelete="CASCADE"), primary_key=True
+    )
+    catalog_family_id: Mapped[int] = mapped_column(
+        ForeignKey("catalog_families.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    catalog_product: Mapped["CatalogProduct"] = relationship(back_populates="family_links")
+    family: Mapped["CatalogFamily"] = relationship(back_populates="product_links")
+
+
+class ReferenceMediaAsset(Base):
+    __tablename__ = "reference_media_assets"
+    __table_args__ = (
+        UniqueConstraint("source_sha256", "variant_type", name="uq_reference_assets_source_variant"),
+        UniqueConstraint("content_sha256", "variant_type", name="uq_reference_assets_content_variant"),
+        CheckConstraint("variant_type IN ('preview','detail')", name="ck_reference_assets_variant"),
+        CheckConstraint(
+            "validation_status IN ('approved','review','rejected')",
+            name="ck_reference_assets_validation",
+        ),
+        CheckConstraint("byte_size > 0 AND width > 0 AND height > 0", name="ck_reference_assets_dimensions"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    source_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    content_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    mime_type: Mapped[str] = mapped_column(String(80))
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    byte_size: Mapped[int] = mapped_column(BigInteger)
+    # Preview/detail rows may intentionally share one physical blob when a
+    # small source produces byte-identical variants.
+    storage_key: Mapped[str] = mapped_column(String(500))
+    variant_type: Mapped[str] = mapped_column(String(20), index=True)
+    validation_status: Mapped[str] = mapped_column(String(20), index=True)
+    source_reference: Mapped[str] = mapped_column(String(500))
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    product_links: Mapped[list["CatalogProductMedia"]] = relationship(
+        back_populates="media_asset"
+    )
+
+
+class CatalogProductMedia(Base):
+    __tablename__ = "catalog_product_media"
+    __table_args__ = (
+        UniqueConstraint("catalog_product_id", "role", name="uq_catalog_product_media_role"),
+        CheckConstraint("role IN ('preview','detail')", name="ck_catalog_product_media_role"),
+        CheckConstraint("sort_order >= 0", name="ck_catalog_product_media_sort_order"),
+    )
+
+    catalog_product_id: Mapped[int] = mapped_column(
+        ForeignKey("catalog_products.id", ondelete="CASCADE"), primary_key=True
+    )
+    media_asset_id: Mapped[str] = mapped_column(
+        ForeignKey("reference_media_assets.id", ondelete="RESTRICT"), primary_key=True
+    )
+    role: Mapped[str] = mapped_column(String(20))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    catalog_product: Mapped["CatalogProduct"] = relationship(back_populates="reference_media_links")
+    media_asset: Mapped["ReferenceMediaAsset"] = relationship(back_populates="product_links")
+
+
+class CatalogRelease(Base):
+    __tablename__ = "catalog_releases"
+    __table_args__ = (
+        UniqueConstraint("industry_id", "version", name="uq_catalog_releases_industry_version"),
+        UniqueConstraint("request_id", name="uq_catalog_releases_request"),
+        CheckConstraint(
+            "status IN ('staging','published','superseded','failed')",
+            name="ck_catalog_releases_status",
+        ),
+        CheckConstraint("version > 0", name="ck_catalog_releases_version"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(36))
+    industry_id: Mapped[int] = mapped_column(ForeignKey("industries.id", ondelete="RESTRICT"), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    manifest_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    manifest_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    previous_release_id: Mapped[str | None] = mapped_column(
+        ForeignKey("catalog_releases.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    published_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+
+
+class CatalogReleasePointer(Base):
+    __tablename__ = "catalog_release_pointers"
+
+    industry_id: Mapped[int] = mapped_column(
+        ForeignKey("industries.id", ondelete="RESTRICT"), primary_key=True
+    )
+    release_id: Mapped[str] = mapped_column(
+        ForeignKey("catalog_releases.id", ondelete="RESTRICT"), unique=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
 
 # ---------- Durable product media ----------
 class MediaAsset(Base):

@@ -43,6 +43,7 @@ import { Route as SettingIndustryRouteImport } from './routes/setting/industry'
 import { Route as SettingExportRouteImport } from './routes/setting/export'
 import { Route as SettingCategoriesRouteImport } from './routes/setting/categories'
 import { Route as SettingCatalogsRouteImport } from './routes/setting/catalogs'
+import { Route as SettingCatalogImagesRouteImport } from './routes/setting/catalog-images'
 import { Route as SettingBackupRouteImport } from './routes/setting/backup'
 import { Route as SettingAppearanceRouteImport } from './routes/setting/appearance'
 import { Route as ManagementUsersRouteImport } from './routes/management/users'
@@ -244,6 +245,11 @@ const SettingCatalogsRoute = SettingCatalogsRouteImport.update({
   path: '/catalogs',
   getParentRoute: () => SettingRouteRoute,
 } as any)
+const SettingCatalogImagesRoute = SettingCatalogImagesRouteImport.update({
+  id: '/catalog-images',
+  path: '/catalog-images',
+  getParentRoute: () => SettingRouteRoute,
+} as any)
 const SettingBackupRoute = SettingBackupRouteImport.update({
   id: '/backup',
   path: '/backup',
@@ -424,6 +430,7 @@ export interface FileRoutesByFullPath {
   '/management/users': typeof ManagementUsersRoute
   '/setting/appearance': typeof SettingAppearanceRoute
   '/setting/backup': typeof SettingBackupRoute
+  '/setting/catalog-images': typeof SettingCatalogImagesRoute
   '/setting/catalogs': typeof SettingCatalogsRoute
   '/setting/categories': typeof SettingCategoriesRoute
   '/setting/export': typeof SettingExportRoute
@@ -484,6 +491,7 @@ export interface FileRoutesByTo {
   '/management/users': typeof ManagementUsersRoute
   '/setting/appearance': typeof SettingAppearanceRoute
   '/setting/backup': typeof SettingBackupRoute
+  '/setting/catalog-images': typeof SettingCatalogImagesRoute
   '/setting/catalogs': typeof SettingCatalogsRoute
   '/setting/categories': typeof SettingCategoriesRoute
   '/setting/export': typeof SettingExportRoute
@@ -551,6 +559,7 @@ export interface FileRoutesById {
   '/management/users': typeof ManagementUsersRoute
   '/setting/appearance': typeof SettingAppearanceRoute
   '/setting/backup': typeof SettingBackupRoute
+  '/setting/catalog-images': typeof SettingCatalogImagesRoute
   '/setting/catalogs': typeof SettingCatalogsRoute
   '/setting/categories': typeof SettingCategoriesRoute
   '/setting/export': typeof SettingExportRoute
@@ -618,6 +627,7 @@ export interface FileRouteTypes {
     | '/management/users'
     | '/setting/appearance'
     | '/setting/backup'
+    | '/setting/catalog-images'
     | '/setting/catalogs'
     | '/setting/categories'
     | '/setting/export'
@@ -678,6 +688,7 @@ export interface FileRouteTypes {
     | '/management/users'
     | '/setting/appearance'
     | '/setting/backup'
+    | '/setting/catalog-images'
     | '/setting/catalogs'
     | '/setting/categories'
     | '/setting/export'
@@ -744,6 +755,7 @@ export interface FileRouteTypes {
     | '/management/users'
     | '/setting/appearance'
     | '/setting/backup'
+    | '/setting/catalog-images'
     | '/setting/catalogs'
     | '/setting/categories'
     | '/setting/export'
@@ -1041,6 +1053,13 @@ declare module '@tanstack/react-router' {
       path: '/catalogs'
       fullPath: '/setting/catalogs'
       preLoaderRoute: typeof SettingCatalogsRouteImport
+      parentRoute: typeof SettingRouteRoute
+    }
+    '/setting/catalog-images': {
+      id: '/setting/catalog-images'
+      path: '/catalog-images'
+      fullPath: '/setting/catalog-images'
+      preLoaderRoute: typeof SettingCatalogImagesRouteImport
       parentRoute: typeof SettingRouteRoute
     }
     '/setting/backup': {
@@ -1386,6 +1405,7 @@ const ManagementRouteRouteWithChildren = ManagementRouteRoute._addFileChildren(
 interface SettingRouteRouteChildren {
   SettingAppearanceRoute: typeof SettingAppearanceRoute
   SettingBackupRoute: typeof SettingBackupRoute
+  SettingCatalogImagesRoute: typeof SettingCatalogImagesRoute
   SettingCatalogsRoute: typeof SettingCatalogsRoute
   SettingCategoriesRoute: typeof SettingCategoriesRoute
   SettingExportRoute: typeof SettingExportRoute
@@ -1406,6 +1426,7 @@ interface SettingRouteRouteChildren {
 const SettingRouteRouteChildren: SettingRouteRouteChildren = {
   SettingAppearanceRoute: SettingAppearanceRoute,
   SettingBackupRoute: SettingBackupRoute,
+  SettingCatalogImagesRoute: SettingCatalogImagesRoute,
   SettingCatalogsRoute: SettingCatalogsRoute,
   SettingCategoriesRoute: SettingCategoriesRoute,
   SettingExportRoute: SettingExportRoute,

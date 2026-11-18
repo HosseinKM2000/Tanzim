@@ -1,3 +1,5 @@
+import hashlib
+import json
 import os
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -19,6 +21,8 @@ from app.services.jalali_date import format_jalali_datetime
 from app.services.store_authorization import StorePermission, normalize_permissions
 from app.routers.sync import _project_record
 from app.inventory_policy import PRODUCT_QUANTITY_LIMIT_ERROR, validate_product_quantity
+from app.reference_storage import ReferenceAssetStorage
+from app.services.catalog_reference_service import _canonical_json, _sealed_manifest
 
 
 def test_bcrypt_hashes_and_verifies_without_storing_plaintext() -> None:
@@ -144,6 +148,40 @@ def test_industry_tool_policy_preserves_existing_availability_and_rejects_unknow
 def test_demo_reset_requires_explicit_confirmation() -> None:
     with pytest.raises(RuntimeError, match="CONFIRMATION_REQUIRED"):
         _assert_safe(1, "wrong")
+
+
+def test_reference_manifest_sealing_is_deterministic_and_self_verifying() -> None:
+    first, first_hash = _sealed_manifest({"z": 1, "name": "قطعه", "a": [2, 1]})
+    second, second_hash = _sealed_manifest({"a": [2, 1], "name": "قطعه", "z": 1})
+    assert first == second
+    assert first_hash == second_hash
+    sealed = json.loads(first)
+    assert sealed.pop("content_hash") == first_hash
+    assert hashlib.sha256(_canonical_json(sealed)).hexdigest() == first_hash
+
+
+def test_reference_storage_rejects_traversal_and_preserves_immutable_releases(tmp_path) -> None:
+    storage = ReferenceAssetStorage(tmp_path)
+    with pytest.raises(ValueError, match="REFERENCE_ASSET_KEY_INVALID"):
+        storage.put_blob_if_absent("blobs/../outside.webp", b"unsafe")
+
+    release_id = "00000000-0000-4000-8000-000000000001"
+    files = {"index.json": b'{"version":1}', "families/parts.json": b'{"items":[]}'}
+    assert storage.publish_release(release_id, files) == f"releases/{release_id}"
+    assert storage.publish_release(release_id, files) == f"releases/{release_id}"
+    with pytest.raises(ValueError, match="CATALOG_RELEASE_IMMUTABILITY_VIOLATION"):
+        storage.publish_release(release_id, {**files, "index.json": b'{"version":2}'})
+
+    blob = b"trusted reference bytes"
+    digest = hashlib.sha256(blob).hexdigest()
+    key = f"blobs/{digest[:2]}/{digest}.webp"
+    storage.put_blob_if_absent(key, blob)
+    assert storage.verified_blob(key, digest, len(blob)).read_bytes() == blob
+    storage.path_for(key).write_bytes(b"tampered")
+    with pytest.raises(ValueError, match="REFERENCE_ASSET_INTEGRITY_VIOLATION"):
+        storage.verified_blob(key, digest, len(blob))
+    with pytest.raises(ValueError, match="REFERENCE_ASSET_IMMUTABILITY_VIOLATION"):
+        storage.put_blob_if_absent(key, blob)
 
 
 def test_server_exports_use_fixed_jalali_datetime_shape() -> None:

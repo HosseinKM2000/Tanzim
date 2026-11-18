@@ -81,6 +81,9 @@ async function push(items: SyncQueueItem[]): Promise<SyncHandlerResult[]> {
       }
       if (!hasSuccessor) {
         const local = await inventoryRepository.get(item.entityId);
+        if (serverRecord.id !== item.entityId) {
+          await inventoryRepository.remove(item.entityId);
+        }
         await inventoryRepository.save(localRepresentation(serverRecord, local));
       }
     }

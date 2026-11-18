@@ -32,6 +32,7 @@ def main() -> int:
         sys.executable, "-m", "pytest",
         "-c", str(backend_dir / "pytest.ini"),
         str(backend_dir / "tests" / "test_postgresql.py"),
+        *sys.argv[1:],
     ], env=environment)
 
 

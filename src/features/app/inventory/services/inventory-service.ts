@@ -247,7 +247,14 @@ class InventoryService {
     accessState.requireWrite();
     accessState.requireStorePermission?.("products.create");
     if (product.purchase_price != null) accessState.requireStorePermission?.("products.purchase_price.change");
-    accessState.requireInventoryCapacity((await inventoryRepository.getAll()).length);
+    const existingProducts = await inventoryRepository.getAll();
+    if (product.is_catalog_backed && Number.isSafeInteger(product.catalog_product_id) && product.catalog_product_id > 0) {
+      const existingAdoption = existingProducts.find((item) =>
+        item.is_catalog_backed && item.catalog_product_id === product.catalog_product_id && !item.deleted_at,
+      );
+      if (existingAdoption) return sanitize(existingAdoption);
+    }
+    accessState.requireInventoryCapacity(existingProducts.length);
     assertProductQuantity(Number(product.quantity));
     const record = sanitize(product);
     const mediaJob = isLocalImage(record.image_url)

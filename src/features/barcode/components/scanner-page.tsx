@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { accessState } from "@/shared/access/access-state";
+import { useEntitlementAccess } from "@/shared/access/use-entitlement";
 import { Button } from "@/shared/ui/button/button";
 import { inventoryRepository } from "@/features/app/inventory/services/inventory.repository";
 import type { Product } from "@/features/app/inventory/types";
@@ -46,6 +47,7 @@ function productName(product: Product) {
 }
 
 export function ScannerPage() {
+  const access = useEntitlementAccess();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraRef = useRef<CameraSession | null>(null);
@@ -68,8 +70,8 @@ export function ScannerPage() {
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkProducts, setLinkProducts] = useState<Product[]>([]);
   const [linkProductId, setLinkProductId] = useState("");
-  const canChangeQuantity = accessState.canWrite() && accessState.hasStorePermission("products.quantity.change");
-  const canEdit = accessState.canWrite() && accessState.hasStorePermission("products.edit");
+  const canChangeQuantity = !access.requiresOnlineVerification && accessState.canWrite() && accessState.hasStorePermission("products.quantity.change");
+  const canEdit = !access.requiresOnlineVerification && accessState.canWrite() && accessState.hasStorePermission("products.edit");
 
   const stopCamera = useCallback(() => {
     cameraRef.current?.stop();
@@ -379,7 +381,7 @@ export function ScannerPage() {
                       : "تا رفع اتصال تکراری، هیچ تغییری در موجودی انجام نمی‌شود."
                 }</Text>
                 {unresolved.kind === "unknown" && canEdit ? <Flex gap="2" wrap="wrap" justify="center">
-                  <Button variant="outline" color="green" onClick={() => void navigate({ to: "/inventory/add" })}>ساخت محصول</Button>
+                  <Button variant="outline" color="green" onClick={() => void navigate({ to: "/inventory/add", search: { catalogId: undefined } })}>ساخت محصول</Button>
                   <Button variant="soft" onClick={() => void openLink()}>اتصال به محصول موجود</Button>
                 </Flex> : null}
               </Flex>

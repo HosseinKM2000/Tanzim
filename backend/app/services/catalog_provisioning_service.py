@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from ..config import settings
 from ..models import CatalogProduct, Industry, InventoryItem, Store, SyncChange, User
 from ..schemas import InventoryOut
 from .store_service import owner_store_context
@@ -41,16 +42,20 @@ def provision_industry_inventory(
         )
 
     previous_industry_id = store.industry_id
-    catalog_products = list(
-        db.scalars(
-            select(CatalogProduct)
-            .options(joinedload(CatalogProduct.industry))
-            .where(
-                CatalogProduct.industry_id == industry.id,
-                CatalogProduct.is_shared.is_(True),
-                CatalogProduct.is_active.is_(True),
+    catalog_products = (
+        []
+        if settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED
+        else list(
+            db.scalars(
+                select(CatalogProduct)
+                .options(joinedload(CatalogProduct.industry))
+                .where(
+                    CatalogProduct.industry_id == industry.id,
+                    CatalogProduct.is_shared.is_(True),
+                    CatalogProduct.is_active.is_(True),
+                )
+                .order_by(CatalogProduct.id)
             )
-            .order_by(CatalogProduct.id)
         )
     )
     existing_items = list(

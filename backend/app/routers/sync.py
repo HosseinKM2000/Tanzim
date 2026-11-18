@@ -1055,6 +1055,41 @@ async def _apply_product_operation(
     )
     if store is None:
         raise ValueError("STORE_NOT_FOUND")
+    adoption_catalog: CatalogProduct | None = None
+    catalog_payload = payload.get("catalog_product")
+    catalog_id = (
+        catalog_payload.get("id")
+        if isinstance(catalog_payload, dict)
+        else None
+    )
+    if (
+        created
+        and settings.CATALOG_ON_DEMAND_ADOPTION_ENABLED
+        and isinstance(catalog_id, int)
+        and not isinstance(catalog_id, bool)
+        and catalog_id > 0
+    ):
+        adoption_catalog = _catalog_for_operation(db, current_user, operation)
+        existing_adoption = db.scalar(
+            select(InventoryItem)
+            .options(
+                joinedload(InventoryItem.catalog_product),
+                selectinload(InventoryItem.labels),
+            )
+            .where(
+                InventoryItem.store_id == current_user.store_id,
+                InventoryItem.catalog_product_id == adoption_catalog.id,
+            )
+        )
+        if existing_adoption is not None:
+            record = _serialize(existing_adoption)
+            return SyncOperationResult(
+                operation_id=operation.operation_id,
+                status="conflict",
+                entity_id=existing_adoption.id,
+                record=InventoryOut.model_validate(record),
+                error="CATALOG_ALREADY_ADOPTED",
+            )
     requested_category_id = payload.get("category_id")
     if created:
         category = validate_category_for_new_intent(db, store, requested_category_id)
@@ -1077,7 +1112,7 @@ async def _apply_product_operation(
         ) or 0
         if limit is not None and count >= limit:
             raise ValueError("INVENTORY_LIMIT_REACHED")
-        catalog = _catalog_for_operation(db, current_user, operation)
+        catalog = adoption_catalog or _catalog_for_operation(db, current_user, operation)
         item = InventoryItem(
             store_id=current_user.store_id,
             id=operation.entity_id,

@@ -392,6 +392,13 @@ class LabelOut(BaseModel):
 # =========================================================
 # CATALOG
 # =========================================================
+class CatalogAdoptionStatus(BaseModel):
+    enabled: bool
+    cursor_read_v2_enabled: bool
+    reference_media_v1_enabled: bool
+    offline_families_v1_enabled: bool
+
+
 class CatalogProductBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=5000)
@@ -456,6 +463,15 @@ class CatalogProductUpdate(BaseModel):
             return None
         return value.strip() or None
 
+class CatalogReferenceAssetSummary(BaseModel):
+    asset_id: str
+    content_hash: str
+    storage_key: str
+    width: int
+    height: int
+    byte_size: int
+
+
 class CatalogProductOut(BaseModel):
     id: int
 
@@ -471,6 +487,16 @@ class CatalogProductOut(BaseModel):
 
     image_url: str | None
 
+    reference_preview_url: str | None = None
+
+    reference_detail_url: str | None = None
+
+    reference_preview: CatalogReferenceAssetSummary | None = None
+
+    reference_detail: CatalogReferenceAssetSummary | None = None
+
+    reference_family_slug: str | None = None
+
     is_packaged: bool
 
     pack_size: int | None
@@ -480,6 +506,76 @@ class CatalogProductOut(BaseModel):
     industry: IndustrySimpleOut
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CatalogProductPage(BaseModel):
+    items: list[CatalogProductOut]
+    next_cursor: str | None
+    has_more: bool
+
+
+class CatalogFamilyCreate(BaseModel):
+    industry_id: int = Field(gt=0)
+    slug: str = Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", min_length=2, max_length=120)
+    name: str = Field(min_length=1, max_length=200)
+    sort_order: int = Field(default=0, ge=0)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_family_name(cls, value: str) -> str:
+        return value.strip()
+
+
+class CatalogFamilyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    industry_id: int
+    slug: str
+    name: str
+    is_active: bool
+    sort_order: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class ReferenceMediaAssetOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    source_sha256: str
+    content_sha256: str
+    mime_type: str
+    width: int
+    height: int
+    byte_size: int
+    variant_type: Literal["preview", "detail"]
+    validation_status: Literal["approved", "review", "rejected"]
+    created_at: datetime
+    read_url: str
+
+
+class ReferenceMediaIngestOut(BaseModel):
+    source_sha256: str
+    deduplicated: bool
+    assets: list[ReferenceMediaAssetOut]
+
+
+class CatalogPublishRequest(BaseModel):
+    request_id: str = Field(pattern=r"^[0-9a-fA-F-]{36}$")
+    industry_id: int = Field(gt=0)
+
+
+class CatalogReleaseOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    request_id: str
+    industry_id: int
+    version: int
+    status: Literal["staging", "published", "superseded", "failed"]
+    manifest_path: str | None
+    manifest_hash: str | None
+    previous_release_id: str | None
+    created_at: datetime
+    published_at: datetime | None
 
 
 # =========================================================

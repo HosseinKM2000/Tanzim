@@ -1,6 +1,5 @@
 import { useDeferredValue, useMemo, useState } from "react";
 
-import { resolveAssetUrl } from "@/shared/api/client";
 import { Button } from "@/shared/ui/button/button";
 import { SelectInput } from "@/shared/ui/form/input/select-input";
 import { TextInput } from "@/shared/ui/form/input/text-input";
@@ -19,12 +18,31 @@ import {
   useCatalogProducts,
 } from "../../mutations/use-catalog";
 import { useIndustries } from "../../mutations/use-industry";
+import type { CatalogProduct } from "../../types";
+import { useCatalogImage } from "../../hooks/use-catalog-image";
 import ArchiveCatalogDialog from "./archive-catalog-dialog";
 import CatalogDetailsDialog from "./catalog-details-dialog";
 import CatalogFormDialog from "./catalog-form-dialog";
 import DeleteCatalogDialog from "./delete-catalog-dialog";
 import RestoreCatalogDialog from "./restore-catalog-dialog";
 import { formatJalaliDate } from "@/shared/lib/date/jalali";
+
+
+function CatalogThumbnail({ product }: { product: CatalogProduct }) {
+  const image = useCatalogImage(null, product.reference_preview_url, product.image_url);
+  return image.src ? (
+    <img
+      src={image.src}
+      alt={product.name}
+      loading="lazy"
+      decoding="async"
+      className="h-full w-full object-cover"
+      onError={image.onError}
+    />
+  ) : (
+    <Flex height="100%" align="center" justify="center"><CubeIcon width="30" height="30" /></Flex>
+  );
+}
 
 
 const Catalogs = ({ hideHeading = false }: { hideHeading?: boolean }) => {
@@ -158,24 +176,12 @@ const Catalogs = ({ hideHeading = false }: { hideHeading?: boolean }) => {
       {!catalogLoading && !catalogError && catalogs.length > 0 && (
         <Box className="grid! grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-3">
           {catalogs.map((product) => {
-            const imageUrl = resolveAssetUrl(product.image_url);
             const industryName = product.industry?.name ?? industryNames.get(product.industry_id) ?? "حوزه نامشخص";
 
             return (
               <Card key={product.id} className="min-w-0 overflow-hidden p-0!">
                 <Box className="aspect-[16/7] bg-[var(--gray-a3)] lg:aspect-[16/6]">
-                  {imageUrl ? (
-                    <img
-                      src={imageUrl}
-                      alt={product.name}
-                      className="h-full w-full object-cover"
-                      onError={(event) => {
-                        event.currentTarget.style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <Flex height="100%" align="center" justify="center"><CubeIcon width="30" height="30" /></Flex>
-                  )}
+                  <CatalogThumbnail product={product} />
                 </Box>
 
                 <Flex direction="column" justify="between" gap={{ initial: "4", lg: "3" }} className="min-h-56 p-4 lg:min-h-44 lg:p-3">
