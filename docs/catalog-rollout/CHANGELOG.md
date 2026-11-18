@@ -1,5 +1,31 @@
 # Catalog safe rollout changelog
 
+## GATE 6 - 2026-11-18
+
+### Production readiness closure
+
+- Published two synthetic Catalog releases in an isolated PostgreSQL/backend/media
+  environment and verified non-empty pointers, manifests, product relations and
+  exact Preview/Detail hashes.
+- Rehearsed coordinated R2 database/reference/private-media restore and a separate
+  coordinated R1 rollback at Alembic `20261118_0021`; recorded dump and media
+  hashes in the Gate report.
+- Built the Gate 4 client and ran it against the restored R2 backend; live desktop
+  and mobile-emulation compatibility journeys both rendered the Catalog product and
+  protected reference image.
+- Added a local-only reproducible release/recovery/contention tool. Three real local
+  Sync/media A/B probes completed without errors, while explicitly remaining
+  insufficient as representative large-family production evidence.
+- Audited deployment, physical-device, monitoring and rights evidence without
+  inferring unavailable facts; added an executable mobile matrix/result form and a
+  separated image-rights approval contract.
+- Development Validation: **GO - DEVELOPMENT ONLY**. Field Validation:
+  **BLOCKED**. Production Readiness: **NO-GO**. No merge, push, deployment, pilot,
+  production publication, migration or feature activation was performed.
+
+See `06_PRODUCTION_READINESS_CLOSURE.md` for the blocker ledger, hashes,
+measurements, operator forms, rights contract, verification and stop decision.
+
 ## GATE 5 — 2026-11-18
 
 ### Field validation and controlled release readiness
