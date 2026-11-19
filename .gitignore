@@ -15,6 +15,7 @@ coverage/
 playwright-report/
 test-results/
 artifacts/codex-*/
+.v1-audit-runtime/
 .tanstack/tmp/
 backend/.coverage
 backend/.pytest_cache/

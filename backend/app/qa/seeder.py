@@ -16,6 +16,7 @@ from ..models import (
     InventoryItem,
     Invoice,
     InvoiceLine,
+    InventoryMovement,
     Label,
     ProductBarcode,
     Store,
@@ -32,10 +33,36 @@ PROFILE_SPECS = {
     "smoke": {"stores": (("smoke", "free", 8),)},
     "comprehensive": {
         "stores": (
+            ("empty", "free", 0),
             ("auto", "free", 18),
             ("retail", "pro", 24),
             ("team", "vip", 30),
+            ("historical", "pro", 12),
         )
+    },
+}
+
+STORE_FIXTURES = {
+    "empty": {"industry": "فروشگاه تازه و بدون داده", "categories": (), "products": ()},
+    "auto": {
+        "industry": "قطعات خودرو",
+        "categories": ("فیلتر و مصرفی", "برق خودرو", "لنت و ترمز"),
+        "products": ("فیلتر روغن", "شمع موتور", "لنت ترمز"),
+    },
+    "retail": {
+        "industry": "پوشاک و کفش",
+        "categories": ("پوشاک", "کفش", "اکسسوری"),
+        "products": ("پیراهن نخی", "کفش روزمره", "کمربند"),
+    },
+    "team": {
+        "industry": "پخش و انبارداری",
+        "categories": ("کالای تندگردش", "کالای حجیم", "مرجوعی"),
+        "products": ("کارتن کالای پخش", "بسته عمده", "کالای انباری"),
+    },
+    "historical": {
+        "industry": "فروشگاه دارای سابقه",
+        "categories": ("کالای قدیمی", "کالای فعال", "کالای بایگانی"),
+        "products": ("محصول باسابقه", "محصول فعال", "محصول قدیمی"),
     },
 }
 
@@ -64,7 +91,8 @@ def _phone(value: str) -> str:
 
 
 def _industry(db: Session, key: str) -> Industry:
-    name = f"آزمایشی {QA_NAMESPACE} {key}"
+    fixture = STORE_FIXTURES.get(key, {})
+    name = f"آزمایشی {QA_NAMESPACE} {fixture.get('industry', key)}"
     industry = db.scalar(select(Industry).where(Industry.name == name))
     if industry is None:
         industry = Industry(name=name, description="داده مصنوعی و غیرقابل انتشار Gate 7", is_active=True)
@@ -110,18 +138,37 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
     industry = _industry(db, key)
     owner.industry_id = store.industry_id = industry.id
 
+    if product_count == 0:
+        db.flush()
+        return {"stores": 1, "users": 1, "products": 0, "counterparties": 0, "invoices": 0, "barcodes": 0}
+
     categories: list[Category] = []
-    for index, name in enumerate(("قطعات مصرفی", "ابزار", "کالاهای فروشگاهی"), start=1):
+    fixture = STORE_FIXTURES.get(key, STORE_FIXTURES["auto"])
+    for index, name in enumerate(fixture["categories"], start=1):
         scoped_name = f"{name} — {QA_NAMESPACE}-{key}"
-        category = db.scalar(select(Category).where(Category.store_id == store.id, Category.name == scoped_name))
+        category_code = f"Q{index:02d}"
+        # The store/code pair is the database identity. Fixture display names may
+        # evolve between QA revisions, so name-based lookup is not convergent.
+        category = db.scalar(select(Category).where(
+            Category.store_id == store.id,
+            Category.code == category_code,
+        ))
         if category is None:
             category = Category(
                 store_id=store.id, user_id=owner.id, name=scoped_name,
-                description="دسته مصنوعی Gate 7", code=f"Q{index:02d}",
+                description="دسته مصنوعی Gate 7", code=category_code,
                 sector_code="99", origin="custom", approval_status="approved", is_active=True,
             )
             db.add(category)
             db.flush()
+        else:
+            category.name = scoped_name
+            category.user_id = owner.id
+            category.description = "دسته مصنوعی Gate 7"
+            category.sector_code = "99"
+            category.origin = "custom"
+            category.approval_status = "approved"
+            category.is_active = True
         categories.append(category)
 
     labels: list[Label] = []
@@ -137,6 +184,7 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
     products: list[InventoryItem] = []
     for index in range(1, product_count + 1):
         identity = f"{QA_NAMESPACE}-{key}-product-{index:05d}"
+        product_name = fixture["products"][(index - 1) % len(fixture["products"])]
         catalog = db.scalar(select(CatalogProduct).where(
             CatalogProduct.industry_id == industry.id,
             CatalogProduct.name == identity,
@@ -167,7 +215,7 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
                 category_id=categories[index % len(categories)].id,
                 quantity=quantity, price=sale_price, sale_price=sale_price,
                 purchase_price=max(0, sale_price - 15_000),
-                custom_label=("نام بسیار بلند محصول آزمایشی برای سنجش چیدمان رابط کاربری " if index == 2 else "کالای آزمایشی ") + str(index),
+                custom_label=("نام بسیار بلند محصول آزمایشی برای سنجش چیدمان رابط کاربری " if index == 2 else f"{product_name} ") + str(index),
                 low_stock_threshold=5, low_stock_alert=0 < quantity <= 5,
                 is_hidden=index % 19 == 0,
                 note=f"{QA_NAMESPACE}:{key}:{index}",
@@ -208,14 +256,15 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
             db.flush()
         parties.append(party)
 
-    for invoice_type, party, age in (("purchase", parties[0], 7), ("sale", parties[1], 0)):
+    invoice_ages = (420, 370) if key == "historical" else (7, 0)
+    for invoice_type, party, age in (("purchase", parties[0], invoice_ages[0]), ("sale", parties[1], invoice_ages[1])):
         operation_id = f"{QA_NAMESPACE}-{key}-{invoice_type}-001"
         invoice = db.scalar(select(Invoice).where(
             Invoice.store_id == store.id, Invoice.post_operation_id == operation_id,
         ))
+        chosen = products[: min(3, len(products))]
+        unit_prices = [p.purchase_price if invoice_type == "purchase" else p.sale_price for p in chosen]
         if invoice is None:
-            chosen = products[: min(3, len(products))]
-            unit_prices = [p.purchase_price if invoice_type == "purchase" else p.sale_price for p in chosen]
             total = sum(int(price or 0) * 2 for price in unit_prices)
             invoice = Invoice(
                 id=_stable_int(operation_id),
@@ -227,16 +276,52 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
             )
             db.add(invoice)
             db.flush()
-            for position, (product, price) in enumerate(zip(chosen, unit_prices), start=1):
-                final = product.quantity
-                before = max(0, final - 2) if invoice_type == "purchase" else final + 2
-                after = before + 2 if invoice_type == "purchase" else before - 2
-                db.add(InvoiceLine(
+        for position, (product, price) in enumerate(zip(chosen, unit_prices), start=1):
+            final = product.quantity
+            before = final if invoice_type == "purchase" else final + 2
+            after = final + 2 if invoice_type == "purchase" else final
+            line = db.scalar(select(InvoiceLine).where(
+                InvoiceLine.invoice_id == invoice.id,
+                InvoiceLine.product_id == product.id,
+            ))
+            if line is None:
+                line = InvoiceLine(
                     invoice_id=invoice.id, store_id=store.id, product_id=product.id,
                     position=position, product_name=product.custom_label or product.catalog_product.name,
                     quantity=2, unit="عدد", pack_size=None, base_quantity=2,
                     unit_price=int(price or 0), line_total=int(price or 0) * 2,
                     before_quantity=before, after_quantity=after,
+                )
+                db.add(line)
+                db.flush()
+            line.position = position
+            line.product_name = product.custom_label or product.catalog_product.name
+            line.quantity = 2
+            line.unit = "عدد"
+            line.pack_size = None
+            line.base_quantity = 2
+            line.unit_price = int(price or 0)
+            line.line_total = int(price or 0) * 2
+            line.before_quantity = before
+            line.after_quantity = after
+            movement_operation_id = f"{operation_id}-line-{position}"
+            movement = db.scalar(select(InventoryMovement).where(
+                InventoryMovement.store_id == store.id,
+                InventoryMovement.actor_user_id == owner.id,
+                InventoryMovement.operation_id == movement_operation_id,
+            ))
+            if movement is None:
+                db.add(InventoryMovement(
+                    store_id=store.id, product_id=product.id,
+                    actor_user_id=owner.id, actor_membership_id=membership.id,
+                    operation_id=movement_operation_id,
+                    kind="receive" if invoice_type == "purchase" else "issue",
+                    delta=2 if invoice_type == "purchase" else -2,
+                    correction_quantity=None, scan_source="manual",
+                    barcode_id=None, barcode_value=None, scan_quantity=1,
+                    before_quantity=before, after_quantity=after,
+                    invoice_id=invoice.id, invoice_line_id=line.id,
+                    client_occurred_at=invoice.posted_at,
                 ))
 
     if key == "team":
@@ -272,8 +357,8 @@ def seed_profile(db: Session, profile: str, *, password: str, dry_run: bool = Fa
             raise ValueError("QA_PROFILE_UNKNOWN") from error
     expected = SeedSummary(
         profile=profile, stores=len(specs), users=sum(2 if key == "team" else 1 for key, _, _ in specs),
-        products=sum(count for _, _, count in specs), counterparties=2 * len(specs),
-        invoices=2 * len(specs), barcodes=sum(count for _, _, count in specs), dry_run=dry_run,
+        products=sum(count for _, _, count in specs), counterparties=2 * sum(count > 0 for _, _, count in specs),
+        invoices=2 * sum(count > 0 for _, _, count in specs), barcodes=sum(count for _, _, count in specs), dry_run=dry_run,
     )
     if dry_run:
         return expected

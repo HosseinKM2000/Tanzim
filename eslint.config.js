@@ -12,6 +12,7 @@ export default defineConfig([
     "playwright-report",
     "test-results",
     ".qa-build",
+    ".v1-audit-runtime/**",
     "backend/.pytest_cache/**",
     "artifacts/**",
   ]),

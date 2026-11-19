@@ -3,9 +3,11 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import Base
+from app.models import Category, InventoryItem, InventoryMovement, Invoice, InvoiceLine, Store, User
 from app.qa.auditor import audit
 from app.qa import seeder
 from app.qa.safety import QaSafetyError, validate_target
@@ -67,10 +69,29 @@ def test_comprehensive_profile_keeps_stores_isolated(tmp_path):
     with Session(engine) as db:
         seed_profile(db, "comprehensive", password="Gate7-test-password-123!")
         assert current_counts(db) == {
-            "users": 4, "stores": 3, "products": 72,
-            "counterparties": 6, "invoices": 6, "barcodes": 72,
+            "users": 6, "stores": 5, "products": 84,
+            "counterparties": 8, "invoices": 8, "barcodes": 84,
         }
+        empty_owner = db.scalar(select(User).where(User.username == "qa-gate7-empty-owner"))
+        empty_store = db.scalar(select(Store).where(Store.owner_user_id == empty_owner.id))
+        assert db.scalar(select(func.count()).select_from(InventoryItem).where(InventoryItem.store_id == empty_store.id)) == 0
+        assert db.scalar(select(func.count()).select_from(InventoryMovement)) == 24
+        assert db.scalar(select(func.min(Invoice.posted_at))) is not None
         assert audit(db)["status"] == "PASS"
+        legacy_category = db.scalar(select(Category).where(Category.store_id != empty_store.id).order_by(Category.id))
+        legacy_category.name = "legacy fixture label"
+        legacy_line = db.scalar(select(InvoiceLine).order_by(InvoiceLine.id))
+        legacy_line.before_quantity = max(0, legacy_line.after_quantity - 2)
+        db.commit()
+        seed_profile(db, "comprehensive", password="Gate7-test-password-123!")
+        db.refresh(legacy_category)
+        assert legacy_category.name != "legacy fixture label"
+        db.refresh(legacy_line)
+        movement = db.scalar(select(InventoryMovement).where(InventoryMovement.invoice_line_id == legacy_line.id))
+        assert (legacy_line.before_quantity, legacy_line.after_quantity) == (
+            movement.before_quantity,
+            movement.after_quantity,
+        )
     engine.dispose()
 
 

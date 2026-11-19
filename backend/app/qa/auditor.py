@@ -11,6 +11,7 @@ from ..models import (
     InventoryItem,
     Invoice,
     InvoiceLine,
+    InventoryMovement,
     ProductBarcode,
     Store,
     StoreMembership,
@@ -79,8 +80,19 @@ def audit(db: Session) -> dict:
         if bad_lines:
             findings.append(AuditFinding("INVOICE_LINE_INTEGRITY", "FAIL", str(bad_lines)))
 
+        bad_movements = db.scalar(select(func.count()).select_from(InventoryMovement).join(
+            InvoiceLine, InventoryMovement.invoice_line_id == InvoiceLine.id
+        ).where(
+            InventoryMovement.store_id.in_(store_ids),
+            (InventoryMovement.store_id != InvoiceLine.store_id)
+            | (InventoryMovement.product_id != InvoiceLine.product_id)
+            | (InventoryMovement.after_quantity - InventoryMovement.before_quantity != InventoryMovement.delta),
+        )) or 0
+        if bad_movements:
+            findings.append(AuditFinding("INVOICE_MOVEMENT_INTEGRITY", "FAIL", str(bad_movements)))
+
     if not findings:
-        findings.append(AuditFinding("QA_INVARIANTS", "PASS", "ownership, tenant, industry, barcode and invoice checks passed"))
+        findings.append(AuditFinding("QA_INVARIANTS", "PASS", "ownership, tenant, industry, barcode, invoice and movement checks passed"))
     return {
         "namespace": QA_NAMESPACE,
         "counts": current_counts(db),
