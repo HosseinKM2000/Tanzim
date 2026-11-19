@@ -48,7 +48,16 @@ class Settings:
     ]
     SYSTEM_ADMIN_PASSWORD: str | None = os.getenv("SYSTEM_ADMIN_PASSWORD")
     APP_BUILD_ID: str = os.getenv("APP_BUILD_ID", "development").strip() or "development"
-    DATABASE_SCHEMA_VERSION: str = "20261118_0021"
+    DATABASE_SCHEMA_VERSION: str = "20261119_0022"
+    PASSWORD_RECOVERY_WINDOW_MINUTES: int = int(
+        os.getenv("PASSWORD_RECOVERY_WINDOW_MINUTES", "15")
+    )
+    PASSWORD_RECOVERY_IDENTIFIER_LIMIT: int = int(
+        os.getenv("PASSWORD_RECOVERY_IDENTIFIER_LIMIT", "5")
+    )
+    PASSWORD_RECOVERY_SOURCE_LIMIT: int = int(
+        os.getenv("PASSWORD_RECOVERY_SOURCE_LIMIT", "20")
+    )
     # Reference data may be deployed before customer adoption. Keep this off
     # until the Code 128 label-capacity and physical release gates are cleared.
     TAXONOMY_ADOPTION_ENABLED: bool = _environment_flag("TAXONOMY_ADOPTION_ENABLED")

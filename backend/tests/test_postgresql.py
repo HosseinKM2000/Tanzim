@@ -43,7 +43,7 @@ from fastapi.testclient import TestClient
 from app.database import SessionLocal, engine
 from app.main import app
 from app.config import settings
-from app.models import BarcodeReservation, CatalogFamily, CatalogProduct, CatalogRelease, Category, Industry, InventoryItem, InventoryMovement, Invoice, Label, MediaAsset, ProductBarcode, ReferenceCategory, ReferenceMediaAsset, ReferenceSector, Store, StoreMembership, StoreModeTransition, StorePlanGrant, SubscriptionPlan, SyncOperation, User, UserSession
+from app.models import BarcodeReservation, CatalogFamily, CatalogProduct, CatalogRelease, Category, Industry, InventoryItem, InventoryMovement, Invoice, Label, MediaAsset, PasswordRecoveryEvent, ProductBarcode, ReferenceCategory, ReferenceMediaAsset, ReferenceSector, Store, StoreMembership, StoreModeTransition, StorePlanGrant, SubscriptionPlan, SyncOperation, User, UserSession
 from app.routers.sync import _duplicate_result
 from app.schemas import SyncOperationIn
 from app.services.catalog_product_service import _reconcile_catalog_assignments
@@ -52,6 +52,7 @@ from app.reference_storage import reference_asset_storage
 from app.services.catalog_provisioning_service import provision_industry_inventory
 from app.services.bootstrap_service import ensure_system_admin
 from app.services.subscription_service import seed_default_plans
+from app.services.password_recovery_service import request_recovery
 
 
 EXPECTED_TABLES = {
@@ -68,6 +69,7 @@ EXPECTED_TABLES = {
     "reference_sectors", "reference_categories", "barcode_reservations",
     "catalog_families", "catalog_product_families", "reference_media_assets",
     "catalog_product_media", "catalog_releases", "catalog_release_pointers",
+    "password_recovery_events",
 }
 MIGRATION_EVIDENCE = {}
 
@@ -433,7 +435,7 @@ def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database
     assert MIGRATION_EVIDENCE["mode_rollback"] == ("20261101_0009", True)
     assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261118_0021"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261119_0022"
         assert "ix_catalog_products_cursor_scope" in {
             index["name"] for index in inspect(engine).get_indexes("catalog_products")
         }
@@ -485,6 +487,28 @@ def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database
             assert features["sync"] is True
             assert row[2] in {4_900_000, 9_900_000, 18_900_000}
             assert row[3:] == (1, "month", False)
+
+
+@pytest.mark.postgres
+def test_password_recovery_rate_limit_serializes_concurrent_requests(
+    migrated_empty_database,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(settings, "PASSWORD_RECOVERY_IDENTIFIER_LIMIT", 1)
+    identifier = f"concurrent-recovery-{uuid.uuid4().hex}"
+
+    def submit(source: str):
+        with SessionLocal() as db:
+            return request_recovery(db, identifier=identifier, source=source)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(submit, ("source-a", "source-b")))
+
+    assert sum(result is None for result in results) == 1
+    assert sum(isinstance(result, int) for result in results) == 1
+    with SessionLocal() as db:
+        outcomes = list(db.scalars(select(PasswordRecoveryEvent.outcome).order_by(PasswordRecoveryEvent.id)))
+        assert outcomes[-2:] == ["channel_unavailable", "rate_limited"]
 
 
 @pytest.mark.postgres

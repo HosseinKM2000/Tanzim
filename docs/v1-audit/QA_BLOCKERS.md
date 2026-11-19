@@ -8,7 +8,7 @@
 | QB-04 | Physical barcode/camera/printer | HARDWARE_REQUIRED | software encode/render/decode tests only | Execute device matrix and retain photos/logs/readability measurements. | BLOCKED |
 | QB-05 | Reference image publication | PRODUCT_DECISION | no real rights evidence | Use synthetic test-use assets only; publication stays denied. | BLOCKED |
 | QB-06 | Paid checkout | INCOMPLETE | `plans.py:23-27` provider unavailable | Do not simulate entitlement; test truthful disabled state. | BLOCKED commercial |
-| QB-07 | Password recovery/OTP | INCOMPLETE | no auth routes/services | Create focused security/product tasks; do not add bypass accounts. | BLOCKED |
+| QB-07 | Password recovery/OTP | PRODUCT_DEPENDENCY | Closure A implements a generic request boundary with persistent rate-limit/audit but no verified mobile/email channel exists | Keep `delivery_available=false`; approve and integrate an ownership-verifying provider before any reset credential is issued. No bypass/OTP was added. | PARTIAL / reset BLOCKED |
 | QB-08 | Production topology/monitoring/restore | HARDWARE_REQUIRED | no target access/operators | Run Gate 6 operator checklist in target-like environment. | BLOCKED |
 
 ## Used-Store industry migration contract proposal

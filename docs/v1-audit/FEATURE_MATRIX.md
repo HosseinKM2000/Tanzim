@@ -10,10 +10,10 @@ Audit boundary: `test-v1-commercial-readiness-audit`, based on `9a2c458`. Code i
 | AUTH-04 | Account | session expiry/revocation | WORKING | session verification | authenticated | server acceptance online | backend, sync tests | multi-device field run | high |
 | AUTH-05 | Account | edit profile/mobile | WORKING | canonical phone | owner/personnel self | online | backend, component | concurrent profile edits | medium |
 | AUTH-06 | Account | change password | WORKING | current password; session revocation | authenticated | online-only | backend | browser journey | high |
-| AUTH-07 | Account | forgotten-password recovery | NOT_IMPLEMENTED | no reset endpoint/token/provider | none | unavailable | none | all cases | high |
+| AUTH-07 | Account | forgotten-password recovery | PARTIAL | enumeration-safe request boundary; verified delivery provider absent | public request only | online | backend security + E2E | provider delivery, credential expiry/replay/reset | high |
 | AUTH-08 | Account | OTP/mobile verification/resend | NOT_IMPLEMENTED | no SMS/OTP service | none | unavailable | none | all cases | high |
 | AUTH-09 | Account | account deletion/export-before-delete | NOT_IMPLEMENTED | product/legal decision | owner | unavailable | none | all cases | high |
-| AUTH-10 | Account | terms/privacy acceptance | PARTIAL | signup copy only | public | online | render only | linked documents/versioned consent | high |
+| AUTH-10 | Account | terms/privacy acceptance | PARTIAL | accessible status routes and signup links; approved copy absent | public | online | hosted E2E keyboard journey | approved documents/versioned consent decision | high |
 | ONB-01 | Onboarding | first owner Store creation | WORKING | signup transaction | new owner | online | backend/PostgreSQL | interrupted browser journey | high |
 | ONB-02 | Onboarding | choose taxonomy for unused Store | WORKING | `TAXONOMY_ADOPTION_ENABLED` | owner; flag | online | backend/PostgreSQL/component | physical label gate | high |
 | ONB-03 | Onboarding | change taxonomy for used Store | BLOCKED | migration contract absent | owner | online | guard tests | approved migration/rollback | high |

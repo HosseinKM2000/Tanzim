@@ -4,8 +4,8 @@ Audit baseline: Gate 7 QA branch commit `9a2c458`, itself descended from `draft@
 
 ## Current product truth
 
-- 76 source-verified capability records: 56 WORKING, 7 PARTIAL, 2 BLOCKED, 9 NOT_IMPLEMENTED and 2 NOT_VERIFIED.
-- 86 executable acceptance cases classify 67 PASS and 19 BLOCKED. The automation gate passed; the fresh previous-client check remains blocked by the preserved Gate 6 backend's CORS allowlist, not by a weakened compatibility assertion.
+- 76 source-verified capability records: 56 WORKING, 8 PARTIAL, 2 BLOCKED, 8 NOT_IMPLEMENTED and 2 NOT_VERIFIED.
+- 88 executable acceptance cases classify 70 PASS and 18 BLOCKED. Closure A passed the fresh previous-client desktop/mobile check with an exact QA origin and disposable database clone.
 - Core inventory, atomic invoices, Store/person authorization, durable sync/recovery, local backup, PWA update safety and guarded catalog infrastructure are implemented with meaningful automated evidence.
 - Missing features are not represented as defects where they were never contracted: variants, proforma, partial returns/tax, invitations and similar requests remain explicit product decisions.
 
@@ -26,12 +26,12 @@ Audit baseline: Gate 7 QA branch commit `9a2c458`, itself descended from `draft@
 ## Release gaps
 
 - P0: 0 evidenced.
-- P1: 8 — recovery, legal links/consent, paid checkout, server restore contract, used-Store migration decision, production operations, physical barcode/mobile evidence and image rights.
+- P1: 8 — recovery provider/reset completion and approved legal consent remain partial; paid checkout, server restore contract, used-Store migration decision, production operations, physical barcode/mobile evidence and image rights remain blocked.
 - P2: 6 — OTP decision, deletion, accessibility, PDF/cross-engine, multi-store scope and catalog activation boundary.
 - P3: 4 grouped optional/polish areas.
 
 ## Decision
 
-- Development QA: CONDITIONAL. Regression is green, but the fresh previous-client browser prerequisite could not complete against the preserved Gate 6 service because its CORS configuration does not allow the disposable audit origins.
+- Development QA: GO for continued isolated development. Closure A regression, live prerequisites, previous-client compatibility and two-build PWA activation are green; this is not a production authorization.
 - Field QA: BLOCKED; no physical device/peripheral evidence is available.
 - Commercial V1: NO-GO. The smallest critical path is: recovery + legal contract; commercial scope/payment decision; physical device/barcode pass; image-rights decision; target backup/restore/monitoring/rollback ownership; then a release-candidate regression rerun.

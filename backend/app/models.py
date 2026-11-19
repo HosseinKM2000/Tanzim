@@ -307,6 +307,26 @@ class UserSession(Base):
     )
 
 
+class PasswordRecoveryEvent(Base):
+    """Enumeration-safe audit and rate-limit record; never stores an identifier or secret."""
+
+    __tablename__ = "password_recovery_events"
+    __table_args__ = (
+        Index("ix_password_recovery_identifier_time", "identifier_hash", "requested_at"),
+        Index("ix_password_recovery_source_time", "source_hash", "requested_at"),
+        CheckConstraint(
+            "outcome IN ('channel_unavailable','rate_limited')",
+            name="ck_password_recovery_event_outcome",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    identifier_hash: Mapped[str] = mapped_column(String(64))
+    source_hash: Mapped[str] = mapped_column(String(64))
+    outcome: Mapped[str] = mapped_column(String(32))
+    requested_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+
 # ---------- Sector/category reference contract ----------
 class ReferenceSector(Base):
     __tablename__ = "reference_sectors"

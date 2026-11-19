@@ -86,6 +86,25 @@ class LoginRequest(BaseModel):
         return value
 
 
+class PasswordRecoveryRequest(BaseModel):
+    identifier: str = Field(min_length=1, max_length=120)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("identifier")
+    @classmethod
+    def normalize_identifier(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("RECOVERY_IDENTIFIER_REQUIRED")
+        return normalized
+
+
+class PasswordRecoveryResponse(BaseModel):
+    message: str = "PASSWORD_RECOVERY_REQUEST_ACCEPTED"
+    delivery_available: bool = False
+
+
 class UserUpdate(BaseModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=120)
     last_name: str | None = Field(default=None, min_length=1, max_length=120)

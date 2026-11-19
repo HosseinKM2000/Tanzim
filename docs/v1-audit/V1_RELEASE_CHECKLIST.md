@@ -6,9 +6,11 @@ Statuses are evidence-bound: PASS is local/disposable evidence at this commit, B
 
 - [x] Signup transaction creates user, Store, owner membership and session atomically.
 - [x] Login/logout/session revocation and password change have automated coverage.
-- [ ] **P1:** password recovery contract and implementation.
+- [x] Enumeration-safe recovery request boundary, persistent hashed audit and request/resend throttling.
+- [ ] **P1:** approve verified ownership/delivery provider; implement expiring single-use reset credential, verification limits and reset/session-revocation journey.
 - [ ] Decide and implement OTP/mobile verification if required by V1 promise.
-- [ ] **P1:** publish reachable terms/privacy and decide versioned consent.
+- [x] Reachable keyboard/mobile Terms and Privacy status pages and signup links; no false implied-consent claim.
+- [ ] **P1:** publish approved legal copy and decide/version explicit consent and policy-update handling.
 - [ ] Define account deletion/retention/export contract.
 - [x] Fresh-Store taxonomy adoption works only behind isolated QA flag.
 - [x] Used-Store taxonomy change remains safely blocked.
@@ -75,18 +77,18 @@ Statuses are evidence-bound: PASS is local/disposable evidence at this commit, B
 ## Automated release gates
 
 - [x] Frontend unit/component regression: 94 files / 425 tests passed.
-- [x] Backend fast/API regression: 117 tests passed.
-- [x] PostgreSQL integration and Alembic head: 26 tests passed.
+- [x] Backend fast/API regression: 120 tests passed.
+- [x] PostgreSQL integration and Alembic `20261119_0022`: 27 tests passed.
 - [x] Typecheck passed.
-- [x] Production build passed (2,903 modules; non-blocking Browserslist/chunk-size warnings recorded).
+- [x] Production build passed (2,911 modules; non-blocking Browserslist/chunk-size warnings recorded).
 - [x] Lint passed.
-- [x] Hosted E2E: 144 passed / 10 prerequisite skips; disposable live prerequisites: 8 passed.
-- [ ] Previous-client live prerequisite: **BLOCKED** (2 desktop/mobile cases) because preserved Gate 6 API CORS excludes disposable audit origins; no guard was bypassed.
+- [x] Hosted E2E: 146 passed / 10 prerequisite skips; disposable live prerequisites: 10 passed.
+- [x] Previous-client live prerequisite: 2 desktop/mobile cases passed against a disposable Gate 6 database clone with one exact QA origin; credentialed wildcard CORS was not used.
 - [x] QA seeder focused regression: 4 tests passed after extension.
 - [x] Comprehensive PostgreSQL seed executed twice and invariant audit passed without reset/deletion.
 
 ## Decision
 
-- Internal development/QA audit: **CONDITIONAL**; regression is green, previous-client live evidence remains environment-blocked.
+- Internal development/QA audit: **GO** for continued isolated development; no production/pilot authorization.
 - Field validation: **BLOCKED** on physical devices/peripherals.
 - Commercial V1: **NO-GO** until all mandatory P1 items above are closed or explicitly removed from the marketed contract by authorized product/legal owners.
