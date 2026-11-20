@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
+import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -19,15 +21,18 @@ from ..models import (
     InvoiceLine,
     InventoryMovement,
     Label,
+    MediaAsset,
     ProductBarcode,
     ReferenceCategory,
     ReferenceSector,
     Store,
+    StoreActivity,
     StoreMembership,
     StoreRole,
     User,
 )
 from ..security import hash_password
+from ..media_storage import media_storage
 from ..services.store_service import create_owner_store
 from ..services.canonical_taxonomy_seed import seed_canonical_taxonomy
 from ..services.taxonomy_service import TAXONOMY_VERSION, issue_internal_barcode
@@ -36,6 +41,7 @@ from ..services.taxonomy_service import TAXONOMY_VERSION, issue_internal_barcode
 QA_NAMESPACE = "qa-gate7"
 PROFILE_SPECS = {
     "smoke": {"stores": (("smoke", "free", 8),)},
+    "automotive": {"stores": (("auto", "vip", 125),)},
     "comprehensive": {
         "stores": (
             ("empty", "free", 0),
@@ -46,6 +52,10 @@ PROFILE_SPECS = {
         )
     },
 }
+
+QA_WEBP = base64.b64decode(
+    "UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEAAUAmJaQAA3AA/v89WAAAAA=="
+)
 
 STORE_FIXTURES = {
     "empty": {"industry": "فروشگاه تازه و بدون داده", "categories": (), "products": ()},
@@ -139,11 +149,12 @@ def _owner(db: Session, key: str, plan: str, password_hash: str) -> tuple[User, 
         if store is None or store.owner_user_id != user.id:
             raise RuntimeError("QA_STORE_OWNERSHIP_INVALID")
     user.plan = store.plan = plan
-    store.name = f"مجموعه آزمایشی {QA_NAMESPACE} {key}"
+    store.name = "فروشگاه آزمایشی تنظیم — خودرو" if key == "auto" else f"مجموعه آزمایشی {QA_NAMESPACE} {key}"
     return user, store, membership
 
 
 def _seed_store(db: Session, key: str, plan: str, product_count: int, password_hash: str) -> dict[str, int]:
+    rich_automotive = key == "auto" and product_count >= 100
     owner, store, membership = _owner(db, key, plan, password_hash)
     industry = _industry(db, key)
     owner.industry_id = store.industry_id = industry.id
@@ -228,7 +239,12 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
     products: list[InventoryItem] = []
     for index in range(1, product_count + 1):
         identity = f"{QA_NAMESPACE}-{key}-product-{index:05d}"
-        product_name = fixture["products"][(index - 1) % len(fixture["products"])]
+        selected_category = categories[((index - 1) if rich_automotive else index) % len(categories)]
+        examples = [item.strip() for item in (selected_category.description or "").split("،") if item.strip()]
+        product_name = (
+            examples[(index - 1) % len(examples)] if rich_automotive and examples
+            else fixture["products"][(index - 1) % len(fixture["products"])]
+        )
         catalog = db.scalar(select(CatalogProduct).where(
             CatalogProduct.industry_id == industry.id,
             CatalogProduct.name == identity,
@@ -256,7 +272,7 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
         if item is None:
             item = InventoryItem(
                 store_id=store.id, user_id=owner.id, catalog_product_id=catalog.id,
-                category_id=categories[index % len(categories)].id,
+                category_id=selected_category.id,
                 quantity=quantity, price=sale_price, sale_price=sale_price,
                 purchase_price=max(0, sale_price - 15_000),
                 custom_label=("نام بسیار بلند محصول آزمایشی برای سنجش چیدمان رابط کاربری " if index == 2 else f"{product_name} ") + str(index),
@@ -269,16 +285,33 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
             db.flush()
         products.append(item)
 
-        if key == "auto":
+        if rich_automotive and index % 5 == 0:
+            digest = hashlib.sha256(QA_WEBP).hexdigest()
+            transfer_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{QA_NAMESPACE}:{key}:media:{index}"))
+            asset_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{QA_NAMESPACE}:{key}:asset:{index}"))
+            asset = db.get(MediaAsset, asset_id)
+            if asset is None:
+                storage_key = f"stores/{store.id}/{digest[:2]}/{digest}.webp"
+                media_storage.put_if_absent(storage_key, QA_WEBP)
+                asset = MediaAsset(
+                    id=asset_id, store_id=store.id, actor_user_id=owner.id,
+                    transfer_id=transfer_id, content_sha256=digest, storage_key=storage_key,
+                    mime_type="image/webp", byte_size=len(QA_WEBP), width=1, height=1,
+                )
+                db.add(asset)
+                db.flush()
+            item.media_asset_id = asset.id
+
+        if key == "auto" and (not rich_automotive or index % 4 != 0):
             existing_barcode = db.scalar(select(ProductBarcode).where(
                 ProductBarcode.store_id == store.id,
                 ProductBarcode.product_id == item.id,
             ))
             if existing_barcode is None:
-                issue_internal_barcode(db, store, item, categories[index % len(categories)])
+                issue_internal_barcode(db, store, item, selected_category)
             continue
 
-        barcode_value = f"Q7{_stable_int(identity):09d}{index % 10}"
+        barcode_value = f"QAUTO{_stable_int(identity):09d}{index % 10}" if rich_automotive else f"Q7{_stable_int(identity):09d}{index % 10}"
         reservation = db.scalar(select(BarcodeReservation).where(
             BarcodeReservation.store_id == store.id, BarcodeReservation.value == barcode_value,
         ))
@@ -297,7 +330,12 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
             ))
 
     parties: list[Counterparty] = []
-    for suffix, kind in (("supplier", "organization"), ("customer", "person")):
+    party_specs = (
+        tuple((f"supplier-{number:02d}", "organization") for number in range(1, 6))
+        + tuple((f"customer-{number:02d}", "person") for number in range(1, 6))
+        if rich_automotive else (("supplier", "organization"), ("customer", "person"))
+    )
+    for suffix, kind in party_specs:
         name = f"{QA_NAMESPACE}-{key}-{suffix}"
         party = db.scalar(select(Counterparty).where(Counterparty.store_id == store.id, Counterparty.name == name))
         if party is None:
@@ -310,12 +348,23 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
         parties.append(party)
 
     invoice_ages = (420, 370) if key == "historical" else (7, 0)
-    for invoice_type, party, age in (("purchase", parties[0], invoice_ages[0]), ("sale", parties[1], invoice_ages[1])):
-        operation_id = f"{QA_NAMESPACE}-{key}-{invoice_type}-001"
+    invoice_specs = (
+        tuple(
+            ("purchase" if number % 2 else "sale", parties[(number - 1) % len(parties)], 21 - number, number)
+            for number in range(1, 21)
+        )
+        if rich_automotive else (
+            ("purchase", parties[0], invoice_ages[0], 1),
+            ("sale", parties[1], invoice_ages[1], 1),
+        )
+    )
+    for invoice_type, party, age, invoice_number in invoice_specs:
+        operation_id = f"{QA_NAMESPACE}-{key}-{invoice_type}-{invoice_number:03d}"
         invoice = db.scalar(select(Invoice).where(
             Invoice.store_id == store.id, Invoice.post_operation_id == operation_id,
         ))
-        chosen = products[: min(3, len(products))]
+        start = ((invoice_number - 1) * 3) % len(products) if rich_automotive else 0
+        chosen = products[start:start + min(3, len(products))]
         unit_prices = [p.purchase_price if invoice_type == "purchase" else p.sale_price for p in chosen]
         if invoice is None:
             total = sum(int(price or 0) * 2 for price in unit_prices)
@@ -329,6 +378,13 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
             )
             db.add(invoice)
             db.flush()
+            db.add(StoreActivity(
+                store_id=store.id, actor_user_id=owner.id, actor_membership_id=membership.id,
+                actor_display_name=owner.username, actor_role_name="مالک", operation_id=operation_id,
+                target_entity="invoice", target_id=str(invoice.id), action=f"invoice.{invoice_type}.posted",
+                before_json=None, after_json=json.dumps({"total_amount": total}, ensure_ascii=False),
+                outcome="applied", client_occurred_at=invoice.posted_at, accepted_at=invoice.posted_at,
+            ))
         for position, (product, price) in enumerate(zip(chosen, unit_prices), start=1):
             final = product.quantity
             before = final if invoice_type == "purchase" else final + 2
@@ -395,7 +451,10 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
             store.operating_mode = "team"
 
     db.flush()
-    return {"stores": 1, "users": 2 if key == "team" else 1, "products": len(products), "counterparties": 2, "invoices": 2, "barcodes": len(products)}
+    return {
+        "stores": 1, "users": 2 if key == "team" else 1, "products": len(products),
+        "counterparties": len(parties), "invoices": len(invoice_specs), "barcodes": len(products),
+    }
 
 
 def seed_profile(db: Session, profile: str, *, password: str, dry_run: bool = False, stress_size: int | None = None) -> SeedSummary:
@@ -410,8 +469,10 @@ def seed_profile(db: Session, profile: str, *, password: str, dry_run: bool = Fa
             raise ValueError("QA_PROFILE_UNKNOWN") from error
     expected = SeedSummary(
         profile=profile, stores=len(specs), users=sum(2 if key == "team" else 1 for key, _, _ in specs),
-        products=sum(count for _, _, count in specs), counterparties=2 * sum(count > 0 for _, _, count in specs),
-        invoices=2 * sum(count > 0 for _, _, count in specs), barcodes=sum(count for _, _, count in specs), dry_run=dry_run,
+        products=sum(count for _, _, count in specs),
+        counterparties=sum(10 if key == "auto" and count >= 100 else 2 for key, _, count in specs if count > 0),
+        invoices=sum(20 if key == "auto" and count >= 100 else 2 for key, _, count in specs if count > 0),
+        barcodes=sum(count for _, _, count in specs), dry_run=dry_run,
     )
     if dry_run:
         return expected

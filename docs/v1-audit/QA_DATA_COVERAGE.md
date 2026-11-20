@@ -6,6 +6,7 @@ The existing Gate 7 seeder is extended, not replaced. Namespace ownership remain
 |---|---:|---:|---|---|
 | `smoke` | 1/1 | 8 | Free owner, categories, labels, stock boundaries, two counterparties, purchase/sale, barcodes | quick core checks |
 | `comprehensive` | 5/6 | 84 | empty Free Store; automotive Free; apparel Pro; distribution VIP Team owner/operator; historical Pro; 8 invoices/counterparties; 84 barcodes | full manual/automated exploration |
+| `automotive` | 1/1 | 125 | isolated VIP Automotive Store: 25 canonical sector-01 categories, internal and preserved manual barcodes, 25 synthetic images, 10 counterparties, 20 posted purchase/sale invoices with movements and 20 activity records | automotive QA walkthrough (see `AUTOMOTIVE_QA_MIGRATION.md`) |
 | `stress` | 1/1 | 1k/5k/10k | isolated VIP data; opt-in only | performance/storage checks |
 
 Comprehensive now includes coherent invoice lines and matching inventory movements. The independent auditor checks owner membership, Store/industry consistency, cross-tenant categories, barcode reservation/uniqueness, invoice arithmetic/store boundary and movement product/store/delta integrity. Seed execution is transactional and repeat-idempotent; a forced mid-profile exception rolls back.

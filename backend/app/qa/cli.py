@@ -14,7 +14,7 @@ from .seeder import current_counts, seed_profile
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(description="Fail-closed Tanzim Gate 7 QA data tooling")
     value.add_argument("command", choices=("seed", "audit", "counts"))
-    value.add_argument("--profile", choices=("smoke", "comprehensive", "stress"), default="smoke")
+    value.add_argument("--profile", choices=("smoke", "comprehensive", "automotive", "stress"), default="smoke")
     value.add_argument("--stress-size", type=int)
     value.add_argument("--dry-run", action="store_true")
     value.add_argument("--confirm", required=True)

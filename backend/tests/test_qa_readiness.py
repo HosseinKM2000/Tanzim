@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import Base
 from app.models import (
     CanonicalTaxonomySeed, Category, InventoryItem, InventoryMovement, Invoice, InvoiceLine,
-    ProductBarcode, ReferenceCategory, Store, User,
+    MediaAsset, ProductBarcode, ReferenceCategory, Store, StoreActivity, User,
 )
 from app.qa.auditor import audit
 from app.qa import seeder
@@ -131,6 +131,37 @@ def test_canonical_seed_is_idempotent_and_keeps_proposals_inactive(tmp_path):
             ReferenceCategory.approval_status == "approved",
         )) == 25
         assert db.scalar(select(func.count()).select_from(CanonicalTaxonomySeed)) == 1
+    engine.dispose()
+
+
+def test_automotive_profile_is_comprehensive_idempotent_and_auditable(tmp_path):
+    engine = create_engine(f"sqlite:///{(tmp_path / 'automotive-seed.db').as_posix()}")
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        preview = seed_profile(db, "automotive", password="unused", dry_run=True)
+        assert preview.to_dict() == {
+            "profile": "automotive", "stores": 1, "users": 1, "products": 125,
+            "counterparties": 10, "invoices": 20, "barcodes": 125, "dry_run": True,
+        }
+        first = seed_profile(db, "automotive", password="Automotive-QA-password-123!")
+        first_counts = current_counts(db)
+        second = seed_profile(db, "automotive", password="Automotive-QA-password-123!")
+        assert first.to_dict() == second.to_dict()
+        assert current_counts(db) == first_counts == {
+            "users": 1, "stores": 1, "products": 125,
+            "counterparties": 10, "invoices": 20, "barcodes": 125,
+        }
+        store = db.scalar(select(Store))
+        assert db.scalar(select(func.count()).select_from(Category).where(Category.store_id == store.id)) == 25
+        assert db.scalar(select(func.count()).select_from(ProductBarcode).where(
+            ProductBarcode.store_id == store.id, ProductBarcode.source == "tanzim",
+        )) == 94
+        assert db.scalar(select(func.count()).select_from(ProductBarcode).where(
+            ProductBarcode.store_id == store.id, ProductBarcode.source == "manufacturer",
+        )) == 31
+        assert db.scalar(select(func.count()).select_from(MediaAsset).where(MediaAsset.store_id == store.id)) == 25
+        assert db.scalar(select(func.count()).select_from(StoreActivity).where(StoreActivity.store_id == store.id)) == 20
+        assert audit(db)["status"] == "PASS"
     engine.dispose()
 
 

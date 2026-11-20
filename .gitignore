@@ -16,6 +16,7 @@ playwright-report/
 test-results/
 artifacts/codex-*/
 .v1-audit-runtime/
+.qa-automotive-runtime/
 .tanstack/tmp/
 backend/.coverage
 backend/.pytest_cache/
