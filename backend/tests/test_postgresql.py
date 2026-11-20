@@ -69,7 +69,7 @@ EXPECTED_TABLES = {
     "reference_sectors", "reference_categories", "barcode_reservations",
     "catalog_families", "catalog_product_families", "reference_media_assets",
     "catalog_product_media", "catalog_releases", "catalog_release_pointers",
-    "password_recovery_events",
+    "password_recovery_events", "canonical_taxonomy_seeds",
 }
 MIGRATION_EVIDENCE = {}
 
@@ -308,6 +308,10 @@ def migrated_empty_database():
             connection.scalar(text("SELECT count(*) FROM reference_categories WHERE approval_status='proposed'")),
             connection.scalar(text("SELECT count(*) FROM industries WHERE taxonomy_version='scb-2026-11-14-v1'")),
         )
+        MIGRATION_EVIDENCE["taxonomy_seed_identity"] = tuple(connection.execute(text(
+            "SELECT taxonomy_version,content_sha256,sector_count,approved_category_count,proposed_category_count "
+            "FROM canonical_taxonomy_seeds"
+        )).one())
         MIGRATION_EVIDENCE["taxonomy_legacy"] = connection.execute(text(
             "SELECT c.origin,c.is_active,s.taxonomy_version,s.has_historical_inventory_usage "
             "FROM categories c JOIN stores s ON s.id=c.store_id WHERE c.id=9101"
@@ -435,7 +439,11 @@ def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database
     assert MIGRATION_EVIDENCE["mode_rollback"] == ("20261101_0009", True)
     assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261119_0022"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261120_0023"
+        seed_identity = MIGRATION_EVIDENCE["taxonomy_seed_identity"]
+        assert seed_identity[0] == "scb-2026-11-14-v1"
+        assert len(seed_identity[1]) == 64
+        assert seed_identity[2:] == (24, 25, 256)
         assert "ix_catalog_products_cursor_scope" in {
             index["name"] for index in inspect(engine).get_indexes("catalog_products")
         }

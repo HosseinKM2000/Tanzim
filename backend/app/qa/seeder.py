@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -19,6 +20,8 @@ from ..models import (
     InventoryMovement,
     Label,
     ProductBarcode,
+    ReferenceCategory,
+    ReferenceSector,
     Store,
     StoreMembership,
     StoreRole,
@@ -26,6 +29,8 @@ from ..models import (
 )
 from ..security import hash_password
 from ..services.store_service import create_owner_store
+from ..services.canonical_taxonomy_seed import seed_canonical_taxonomy
+from ..services.taxonomy_service import TAXONOMY_VERSION, issue_internal_barcode
 
 
 QA_NAMESPACE = "qa-gate7"
@@ -91,6 +96,11 @@ def _phone(value: str) -> str:
 
 
 def _industry(db: Session, key: str) -> Industry:
+    if key == "auto":
+        industry = db.scalar(select(Industry).where(Industry.sector_code == "01"))
+        if industry is None:
+            raise RuntimeError("QA_AUTOMOTIVE_INDUSTRY_MISSING")
+        return industry
     fixture = STORE_FIXTURES.get(key, {})
     name = f"آزمایشی {QA_NAMESPACE} {fixture.get('industry', key)}"
     industry = db.scalar(select(Industry).where(Industry.name == name))
@@ -138,13 +148,47 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
     industry = _industry(db, key)
     owner.industry_id = store.industry_id = industry.id
 
+    if key == "auto":
+        sector = db.scalar(select(ReferenceSector).where(ReferenceSector.code == "01"))
+        if sector is None:
+            raise RuntimeError("QA_AUTOMOTIVE_SECTOR_MISSING")
+        store.taxonomy_version = TAXONOMY_VERSION
+        store.taxonomy_adopted_at = store.taxonomy_adopted_at or datetime.now(timezone.utc)
+        store.taxonomy_adopted_by_user_id = owner.id
+        references = list(db.scalars(select(ReferenceCategory).where(
+            ReferenceCategory.sector_id == sector.id,
+            ReferenceCategory.approval_status == "approved",
+        ).order_by(ReferenceCategory.code)))
+        if len(references) != 25:
+            raise RuntimeError("QA_AUTOMOTIVE_CATEGORY_COUNT_INVALID")
+        for reference in references:
+            category = db.scalar(select(Category).where(
+                Category.store_id == store.id,
+                Category.reference_key == reference.reference_key,
+            ))
+            if category is None:
+                category = Category(
+                    store_id=store.id, user_id=owner.id, name=reference.name_fa,
+                    description="، ".join(json.loads(reference.examples_json)), code=reference.code,
+                    sector_code="01", origin="system", approval_status="approved", is_active=True,
+                    reference_key=reference.reference_key, reference_category_id=reference.id,
+                    taxonomy_version=TAXONOMY_VERSION,
+                )
+                db.add(category)
+        db.flush()
+
     if product_count == 0:
         db.flush()
         return {"stores": 1, "users": 1, "products": 0, "counterparties": 0, "invoices": 0, "barcodes": 0}
 
     categories: list[Category] = []
     fixture = STORE_FIXTURES.get(key, STORE_FIXTURES["auto"])
-    for index, name in enumerate(fixture["categories"], start=1):
+    if key == "auto":
+        categories = list(db.scalars(select(Category).where(
+            Category.store_id == store.id,
+            Category.origin == "system",
+        ).order_by(Category.code)))
+    for index, name in enumerate(() if key == "auto" else fixture["categories"], start=1):
         scoped_name = f"{name} — {QA_NAMESPACE}-{key}"
         category_code = f"Q{index:02d}"
         # The store/code pair is the database identity. Fixture display names may
@@ -224,6 +268,15 @@ def _seed_store(db: Session, key: str, plan: str, product_count: int, password_h
             db.add(item)
             db.flush()
         products.append(item)
+
+        if key == "auto":
+            existing_barcode = db.scalar(select(ProductBarcode).where(
+                ProductBarcode.store_id == store.id,
+                ProductBarcode.product_id == item.id,
+            ))
+            if existing_barcode is None:
+                issue_internal_barcode(db, store, item, categories[index % len(categories)])
+            continue
 
         barcode_value = f"Q7{_stable_int(identity):09d}{index % 10}"
         reservation = db.scalar(select(BarcodeReservation).where(
@@ -362,6 +415,7 @@ def seed_profile(db: Session, profile: str, *, password: str, dry_run: bool = Fa
     )
     if dry_run:
         return expected
+    seed_canonical_taxonomy(db)
     password_hash = hash_password(password)
     totals = {"stores": 0, "users": 0, "products": 0, "counterparties": 0, "invoices": 0, "barcodes": 0}
     try:

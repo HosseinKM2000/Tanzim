@@ -7,7 +7,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import Base
-from app.models import Category, InventoryItem, InventoryMovement, Invoice, InvoiceLine, Store, User
+from app.models import (
+    CanonicalTaxonomySeed, Category, InventoryItem, InventoryMovement, Invoice, InvoiceLine,
+    ProductBarcode, ReferenceCategory, Store, User,
+)
 from app.qa.auditor import audit
 from app.qa import seeder
 from app.qa.safety import QaSafetyError, validate_target
@@ -78,7 +81,26 @@ def test_comprehensive_profile_keeps_stores_isolated(tmp_path):
         assert db.scalar(select(func.count()).select_from(InventoryMovement)) == 24
         assert db.scalar(select(func.min(Invoice.posted_at))) is not None
         assert audit(db)["status"] == "PASS"
-        legacy_category = db.scalar(select(Category).where(Category.store_id != empty_store.id).order_by(Category.id))
+        auto_owner = db.scalar(select(User).where(User.username == "qa-gate7-auto-owner"))
+        auto_store = db.scalar(select(Store).where(Store.owner_user_id == auto_owner.id))
+        assert auto_store.taxonomy_version == "scb-2026-11-14-v1"
+        automotive_categories = list(db.scalars(select(Category).where(
+            Category.store_id == auto_store.id,
+        ).order_by(Category.code)))
+        assert len(automotive_categories) == 25
+        assert {category.origin for category in automotive_categories} == {"system"}
+        assert {category.code for category in automotive_categories} == {f"{number:02d}" for number in range(1, 26)}
+        assert db.scalar(select(func.count()).select_from(ProductBarcode).where(
+            ProductBarcode.store_id == auto_store.id,
+            ProductBarcode.source == "tanzim",
+        )) == 18
+        seed_record = db.scalar(select(CanonicalTaxonomySeed))
+        assert seed_record is not None
+        assert (seed_record.sector_count, seed_record.approved_category_count, seed_record.proposed_category_count) == (24, 25, 256)
+        legacy_category = db.scalar(select(Category).where(
+            Category.store_id != empty_store.id,
+            Category.origin == "custom",
+        ).order_by(Category.id))
         legacy_category.name = "legacy fixture label"
         legacy_line = db.scalar(select(InvoiceLine).order_by(InvoiceLine.id))
         legacy_line.before_quantity = max(0, legacy_line.after_quantity - 2)
@@ -92,6 +114,23 @@ def test_comprehensive_profile_keeps_stores_isolated(tmp_path):
             movement.before_quantity,
             movement.after_quantity,
         )
+    engine.dispose()
+
+
+def test_canonical_seed_is_idempotent_and_keeps_proposals_inactive(tmp_path):
+    engine = create_engine(f"sqlite:///{(tmp_path / 'canonical-seed.db').as_posix()}")
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        first = seeder.seed_canonical_taxonomy(db)
+        db.commit()
+        second = seeder.seed_canonical_taxonomy(db)
+        db.commit()
+        assert first == second
+        assert db.scalar(select(func.count()).select_from(ReferenceCategory)) == 281
+        assert db.scalar(select(func.count()).select_from(ReferenceCategory).where(
+            ReferenceCategory.approval_status == "approved",
+        )) == 25
+        assert db.scalar(select(func.count()).select_from(CanonicalTaxonomySeed)) == 1
     engine.dispose()
 
 

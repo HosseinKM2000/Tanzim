@@ -370,6 +370,18 @@ class ReferenceCategory(Base):
     sector: Mapped["ReferenceSector"] = relationship(back_populates="categories")
 
 
+class CanonicalTaxonomySeed(Base):
+    __tablename__ = "canonical_taxonomy_seeds"
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    taxonomy_version: Mapped[str] = mapped_column(String(40), unique=True)
+    content_sha256: Mapped[str] = mapped_column(String(64), unique=True)
+    sector_count: Mapped[int] = mapped_column(Integer)
+    approved_category_count: Mapped[int] = mapped_column(Integer)
+    proposed_category_count: Mapped[int] = mapped_column(Integer)
+    applied_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+
 # ---------- Category ----------
 class Category(Base):
     __tablename__ = "categories"
