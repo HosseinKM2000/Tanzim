@@ -48,7 +48,7 @@ class Settings:
     ]
     SYSTEM_ADMIN_PASSWORD: str | None = os.getenv("SYSTEM_ADMIN_PASSWORD")
     APP_BUILD_ID: str = os.getenv("APP_BUILD_ID", "development").strip() or "development"
-    DATABASE_SCHEMA_VERSION: str = "20261119_0022"
+    DATABASE_SCHEMA_VERSION: str = "20261120_0023"
     PASSWORD_RECOVERY_WINDOW_MINUTES: int = int(
         os.getenv("PASSWORD_RECOVERY_WINDOW_MINUTES", "15")
     )
