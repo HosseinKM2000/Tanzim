@@ -1,3 +1,5 @@
+import { appLogger } from "@/lib/logger-sdk";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
 
@@ -46,10 +48,27 @@ export async function flushRemoteLogs() {
 }
 
 export function enqueueRemoteLog(item: RemoteLogItem) {
-  if (item.path === "/logs/client") return;
+  if (item.path === "/logs/client" || item.path?.includes("/logs/ingest")) return;
   if (queue.length >= 50) queue.shift();
   queue.push(item);
   scheduleFlush();
+
+  // Also bridge to Central Multi-Tenant AppLogger
+  appLogger.log({
+    level: item.level,
+    category: item.source || "frontend",
+    action: item.event,
+    title: item.event,
+    message: item.message,
+    metadata: {
+      ...item.details,
+      status_code: item.status_code,
+      request_id: item.request_id,
+    },
+    context: {
+      path: item.path || (typeof window !== "undefined" ? window.location.pathname : undefined),
+    },
+  });
 }
 
 export function installRemoteErrorHandlers() {

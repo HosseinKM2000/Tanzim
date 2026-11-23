@@ -41,7 +41,7 @@ class Settings:
     ]
     SYSTEM_ADMIN_PASSWORD: str | None = os.getenv("SYSTEM_ADMIN_PASSWORD")
     APP_BUILD_ID: str = os.getenv("APP_BUILD_ID", "development").strip() or "development"
-    DATABASE_SCHEMA_VERSION: str = "20261115_0019"
+    DATABASE_SCHEMA_VERSION: str = "20261123_0020"
     APP_ORIGIN: str = os.getenv("APP_ORIGIN", "https://app.tanzimapp.ir").strip().rstrip("/")
     DONGIPAY_BASE_URL: str = os.getenv(
         "DONGIPAY_BASE_URL", "https://api.chat.dongigpt.ir/api/v1/dongipay"
