@@ -2457,15 +2457,22 @@ class SyncWithoutIndustryTest(unittest.TestCase):
                 "first_name": "No",
                 "last_name": "Industry",
                 "username": "no-industry-sync-test",
+                "phone": _mobile("no-industry-sync-test"),
                 "password": "StrongPass123!",
                 "device_fingerprint": "no-industry-device",
             },
         )
         assert signup.status_code == 201, signup.text
         cls.user_id = signup.json()["user"]["id"]
+        with SessionLocal() as db:
+            user = db.get(User, cls.user_id)
+            store = user.store_memberships[0].store
+            user.plan = store.plan = "pro"
+            db.commit()
         cls.headers = {
             "Authorization": f"Bearer {signup.json()['access_token']}",
             "X-Device-Fingerprint": "no-industry-device",
+            "X-Client-Data-Schema": "2",
         }
 
     @classmethod
@@ -2532,14 +2539,21 @@ class SyncWithoutIndustryTest(unittest.TestCase):
                 "first_name": "Another",
                 "last_name": "Industryless",
                 "username": "no-industry-sync-test-2",
+                "phone": _mobile("no-industry-sync-test-2"),
                 "password": "StrongPass123!",
                 "device_fingerprint": "no-industry-device-2",
             },
         )
         self.assertEqual(second.status_code, 201, second.text)
+        with SessionLocal() as db:
+            user = db.get(User, second.json()["user"]["id"])
+            store = user.store_memberships[0].store
+            user.plan = store.plan = "pro"
+            db.commit()
         headers = {
             "Authorization": f"Bearer {second.json()['access_token']}",
             "X-Device-Fingerprint": "no-industry-device-2",
+            "X-Client-Data-Schema": "2",
         }
 
         response = self.client.post(
