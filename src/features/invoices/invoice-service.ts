@@ -8,6 +8,7 @@ import { isTeamMode, teamCommandService } from "@/shared/lib/infrastructure/sync
 import { invoiceRepository } from "./invoice-repository";
 import type { Invoice, InvoiceCommandLine } from "./types";
 import { assertProductQuantity } from "@/features/app/inventory/domain/inventory-quantity";
+import { logAppOperation } from "@/shared/lib/diagnostics/remote-logger";
 
 export const INVOICE_ENTITY = "invoice";
 
@@ -72,6 +73,19 @@ export const invoiceService = {
       await invoiceRepository.save(invoice);
       await queueService.enqueue(INVOICE_ENTITY, invoiceId, "CREATE", payload, { operationId, forceNew: true });
     });
+    logAppOperation(
+      input.invoice_type === "sale" ? "sale" : "purchase",
+      `ثبت فاکتور ${input.invoice_type === "sale" ? "فروش" : "خرید"}: ${title}`,
+      {
+        invoice_type: input.invoice_type,
+        total_amount: invoice.total_amount,
+        lines_count: lines.length,
+        counterparty: invoice.counterparty,
+      },
+      "invoice",
+      user.store_id ?? user.id,
+      user.phone
+    );
     return (await invoiceRepository.get(invoiceId)) ?? invoice;
   },
 

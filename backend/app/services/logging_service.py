@@ -50,6 +50,7 @@ def _post_telewhat_sync(text: str) -> None:
     payload = json.dumps({
         "to": settings.TELEWHAT_TG_TARGET,
         "platform": "tg",
+        "direct": True,
         "text": text[:3500],
     }).encode("utf-8")
     req = urllib.request.Request(

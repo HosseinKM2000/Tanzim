@@ -14,6 +14,7 @@ import {
 } from "./sync-account-context";
 import { mediaOperationBlocked, mediaTransferService } from "../media/media-transfer.service";
 import { recordDiagnostic } from "@/shared/lib/diagnostics/diagnostic-buffer";
+import { logAppOperation } from "@/shared/lib/diagnostics/remote-logger";
 import { fetchRecordedOperationResult } from "./sync-operation-resolution";
 
 export type SyncHandlerResult = {
@@ -246,7 +247,18 @@ async function runSync() {
     lastSyncedAt: lastError ? syncStatusStore.get().lastSyncedAt : Date.now(),
   });
 
-  if (changed) onSettled?.();
+  if (changed) {
+    const user = accessState.user?.();
+    logAppOperation(
+      "sync_completed",
+      "همگام‌سازی موفق اطلاعات با سرور ابری",
+      { pending: queued.length },
+      "sync",
+      user?.store_id ?? user?.id,
+      user?.phone
+    );
+    onSettled?.();
+  }
 }
 
 function startSync(run: () => Promise<void>) {

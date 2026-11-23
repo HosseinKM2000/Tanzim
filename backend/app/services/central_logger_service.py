@@ -95,37 +95,96 @@ def _dispatch_telegram_alert(
     if settings.ENVIRONMENT == "test":
         return
 
-    icon = "🚨" if level in {"error", "critical"} else "⚠️" if level == "warn" else "ℹ️"
-    lines = [
-        f"{icon} {title}",
-        f"📌 اپلیکیشن: <code>{app_id}</code> | دسته: <code>{category}</code>",
-        f"⚡ اقدام: <code>{action}</code> | سطح: <b>{level.upper()}</b>",
-    ]
-    if path:
-        lines.append(f"⚠️ مسیر: <code>{path}</code>")
-    if message:
-        clean_msg = message[:600] + ("..." if len(message) > 600 else "")
-        lines.append(f"❌ شرح: <code>{clean_msg}</code>")
-    if store_id or phone:
-        store_txt = f"فروشگاه #{store_id}" if store_id else ""
-        phone_txt = f"({phone})" if phone else ""
-        lines.append(f"🏪 {store_txt} {phone_txt}".strip())
-    if ip or location:
-        geo = f"📍 {location}" if location else ""
-        lines.append(f"🌍 آی‌پی: {ip or 'نامشخص'} {geo}".strip())
-    lines.append(f"⏱️ ساعت: {created_at_iso}")
+    is_visit = category in {"visit", "blog"} or action in {"page_view", "view_article", "view_page", "site_visit"}
+    is_operation = category in {"operation", "pos", "inventory", "sync", "invoice", "auth", "backup"} or action in {
+        "invoice_create", "sale", "sync", "product_upsert", "backup", "login", "register"
+    }
+
+    if is_visit:
+        icon = "👁️"
+        lines = [
+            f"👁️ <b>بازدید از سایت و بلاگ</b>: {title}",
+            f"🌐 مسیر: <code>{path or '/'}</code>",
+        ]
+        if message:
+            clean_msg = message[:400] + ("..." if len(message) > 400 else "")
+            lines.append(f"📄 جزئیات: <code>{clean_msg}</code>")
+        if ip or location:
+            geo = f"({location})" if location else ""
+            lines.append(f"🌍 آی‌پی: <code>{ip or 'نامشخص'}</code> {geo}".strip())
+        lines.append(f"⏱️ ساعت: {created_at_iso}")
+        inline_keyboard = [
+            [
+                {"text": "🌐 مشاهده سایت", "url": "https://tanzimapp.ir"},
+                {"text": "🔍 پنل مدیریت لاگ‌ها", "url": "https://app.tanzimapp.ir/admin/logs"},
+            ]
+        ]
+    elif is_operation:
+        icon = "⚡"
+        if action in {"invoice_create", "sale"}:
+            icon = "🧾"
+        elif action in {"sync"}:
+            icon = "🔄"
+        elif action in {"backup"}:
+            icon = "💾"
+        elif action in {"login", "register"}:
+            icon = "🔑"
+        elif action in {"product_upsert"}:
+            icon = "📦"
+
+        lines = [
+            f"{icon} <b>عملیات نرم‌افزار تنظیم</b>: {title}",
+            f"⚡ اقدام: <code>{action}</code> | ماژول: <code>{category}</code>",
+        ]
+        if store_id or phone:
+            store_txt = f"فروشگاه #{store_id}" if store_id else ""
+            phone_txt = f"({phone})" if phone else ""
+            lines.append(f"🏪 {store_txt} {phone_txt}".strip())
+        if message:
+            clean_msg = message[:500] + ("..." if len(message) > 500 else "")
+            lines.append(f"📝 شرح: <code>{clean_msg}</code>")
+        if path:
+            lines.append(f"🔗 مسیر: <code>{path}</code>")
+        if ip or location:
+            geo = f"({location})" if location else ""
+            lines.append(f"🌍 آی‌پی: <code>{ip or 'نامشخص'}</code> {geo}".strip())
+        lines.append(f"⏱️ ساعت: {created_at_iso}")
+        inline_keyboard = [
+            [
+                {"text": "🔍 بررسی در پنل لاگ", "url": "https://app.tanzimapp.ir/admin/logs"},
+            ]
+        ]
+    else:
+        icon = "🚨" if level in {"error", "critical"} else "⚠️" if level == "warn" else "ℹ️"
+        lines = [
+            f"{icon} <b>هشدار سیستمی ({level.upper()})</b>: {title}",
+            f"📌 اپلیکیشن: <code>{app_id}</code> | دسته: <code>{category}</code>",
+            f"⚡ اقدام: <code>{action}</code> | سطح: <b>{level.upper()}</b>",
+        ]
+        if path:
+            lines.append(f"⚠️ مسیر: <code>{path}</code>")
+        if message:
+            clean_msg = message[:600] + ("..." if len(message) > 600 else "")
+            lines.append(f"❌ شرح: <code>{clean_msg}</code>")
+        if store_id or phone:
+            store_txt = f"فروشگاه #{store_id}" if store_id else ""
+            phone_txt = f"({phone})" if phone else ""
+            lines.append(f"🏪 {store_txt} {phone_txt}".strip())
+        if ip or location:
+            geo = f"📍 {location}" if location else ""
+            lines.append(f"🌍 آی‌پی: {ip or 'نامشخص'} {geo}".strip())
+        lines.append(f"⏱️ ساعت: {created_at_iso}")
+        inline_keyboard = [
+            [
+                {"text": "✅ تأیید دیده‌شدن (Ack)", "callback_data": f"log_ack:{log_id}"},
+                {"text": "🔕 بی‌صدا ۱ ساعته", "callback_data": f"log_mute:{app_id}:{category}"},
+            ],
+            [
+                {"text": "🔍 پنل مدیریت لاگ‌ها", "url": "https://app.tanzimapp.ir/admin/logs"},
+            ],
+        ]
 
     body_text = "\n".join(lines)
-
-    inline_keyboard = [
-        [
-            {"text": "✅ تأیید دیده‌شدن (Ack)", "callback_data": f"log_ack:{log_id}"},
-            {"text": "🔕 بی‌صدا ۱ ساعته", "callback_data": f"log_mute:{app_id}:{category}"},
-        ],
-        [
-            {"text": "🔍 پنل مدیریت لاگ‌ها", "url": "https://app.tanzimapp.ir/admin/logs"},
-        ],
-    ]
 
     # Attempt 1: Via telewhat relay
     if settings.TELEWHAT_ENABLED and settings.TELEWHAT_RELAY_URL:
@@ -133,6 +192,7 @@ def _dispatch_telegram_alert(
             payload = json.dumps({
                 "to": settings.TELEWHAT_TG_TARGET,
                 "platform": "tg",
+                "direct": True,
                 "text": body_text,
                 "reply_markup": {"inline_keyboard": inline_keyboard},
                 "message_thread_id": thread_id,
@@ -254,11 +314,30 @@ def ingest_log_events(
 
         # Evaluate Telegram alerting
         send_telegram = (rule.send_telegram if rule else True) and not is_muted
-        if send_telegram and level in {"error", "critical", "audit"}:
-            dedupe_raw = f"{app_id}:{category}:{action}:{path or ''}:{title[:60]}"
+        is_visit = category in {"visit", "blog"} or action in {"page_view", "view_article", "view_page", "site_visit"}
+        is_operation = category in {"operation", "pos", "inventory", "sync", "invoice", "auth", "backup"} or action in {
+            "invoice_create", "sale", "sync", "product_upsert", "backup", "login", "register"
+        }
+        is_alert_level = level in {"error", "critical", "audit"}
+
+        if send_telegram and (is_alert_level or is_visit or is_operation):
+            # Dynamic cooldown:
+            # - For visits: 15s cooldown per ip+path so refreshing doesn't spam, but every new article is alerted
+            # - For operations: 5s cooldown per store+action
+            # - For errors: _DEDUPE_WINDOW_SECONDS (120s)
+            if is_visit:
+                dedupe_raw = f"visit:{ip or ''}:{path or ''}"
+                cooldown = 15.0
+            elif is_operation:
+                dedupe_raw = f"op:{store_id or phone or ''}:{action}:{path or ''}"
+                cooldown = 5.0
+            else:
+                dedupe_raw = f"{app_id}:{category}:{action}:{path or ''}:{title[:60]}"
+                cooldown = _DEDUPE_WINDOW_SECONDS
+
             dedupe_key = hashlib.sha256(dedupe_raw.encode("utf-8")).hexdigest()[:24]
 
-            if _should_send_alert(dedupe_key):
+            if _should_send_alert(dedupe_key, cooldown_seconds=cooldown):
                 thread = threading.Thread(
                     target=_dispatch_telegram_alert,
                     kwargs={

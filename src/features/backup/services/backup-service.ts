@@ -1,4 +1,5 @@
 import { accessState } from "@/shared/access/access-state";
+import { logAppOperation } from "@/shared/lib/diagnostics/remote-logger";
 import {
   deliverManualBackup,
   externalBackupMode,
@@ -68,6 +69,14 @@ async function performSave(
         retryCount: 0,
         nextAttemptAt: Date.now() + settings.intervalMs,
       });
+      logAppOperation(
+        "backup_created",
+        "تهیه پشتیبان موفق از داده‌های فروشگاه",
+        { mode: settings.mode, revision: snapshot.snapshotRevision },
+        "backup",
+        user.store_id ?? user.id,
+        user.phone
+      );
       return "saved" as const;
     } catch (error) {
       await recordFailure(user.id, error);
