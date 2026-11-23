@@ -35,7 +35,9 @@ class Settings:
         for origin in os.getenv(
             "CORS_ORIGINS",
             "http://localhost:5173,http://127.0.0.1:5173,"
-            "http://localhost:5174,http://127.0.0.1:5174",
+            "http://localhost:5174,http://127.0.0.1:5174,"
+            "https://tanzimapp.ir,https://www.tanzimapp.ir,"
+            "https://app.tanzimapp.ir",
         ).split(",")
         if origin.strip()
     ]
@@ -50,7 +52,7 @@ class Settings:
     TELEWHAT_RELAY_URL: str = os.getenv(
         "TELEWHAT_RELAY_URL", "http://127.0.0.1:8100/api/send"
     ).strip()
-    TELEWHAT_TG_TARGET: str = os.getenv("TELEWHAT_TG_TARGET", "09192472218").strip()
+    TELEWHAT_TG_TARGET: str = os.getenv("TELEWHAT_TG_TARGET", "-1004353847525").strip()
     TELEWHAT_ENABLED: bool = os.getenv("TELEWHAT_ENABLED", "1").strip().lower() not in {"0", "false", "no"}
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
     # Product media must survive application/database replacement. Production

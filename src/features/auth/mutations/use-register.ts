@@ -20,6 +20,7 @@ import { authKeys } from "../query/query-keys";
 import { accessState } from "@/shared/access/access-state";
 import { entitlementService } from "@/shared/access/entitlement-service";
 import { transitionToAccount } from "@/shared/auth/account-transition";
+import { logAppOperation } from "@/shared/lib/diagnostics/remote-logger";
 
 
 
@@ -66,6 +67,15 @@ export function useLogin() {
 
       toast.success("با موفقیت وارد شدید");
 
+      logAppOperation(
+        "login",
+        `ورود موفق کاربر به حساب: ${data.user.phone || data.user.id}`,
+        { role: data.user.role },
+        "auth",
+        data.user.store_id ?? data.user.id,
+        data.user.phone
+      );
+
       navigate({
         to: "/dashboard",
       });
@@ -99,6 +109,15 @@ export function useRegister() {
       });
 
       toast.success("ثبت نام با موفقیت انجام شد");
+
+      logAppOperation(
+        "register",
+        `ثبت‌نام فروشگاه/کاربر جدید: ${data.user.phone || data.user.id}`,
+        { role: data.user.role },
+        "auth",
+        data.user.store_id ?? data.user.id,
+        data.user.phone
+      );
 
       navigate({
         to: "/industry",

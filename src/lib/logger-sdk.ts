@@ -47,8 +47,18 @@ export class AppLogger {
 
     this.queue.push(fullEvent);
 
-    // Immediate flush for error, critical, or audit
-    if (fullEvent.level === 'error' || fullEvent.level === 'critical' || fullEvent.level === 'audit') {
+    // Immediate flush for error, critical, audit, or user operations
+    if (
+      fullEvent.level === 'error' ||
+      fullEvent.level === 'critical' ||
+      fullEvent.level === 'audit' ||
+      fullEvent.category === 'operation' ||
+      fullEvent.category === 'invoice' ||
+      fullEvent.category === 'sync' ||
+      fullEvent.category === 'backup' ||
+      fullEvent.category === 'auth' ||
+      fullEvent.category === 'inventory'
+    ) {
       void this.flush();
       return;
     }
@@ -116,6 +126,10 @@ export class AppLogger {
       this.timer = null;
     }
     if (this.queue.length === 0 || this.isFlushing) return;
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') {
+      this.queue = [];
+      return;
+    }
 
     this.isFlushing = true;
     const itemsToSend = [...this.queue];
@@ -127,6 +141,7 @@ export class AppLogger {
         headers: {
           'Content-Type': 'application/json',
           'X-App-Id': this.config.appId,
+          'X-App-Token': this.config.apiKey,
           'Authorization': `Bearer ${this.config.apiKey}`,
         },
         body: JSON.stringify({ events: itemsToSend }),

@@ -71,6 +71,26 @@ export function enqueueRemoteLog(item: RemoteLogItem) {
   });
 }
 
+export function logAppOperation(
+  action: string,
+  title: string,
+  details?: Record<string, unknown>,
+  category = "operation",
+  storeId?: number | null,
+  phone?: string | null
+) {
+  appLogger.log({
+    level: "info",
+    category,
+    action,
+    title,
+    message: typeof details?.message === "string" ? details.message : undefined,
+    storeId,
+    phone,
+    metadata: details,
+  });
+}
+
 export function installRemoteErrorHandlers() {
   if (handlersInstalled || typeof window === "undefined") return;
   handlersInstalled = true;
