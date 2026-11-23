@@ -1,0 +1,1 @@
+import{t as e}from"./access-state-sMS1S5w3.js";function t(){let t=e.user();if(!t)throw Error(`SYNC_ACCOUNT_MISSING`);return{actorUserId:t.id,storeId:t.store_id??t.id}}function n(t){let n=e.user();return n?.id===t.actorUserId&&(n.store_id??n.id)===t.storeId}function r(e){if(!n(e))throw Error(`SYNC_ACCOUNT_CHANGED`)}export{t as n,n as r,r as t};

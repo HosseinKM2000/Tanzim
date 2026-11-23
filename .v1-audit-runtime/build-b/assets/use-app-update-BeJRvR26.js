@@ -1,0 +1,1 @@
+import{n as e}from"./chunk-Bh1tDfsg.js";import{r as t}from"./compiler-runtime-B2BNdUhy.js";import{t as n}from"./index-i_FD033g.js";var r=e(t(),1);function i(){return(0,r.useSyncExternalStore)(n.subscribe,n.getSnapshot,n.getSnapshot)}export{i as t};
