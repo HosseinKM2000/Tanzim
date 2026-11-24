@@ -126,7 +126,7 @@ export class AppLogger {
       this.timer = null;
     }
     if (this.queue.length === 0 || this.isFlushing) return;
-    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') {
+    if ((globalThis as any)?.process?.env?.NODE_ENV === 'test' || import.meta.env?.MODE === 'test') {
       this.queue = [];
       return;
     }

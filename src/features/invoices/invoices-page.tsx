@@ -23,6 +23,7 @@ import { refreshInvoiceHistory } from "./invoice-history";
 import { invoiceOutput } from "./invoice-output";
 import { invoiceRepository } from "./invoice-repository";
 import { invoiceService } from "./invoice-service";
+import { InvoiceOcrScannerModal } from "./components/invoice-ocr-scanner-modal";
 import type { Invoice, InvoiceCommandLine } from "./types";
 
 type DraftLine = { productId: string; quantity: string; price: string; unit: "unit" | "pack" };
@@ -76,6 +77,7 @@ export function InvoicesPage() {
   const [highlightedLine, setHighlightedLine] = useState<number | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [successInvoice, setSuccessInvoice] = useState<Invoice | null>(null);
+  const [ocrModalOpen, setOcrModalOpen] = useState(false);
   const lastScan = useRef({ value: "", at: 0 });
 
   const load = async () => {
@@ -185,6 +187,23 @@ export function InvoicesPage() {
     localStorage.setItem(`invoice-draft:${actor.id}:${actor.store_id}`, JSON.stringify({ type, title, counterparty, counterpartyId, lines }));
   };
 
+  const handleApplyOcrData = (data: {
+    counterparty?: string;
+    title?: string;
+    lines: Array<{
+      productId: string;
+      quantity: string;
+      price: string;
+      unit: "unit" | "pack";
+    }>;
+  }) => {
+    if (data.counterparty) setCounterparty(data.counterparty);
+    if (data.title) setTitle(data.title);
+    if (data.lines && data.lines.length > 0) setLines(data.lines);
+    setError(null);
+    setErrorCode(null);
+  };
+
   return <Box dir="rtl" className="invoice-page mx-auto w-full">
     <Heading as="h1" className="invoice-page-title">فاکتورها</Heading>
     {!canPurchase && !canSale ? <Card><Heading size="4">فاکتورهای تاریخی</Heading><Text as="p" mt="2">ثبت فاکتور در طرح یا نقش فعلی فعال نیست؛ سوابق قبلی برای مشاهده باقی می‌مانند.</Text></Card> : (
@@ -206,7 +225,25 @@ export function InvoicesPage() {
             <div className="invoice-products-heading"><Heading size="5"><Boxes /> کالاهای فاکتور</Heading><Badge color="violet" size="2"><CubeIcon /><span className="invoice-count-desktop">{number(lines.length)} قلم کالا</span><span className="invoice-count-mobile">{number(lines.length)} ردیف</span></Badge></div>
             <div className="invoice-products-toolbar">
               {accessState.canUse("barcode.lookup") && accessState.hasStorePermission("barcodes.lookup") ? <div className="invoice-product-search"><BarcodeCaptureField key={`${accessState.user()?.id}:${accessState.user()?.store_id}`} value={barcode} onValueChange={setBarcode} onScan={(value) => void findBarcode(value)} placeholder="جست‌وجوی محصول (نام، کد یا بارکد)…"/><Button aria-label="اسکن محصول" type="button" variant="soft" onClick={() => void findBarcode()}><ScanLine /><span className="invoice-scan-desktop">اسکن بارکد</span><span className="invoice-scan-mobile">اسکن</span></Button></div> : null}
-              <div className="invoice-table-actions"><Button type="button" variant="soft" onClick={() => setLines((current) => [...current, emptyLine()])}><PlusIcon /> افزودن ردیف</Button><Button type="button" variant="soft" onClick={() => setLines((current) => [...current, emptyLine()])}><Zap /> افزودن سریع</Button><Button type="button" variant="soft" disabled title="پس از انتخاب چند ردیف فعال می‌شود"><Settings2 /> عملیات گروهی</Button></div>
+              <div className="invoice-table-actions">
+                <Button
+                  type="button"
+                  variant="solid"
+                  className="invoice-ocr-action-btn"
+                  onClick={() => setOcrModalOpen(true)}
+                  style={{
+                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    color: "#ffffff",
+                    fontWeight: 700,
+                    boxShadow: "0 2px 8px rgba(16, 185, 129, 0.25)",
+                  }}
+                >
+                  <Zap /> اسکن هوشمند (OCR)
+                </Button>
+                <Button type="button" variant="soft" onClick={() => setLines((current) => [...current, emptyLine()])}><PlusIcon /> افزودن ردیف</Button>
+                <Button type="button" variant="soft" onClick={() => setLines((current) => [...current, emptyLine()])}><Zap /> افزودن سریع</Button>
+                <Button type="button" variant="soft" disabled title="پس از انتخاب چند ردیف فعال می‌شود"><Settings2 /> عملیات گروهی</Button>
+              </div>
             </div>
             <div className="invoice-lines-header" aria-hidden="true"><span>ردیف</span><span>محصول</span><span>تعداد</span><span>واحد</span><span>قیمت هر واحد (تومان)</span><span>جمع ردیف (تومان)</span><span /></div>
             <div className="invoice-lines">{lines.map((line, index) => {
@@ -242,6 +279,13 @@ export function InvoicesPage() {
     <InvoiceHistory invoices={invoices} canOutput={canPurchase || canSale} outputBusy={outputBusy} onOutput={runOutput} onReload={load} onError={(cause) => { setError(userErrorMessage(cause, "لغو فاکتور انجام نشد.")); setErrorCode(diagnosticErrorCode(cause)); }}/>
     <ConfirmDialog open={reviewOpen} onOpenChange={setReviewOpen} title="تأیید ثبت فاکتور" description="پس از ثبت، فاکتور و ردیف‌های آن قابل ویرایش نیستند." confirmLabel="تأیید و ثبت" variant="warning" loading={busy} disabled={!title.trim() || completedLines !== lines.length} details={<div className="invoice-confirm-summary"><span>نوع: <b>{type === "sale" ? "فروش" : "خرید"}</b></span><span>ردیف‌ها: <b>{number(lines.length)}</b></span><span>جمع: <b>{toman(total)}</b></span></div>} onConfirm={() => void commit()}/>
     <Dialog.Root open={successInvoice !== null} onOpenChange={(open) => { if (!open) setSuccessInvoice(null); }}><Dialog.Content dir="rtl" maxWidth="520px" className="invoice-success-dialog"><div className="invoice-success-icon"><CheckIcon /></div><Dialog.Title>فاکتور با موفقیت ثبت شد</Dialog.Title><Dialog.Description>سند آماده دریافت، چاپ یا اشتراک‌گذاری است.</Dialog.Description>{successInvoice ? <><div className="invoice-success-summary"><span>{successInvoice.title}</span><b>{toman(successInvoice.total_amount)}</b></div><Flex gap="2" mt="4" wrap="wrap" justify="center"><Button variant="soft" onClick={() => void runOutput(successInvoice, "download")} loading={outputBusy === successInvoice.id}><FileTextIcon /> PDF</Button><Button variant="soft" onClick={() => void runOutput(successInvoice, "print")}><ReaderIcon /> چاپ</Button><Button variant="soft" onClick={() => void runOutput(successInvoice, "share")}><Share2Icon /> اشتراک</Button></Flex></> : null}<Dialog.Close><Button mt="4" variant="soft" color="gray" className="w-full">بستن</Button></Dialog.Close></Dialog.Content></Dialog.Root>
+    <InvoiceOcrScannerModal
+      open={ocrModalOpen}
+      onClose={() => setOcrModalOpen(false)}
+      products={products}
+      invoiceType={type}
+      onApplyToInvoice={handleApplyOcrData}
+    />
   </Box>;
 }
 

@@ -45,6 +45,12 @@ class Settings:
     APP_BUILD_ID: str = os.getenv("APP_BUILD_ID", "development").strip() or "development"
     DATABASE_SCHEMA_VERSION: str = "20261123_0020"
     APP_ORIGIN: str = os.getenv("APP_ORIGIN", "https://app.tanzimapp.ir").strip().rstrip("/")
+    DONGI_OCR_URL: str = os.getenv("DONGI_OCR_URL", "http://127.0.0.1:8031/api/v1/public/ocr").strip()
+    DONGI_OCR_PUBLIC_URL: str = os.getenv("DONGI_OCR_PUBLIC_URL", "https://api.chat.dongigpt.ir/api/v1/public/ocr").strip()
+    DONGI_CHAT_URL: str = os.getenv("DONGI_CHAT_URL", "http://127.0.0.1:8031/api/v1/public/chat").strip()
+    DONGI_CHAT_PUBLIC_URL: str = os.getenv("DONGI_CHAT_PUBLIC_URL", "https://api.chat.dongigpt.ir/api/v1/public/chat").strip()
+    DONGI_OCR_TOKEN: str = os.getenv("DONGI_OCR_TOKEN", "dg_live_cI2Zjz23dJKg-lpXh8eq1RbyQXeDirSD2Yhcbf0SK1I").strip()
+    AI_VISION_MODEL: str = os.getenv("AI_VISION_MODEL", "netarz-openrouter-google-gemini-3.1-flash-lite-image").strip()
     DONGIPAY_BASE_URL: str = os.getenv(
         "DONGIPAY_BASE_URL", "https://api.chat.dongigpt.ir/api/v1/dongipay"
     ).strip().rstrip("/")
