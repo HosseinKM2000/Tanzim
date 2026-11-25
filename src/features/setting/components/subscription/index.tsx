@@ -148,7 +148,7 @@ export default function SubscriptionSettings() {
     setPayingPlanId(planId);
     try {
       const res = await startPlanCheckout(planId);
-      window.location.href = res.pay_url;
+      window.location.assign(res.pay_url);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "امکان اتصال به درگاه دُنگی‌پی فراهم نشد.");
       setPayingPlanId(null);

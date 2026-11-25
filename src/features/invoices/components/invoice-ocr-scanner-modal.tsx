@@ -122,9 +122,9 @@ export function InvoiceOcrScannerModal({
       setReviewLines(result.lines);
       setSupplierName(result.supplier_name || "");
       setPhase("review");
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (progressTimerRef.current) clearInterval(progressTimerRef.current);
-      const msg = err?.message || "خطا در پردازش تصویر فاکتور. لطفاً مجدداً تلاش کنید.";
+      const msg = err instanceof Error ? err.message : "خطا در پردازش تصویر فاکتور. لطفاً مجدداً تلاش کنید.";
       setError(msg);
       setPhase("upload");
     }
@@ -378,7 +378,7 @@ export function InvoiceOcrScannerModal({
                 </Flex>
                 <select
                   value={currency}
-                  onChange={(e) => setCurrency(e.target.value as any)}
+                  onChange={(e) => setCurrency(e.target.value as "auto" | "toman" | "rial")}
                   style={{
                     padding: "6px 12px",
                     borderRadius: "8px",

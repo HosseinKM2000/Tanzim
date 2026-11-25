@@ -28,7 +28,7 @@ export interface LoggerConfig {
 export class AppLogger {
   private config: LoggerConfig;
   private queue: LogEvent[] = [];
-  private timer: any = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
   private isFlushing = false;
 
   constructor(config: LoggerConfig) {
@@ -126,7 +126,10 @@ export class AppLogger {
       this.timer = null;
     }
     if (this.queue.length === 0 || this.isFlushing) return;
-    if ((globalThis as any)?.process?.env?.NODE_ENV === 'test' || import.meta.env?.MODE === 'test') {
+    const runtimeProcess = (globalThis as typeof globalThis & {
+      process?: { env?: { NODE_ENV?: string } };
+    }).process;
+    if (runtimeProcess?.env?.NODE_ENV === 'test' || import.meta.env?.MODE === 'test') {
       this.queue = [];
       return;
     }
