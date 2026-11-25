@@ -336,7 +336,7 @@ class ReferenceCategoryOut(BaseModel):
     code: str
     name_fa: str
     examples: list[str]
-    approval_status: Literal["approved"]
+    approval_status: Literal["approved", "proposed"]
 
 
 class ReferenceSectorOut(BaseModel):

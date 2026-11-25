@@ -9,7 +9,7 @@ from ..schemas import (
     CategoryUpdate,
     CategoryWithStats,
 )
-from ..services.taxonomy_service import TAXONOMY_VERSION, custom_category_code
+from ..services.taxonomy_service import active_taxonomy_version, custom_category_code
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
@@ -87,7 +87,7 @@ def create_category(
     store = db.get(Store, current_user.store_id)
     industry = db.get(Industry, store.industry_id) if store and store.industry_id else None
     sector = db.get(ReferenceSector, industry.reference_sector_id) if industry and industry.reference_sector_id else None
-    adopted = store is not None and store.taxonomy_version == TAXONOMY_VERSION
+    adopted = store is not None and store.taxonomy_version == active_taxonomy_version()
     if adopted and (sector is None or not sector.custom_categories_allowed):
         raise HTTPException(status_code=403, detail="CUSTOM_CATEGORY_FORBIDDEN_FOR_SECTOR")
 
@@ -102,7 +102,7 @@ def create_category(
         origin="custom" if adopted else "legacy",
         approval_status="approved" if adopted else "legacy",
         is_active=True,
-        taxonomy_version=TAXONOMY_VERSION if adopted else None,
+        taxonomy_version=active_taxonomy_version() if adopted else None,
     )
 
     db.add(category)

@@ -32,12 +32,28 @@ from ..schemas import InventoryOut
 
 
 TAXONOMY_VERSION = "scb-2026-11-14-v1"
+PROPOSED_QA_TAXONOMY_VERSION = "scb-2026-11-20-v2-proposed-qa"
 INTERNAL_BARCODE_VERSION = "TZ1"
 INTERNAL_BARCODE_SYMBOLOGY = "datamatrix"
 INTERNAL_TOKEN_BYTES = 16
 INTERNAL_TOKEN_LENGTH = 26
 INTERNAL_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 MAX_RECATEGORIZATION_TARGETS = 100
+
+
+def active_taxonomy_version() -> str:
+    """Select a versioned reference source without changing the production default."""
+    return settings.TAXONOMY_VERSION_OVERRIDE or TAXONOMY_VERSION
+
+
+def proposed_taxonomy_enabled() -> bool:
+    """Fail closed: proposed QA categories require qa/test + explicit version + flag."""
+    return (
+        settings.ENVIRONMENT in {"qa", "test"}
+        and settings.QA_PROPOSED_TAXONOMY_ENABLED
+        and bool(settings.TAXONOMY_VERSION_OVERRIDE)
+        and active_taxonomy_version() != TAXONOMY_VERSION
+    )
 
 
 def _now() -> datetime:
@@ -119,23 +135,25 @@ def _store_has_usage(db: Session, store: Store) -> bool:
 def list_reference_sectors(db: Session) -> list[ReferenceSector]:
     return list(db.scalars(
         select(ReferenceSector)
-        .where(ReferenceSector.taxonomy_version == TAXONOMY_VERSION)
+        .where(ReferenceSector.taxonomy_version == active_taxonomy_version())
         .order_by(ReferenceSector.code)
     ))
 
 
 def list_reference_categories(db: Session, sector_code: str) -> list[ReferenceCategory]:
-    """Only approved reference parents can cross the customer API boundary."""
-    return list(db.scalars(
+    """Expose approved reference parents; QA-proposed only through the QA gate."""
+    statement = (
         select(ReferenceCategory)
         .join(ReferenceSector, ReferenceSector.id == ReferenceCategory.sector_id)
         .where(
             ReferenceSector.code == sector_code,
-            ReferenceCategory.taxonomy_version == TAXONOMY_VERSION,
-            ReferenceCategory.approval_status == "approved",
+            ReferenceCategory.taxonomy_version == active_taxonomy_version(),
         )
         .order_by(ReferenceCategory.code)
-    ))
+    )
+    if not proposed_taxonomy_enabled():
+        statement = statement.where(ReferenceCategory.approval_status == "approved")
+    return list(db.scalars(statement))
 
 
 def adopt_store_taxonomy(db: Session, user, *, sector_code: str, expected_policy_version: int) -> Store:
@@ -145,7 +163,7 @@ def adopt_store_taxonomy(db: Session, user, *, sector_code: str, expected_policy
         raise HTTPException(status_code=409, detail="TAXONOMY_POLICY_VERSION_CONFLICT")
     sector = db.scalar(select(ReferenceSector).where(
         ReferenceSector.code == sector_code,
-        ReferenceSector.taxonomy_version == TAXONOMY_VERSION,
+        ReferenceSector.taxonomy_version == active_taxonomy_version(),
     ))
     if sector is None:
         raise HTTPException(status_code=404, detail="REFERENCE_SECTOR_NOT_FOUND")
@@ -153,13 +171,13 @@ def adopt_store_taxonomy(db: Session, user, *, sector_code: str, expected_policy
     if industry is None or industry.sector_code != sector.code:
         raise HTTPException(status_code=409, detail="SECTOR_INDUSTRY_MAPPING_REQUIRED")
 
-    if store.taxonomy_version == TAXONOMY_VERSION and store.industry_id == industry.id:
+    if store.taxonomy_version == active_taxonomy_version() and store.industry_id == industry.id:
         return store
     if _store_has_usage(db, store):
         raise HTTPException(status_code=409, detail="LEGACY_STORE_REVIEW_REQUIRED")
 
     store.industry_id = industry.id
-    store.taxonomy_version = TAXONOMY_VERSION
+    store.taxonomy_version = active_taxonomy_version()
     store.taxonomy_adopted_at = _now()
     store.taxonomy_adopted_by_user_id = user.id
     store.taxonomy_policy_version += 1
@@ -180,11 +198,11 @@ def adopt_store_taxonomy(db: Session, user, *, sector_code: str, expected_policy
                 code=reference.code,
                 sector_code=sector.code,
                 origin="system",
-                approval_status="approved",
+                approval_status=reference.approval_status,
                 is_active=True,
                 reference_key=reference.reference_key,
                 reference_category_id=reference.id,
-                taxonomy_version=TAXONOMY_VERSION,
+                taxonomy_version=active_taxonomy_version(),
             ))
     db.flush()
     return store
@@ -199,7 +217,7 @@ def _sector_for_store(db: Session, store: Store) -> ReferenceSector:
 
 
 def validate_category_for_new_intent(db: Session, store: Store, category_id: int | None) -> Category | None:
-    if store.taxonomy_version != TAXONOMY_VERSION:
+    if store.taxonomy_version != active_taxonomy_version():
         if category_id is None:
             return None
         category = db.get(Category, category_id)
@@ -216,9 +234,10 @@ def validate_category_for_new_intent(db: Session, store: Store, category_id: int
         raise HTTPException(status_code=400, detail="CATEGORY_SECTOR_MISMATCH")
     if category.origin == "system":
         reference = db.get(ReferenceCategory, category.reference_category_id)
+        allowed_status = {"approved", "proposed"} if proposed_taxonomy_enabled() else {"approved"}
         if (
             reference is None
-            or reference.approval_status != "approved"
+            or reference.approval_status not in allowed_status
             or reference.reference_key != category.reference_key
         ):
             raise HTTPException(status_code=400, detail="CATEGORY_REFERENCE_NOT_APPROVED")
