@@ -111,6 +111,12 @@ class Settings:
             str(Path(tempfile.gettempdir()) / "tanzim-reference-assets"),
         )
     ).expanduser().resolve()
+    DONGI_OCR_TOKEN: str = os.getenv("DONGI_OCR_TOKEN", "")
+    DONGI_OCR_URL: str = os.getenv("DONGI_OCR_URL", "http://127.0.0.1:8031/ocr")
+    DONGI_OCR_PUBLIC_URL: str = os.getenv("DONGI_OCR_PUBLIC_URL", "https://ocr.dongi.ir/ocr")
+    DONGI_CHAT_URL: str = os.getenv("DONGI_CHAT_URL", "http://127.0.0.1:8031/v1/chat/completions")
+    DONGI_CHAT_PUBLIC_URL: str = os.getenv("DONGI_CHAT_PUBLIC_URL", "https://chat.dongi.ir/v1/chat/completions")
+    AI_VISION_MODEL: str = os.getenv("AI_VISION_MODEL", "gemini-1.5-flash")
 
 
 settings = Settings()
