@@ -47,14 +47,26 @@ export default defineConfig({
     },
   },
   server: {
+    port: 5173,
+    host: true,
     watch: {
       usePolling: true,
       interval: 100,
     },
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
+    },
+  },
+  css: {
+    devSourcemap: true,
   },
   build: {
     // The service worker reads this file during installation so every
     // code-split route is available before the connection disappears.
     manifest: true,
+    sourcemap: true,
   },
 });

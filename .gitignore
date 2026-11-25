@@ -33,6 +33,9 @@ backend/coverage/
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
 .idea
 .DS_Store
 *.suo
@@ -40,3 +43,12 @@ backend/coverage/
 *.njsproj
 *.sln
 *.sw?
+
+# Local development databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Local artifacts and QA captures
+marketing/.qa/
+.claude/

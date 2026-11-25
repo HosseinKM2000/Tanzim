@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "typescript",
+        "fileLocation": "relative",
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*(vite|ready in).*",
+          "endsPattern": ".*Local:.*"
+        }
+      },
+      "label": "npm: dev",
+      "detail": "Starts Vite dev server on http://localhost:5173"
+    },
+    {
+      "label": "Start FastAPI Backend",
+      "type": "shell",
+      "command": "${workspaceFolder}/backend/.venv/Scripts/python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --app-dir backend",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    }
+  ]
+}

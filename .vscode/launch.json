@@ -1,0 +1,82 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend: FastAPI (debugpy)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app.main:app",
+        "--reload",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000"
+      ],
+      "jinja": true,
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}/backend",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/backend",
+        "PYTHONUNBUFFERED": "1"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Backend: Attach Debugger (Port 5678)",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "127.0.0.1",
+        "port": 5678
+      },
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/backend",
+          "remoteRoot": "${workspaceFolder}/backend"
+        }
+      ]
+    },
+    {
+      "name": "Frontend: Chrome (Vite)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/src",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "/src/*": "${workspaceFolder}/src/*"
+      }
+    },
+    {
+      "name": "Frontend: Edge (Vite)",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/src",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "/src/*": "${workspaceFolder}/src/*"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack: Chrome + FastAPI",
+      "configurations": [
+        "Backend: FastAPI (debugpy)",
+        "Frontend: Chrome (Vite)"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "Full Stack: Edge + FastAPI",
+      "configurations": [
+        "Backend: FastAPI (debugpy)",
+        "Frontend: Edge (Vite)"
+      ],
+      "stopAll": true
+    }
+  ]
+}

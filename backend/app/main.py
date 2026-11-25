@@ -25,6 +25,9 @@ async def lifespan(_: FastAPI):
     # the first user request or falling back to another engine.
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
+    if settings.DATABASE_URL.startswith("sqlite"):
+        from .database import Base
+        Base.metadata.create_all(bind=engine)
     yield
 
 
