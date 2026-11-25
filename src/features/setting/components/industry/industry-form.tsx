@@ -6,7 +6,12 @@ import { SelectInput } from "@/shared/ui/form/input/select-input";
 import { Box, Button, Callout, Flex, Heading, Link, Text } from "@radix-ui/themes";
 import { CubeIcon } from "@radix-ui/react-icons";
 import { useState } from "react";
-import { useIndustries, useSetIndustry } from "../../mutations/use-industry";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { adoptTaxonomy, getReferenceSectors, getTaxonomyState } from "../../api/taxonomy.api";
+import { authKeys } from "@/features/auth/query/query-keys";
+import { useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { syncMetadataStorage } from "@/shared/lib/infrastructure/storage/sync-metadata-storage";
 import { ApiError } from "@/shared/api/api-error";
 
 type IndustryFormProps = {
@@ -15,18 +20,34 @@ type IndustryFormProps = {
 
 function IndustryForm({ mode = "onboarding" }: IndustryFormProps) {
   const embedded = mode === "settings";
-  const setIndustryMutation = useSetIndustry();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [industry, setIndustry] = useState<string>("");
 
-  const {
-    data: industries = [],
-    isLoading: industriesLoading,
-    isError,
-    error,
-  } = useIndustries();
+  const { data: sectors = [], isLoading: industriesLoading, isError, error } = useQuery({
+    queryKey: ["taxonomy", "sectors"], queryFn: getReferenceSectors, staleTime: Infinity,
+  });
+  const stateQuery = useQuery({ queryKey: ["taxonomy", "state"], queryFn: getTaxonomyState });
+  const setIndustryMutation = useMutation({
+    mutationFn: () => adoptTaxonomy(industry, stateQuery.data?.taxonomy_policy_version ?? 0),
+    onSuccess: async (state) => {
+      const selected = sectors.find((sector) => sector.code === state.sector_code);
+      await Promise.all([
+        syncMetadataStorage.set("taxonomy-version", state.taxonomy_version),
+        syncMetadataStorage.set("taxonomy-sector-code", state.sector_code),
+        syncMetadataStorage.set("taxonomy-custom-categories", selected?.custom_categories_allowed ? "1" : "0"),
+      ]);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["taxonomy"] }),
+        queryClient.invalidateQueries({ queryKey: authKeys.me }),
+      ]);
+      toast.success("حوزه کاری و دسته‌های مصوب ثبت شد.");
+      navigate({ to: "/dashboard" });
+    },
+  });
 
   function loginHandler() {
-    setIndustryMutation.mutate(Number(industry));
+    setIndustryMutation.mutate();
   }
 
   const serverError =
@@ -75,6 +96,13 @@ function IndustryForm({ mode = "onboarding" }: IndustryFormProps) {
               </Callout.Text>
             </Callout.Root>
           )}
+          {stateQuery.data && !stateQuery.data.adoption_enabled && !stateQuery.data.taxonomy_version ? (
+            <Callout.Root color="amber" role="status">
+              <Callout.Text>
+                ثبت حوزه‌های جدید تا تکمیل آزمون خوانایی و چاپ بارکد غیرفعال است. اطلاعات فعلی فروشگاه تغییری نمی‌کند.
+              </Callout.Text>
+            </Callout.Root>
+          ) : null}
 
           <Box className="industry-selector-control">
             <FormField id="industry" label="حوزه فعالیت">
@@ -82,9 +110,9 @@ function IndustryForm({ mode = "onboarding" }: IndustryFormProps) {
                 name="industry"
                 size="3"
                 options={
-                  industries?.map((industry) => ({
-                    label: industry.name,
-                    value: industry.id.toString(),
+                  sectors.map((sector) => ({
+                    label: `${sector.code} — ${sector.name_fa}`,
+                    value: sector.code,
                   })) ?? []
                 }
                 placeholder={industriesLoading ? "در حال دریافت حوزه‌ها…" : "انتخاب حوزه کاری"}
@@ -98,14 +126,12 @@ function IndustryForm({ mode = "onboarding" }: IndustryFormProps) {
               type="submit"
               style={{ width: "100%" }}
               loading={setIndustryMutation.isPending}
-              disabled={industriesLoading || !industry}
+              disabled={industriesLoading || stateQuery.isLoading || stateQuery.data?.adoption_enabled !== true || !industry}
             >
               {embedded ? "ذخیره تغییرات" : "ذخیره و ادامه"}
             </Button>
-            {!embedded ? (
-              <Link href="/dashboard" style={{ width: "100%" }}>
-                فعلاً رد کردن
-              </Link>
+            {!embedded && stateQuery.data?.taxonomy_version ? (
+              <Link href="/dashboard" style={{ width: "100%" }}>بازگشت به داشبورد</Link>
             ) : null}
           </Box>
         </Flex>

@@ -4,6 +4,8 @@ export type Industry = {
   is_active: boolean;
   description: string;
   tools: Record<string, boolean>;
+  sector_code?: string | null;
+  taxonomy_version?: string | null;
 };
 
 export type IndustryInput = {
@@ -20,6 +22,14 @@ export type Category = {
   local_key?: string;
   name: string;
   description: string;
+  code?: string | null;
+  sector_code?: string | null;
+  origin?: "system" | "custom" | "legacy";
+  approval_status?: "approved" | "proposed" | "legacy";
+  is_active?: boolean;
+  reference_key?: string | null;
+  taxonomy_version?: string | null;
+  version?: number;
   created_at: string;
   updated_at: string;
 };
@@ -59,6 +69,16 @@ export type CatalogProduct = {
 
   image_url: string | null;
 
+  reference_preview_url?: string | null;
+
+  reference_detail_url?: string | null;
+
+  reference_preview?: CatalogReferenceAssetSummary | null;
+
+  reference_detail?: CatalogReferenceAssetSummary | null;
+
+  reference_family_slug?: string | null;
+
   is_packaged: boolean;
 
   pack_size: number | null;
@@ -68,6 +88,15 @@ export type CatalogProduct = {
   // Keep industry_id as the stable source of truth. Legacy API responses may
   // not contain the expanded relation, so consumers must handle its absence.
   industry?: Pick<Industry, "id" | "name"> | null;
+};
+
+export type CatalogReferenceAssetSummary = {
+  asset_id: string;
+  content_hash: string;
+  storage_key: string;
+  width: number;
+  height: number;
+  byte_size: number;
 };
 
 export type CatalogProductInput = {
@@ -91,6 +120,19 @@ export type CatalogProductUpdate = Partial<CatalogProductInput>;
 export type CatalogProductListParams = {
   search?: string;
   industry_id?: number;
+};
+
+export type CatalogProductPage = {
+  items: CatalogProduct[];
+  next_cursor: string | null;
+  has_more: boolean;
+};
+
+export type CatalogAdoptionStatus = {
+  enabled: boolean;
+  cursor_read_v2_enabled: boolean;
+  reference_media_v1_enabled: boolean;
+  offline_families_v1_enabled: boolean;
 };
 
 export type SubscriptionPlan = {

@@ -23,7 +23,6 @@ async function verifyThenSync() {
     entitlementService.markOffline();
     return;
   }
-  entitlementService.markOnline();
   lastSyncAttemptAt = Date.now();
   try {
     await entitlementService.verify();

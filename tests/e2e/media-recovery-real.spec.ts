@@ -10,7 +10,7 @@ const webp = Buffer.from(
 );
 
 test("live upload, fresh-profile hydration, and offline OPFS reopen render", async ({ request, browser, baseURL }) => {
-  const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const suffix = crypto.randomBytes(6).toString("hex");
   const phoneDigits = BigInt(`0x${crypto.createHash("sha256").update(suffix).digest("hex").slice(0, 12)}`) % 1_000_000_000n;
   const adminLogin = await request.post(`${api}/auth/login`, { data: {
     username: "HosseinKM2000", password: "Test-only-system-admin-password-123!",
@@ -36,6 +36,15 @@ test("live upload, fresh-profile hydration, and offline OPFS reopen render", asy
   } });
   expect(signup.status()).toBe(201);
   const session = await signup.json();
+  const subscribed = await request.patch(`${api}/admin/users/${session.user.id}/subscription`, {
+    headers: adminHeaders,
+    data: {
+      plan: "personal",
+      subscription_started_at: new Date().toISOString(),
+      subscription_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    },
+  });
+  expect(subscribed.ok()).toBeTruthy();
   const headers = {
     Authorization: `Bearer ${session.access_token}`,
     "X-Device-Fingerprint": device,

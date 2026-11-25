@@ -31,10 +31,15 @@ export const catalogProductKeys = {
   list: (params?: { search?: string; industry_id?: number }) =>
     [...catalogProductKeys.lists(), "active", params ?? {}] as const,
 
+  infinite: (params?: { search?: string; industry_id?: number }) =>
+    [...catalogProductKeys.lists(), "cursor-v2", params ?? {}] as const,
+
   archivedList: (params?: { search?: string; industry_id?: number }) =>
     [...catalogProductKeys.lists(), "archived", params ?? {}] as const,
 
   details: () => [...catalogProductKeys.all, "detail"] as const,
 
   detail: (id: number) => [...catalogProductKeys.details(), id] as const,
+
+  adoptionStatus: () => [...catalogProductKeys.all, "adoption-status"] as const,
 };

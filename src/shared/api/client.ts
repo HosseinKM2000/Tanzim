@@ -9,6 +9,9 @@ const API_BASE_URL =
 
 /** Origin of the API, used to resolve relative asset URLs like `/uploads/x.png`. */
 export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
+export const REFERENCE_ASSET_ORIGIN = (
+  import.meta.env.VITE_REFERENCE_ASSET_ORIGIN ?? API_ORIGIN
+).replace(/\/$/, "");
 
 type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -137,4 +140,13 @@ export function resolveAssetUrl(
   if (!path) return undefined;
   if (path.startsWith("http")) return path;
   return `${API_ORIGIN}${path}`;
+}
+
+/** Resolve reference media independently so a future CDN changes no model IDs. */
+export function resolveReferenceAssetUrl(
+  path: string | null | undefined,
+): string | undefined {
+  if (!path) return undefined;
+  if (path.startsWith("http")) return path;
+  return `${REFERENCE_ASSET_ORIGIN}${path}`;
 }

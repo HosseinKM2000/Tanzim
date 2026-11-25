@@ -8,6 +8,10 @@ import os
 import base64
 import hashlib
 import json
+import gc
+import tracemalloc
+import uuid
+from time import perf_counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -15,7 +19,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, func, inspect, select, text
+from sqlalchemy import create_engine, event, func, inspect, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
@@ -38,12 +42,17 @@ os.environ["SYSTEM_ADMIN_PASSWORD"] = "Test-only-system-admin-password-123!"
 from fastapi.testclient import TestClient
 from app.database import SessionLocal, engine
 from app.main import app
-from app.models import CatalogProduct, Category, Industry, InventoryItem, InventoryMovement, Invoice, Label, MediaAsset, Store, StoreMembership, StoreModeTransition, StorePlanGrant, SubscriptionPlan, SyncOperation, User, UserSession
+from app.config import settings
+from app.models import BarcodeReservation, CatalogFamily, CatalogProduct, CatalogRelease, Category, Industry, InventoryItem, InventoryMovement, Invoice, Label, MediaAsset, PasswordRecoveryEvent, ProductBarcode, ReferenceCategory, ReferenceMediaAsset, ReferenceSector, Store, StoreMembership, StoreModeTransition, StorePlanGrant, SubscriptionPlan, SyncOperation, User, UserSession
 from app.routers.sync import _duplicate_result
 from app.schemas import SyncOperationIn
 from app.services.catalog_product_service import _reconcile_catalog_assignments
+from app.services.catalog_reference_service import _release_files
+from app.reference_storage import reference_asset_storage
+from app.services.catalog_provisioning_service import provision_industry_inventory
 from app.services.bootstrap_service import ensure_system_admin
 from app.services.subscription_service import seed_default_plans
+from app.services.password_recovery_service import request_recovery
 
 
 EXPECTED_TABLES = {
@@ -57,6 +66,10 @@ EXPECTED_TABLES = {
     "store_plan_grants",
     "media_assets",
     "invoices", "invoice_lines", "counterparties",
+    "reference_sectors", "reference_categories", "barcode_reservations",
+    "catalog_families", "catalog_product_families", "reference_media_assets",
+    "catalog_product_media", "catalog_releases", "catalog_release_pointers",
+    "password_recovery_events", "canonical_taxonomy_seeds",
 }
 MIGRATION_EVIDENCE = {}
 
@@ -288,6 +301,21 @@ def migrated_empty_database():
             "SELECT id,features_json,price_minor,duration,duration_unit,is_offer_available "
             "FROM subscription_plans WHERE id IN ('personal','pro','vip') ORDER BY id"
         )).all())
+        MIGRATION_EVIDENCE["taxonomy_reference"] = (
+            connection.scalar(text("SELECT count(*) FROM reference_sectors")),
+            connection.scalar(text("SELECT count(*) FROM reference_categories")),
+            connection.scalar(text("SELECT count(*) FROM reference_categories WHERE approval_status='approved'")),
+            connection.scalar(text("SELECT count(*) FROM reference_categories WHERE approval_status='proposed'")),
+            connection.scalar(text("SELECT count(*) FROM industries WHERE taxonomy_version='scb-2026-11-14-v1'")),
+        )
+        MIGRATION_EVIDENCE["taxonomy_seed_identity"] = tuple(connection.execute(text(
+            "SELECT taxonomy_version,content_sha256,sector_count,approved_category_count,proposed_category_count "
+            "FROM canonical_taxonomy_seeds"
+        )).one())
+        MIGRATION_EVIDENCE["taxonomy_legacy"] = connection.execute(text(
+            "SELECT c.origin,c.is_active,s.taxonomy_version,s.has_historical_inventory_usage "
+            "FROM categories c JOIN stores s ON s.id=c.store_id WHERE c.id=9101"
+        )).one()
     with SessionLocal() as db:
         stored = db.get(SyncOperation, 9101)
         replay = _duplicate_result(stored, legacy_operation, legacy_fingerprint)
@@ -327,6 +355,71 @@ def signup(client: TestClient):
     })
 
 
+def seed_taxonomy_reference() -> None:
+    with SessionLocal() as db:
+        db.add(ReferenceSector(
+            id=1,
+            reference_key="pg-sector-01",
+            code="01",
+            name_fa="خودرو و قطعات",
+            taxonomy_version="scb-2026-11-14-v1",
+            custom_categories_allowed=True,
+            label_status="approved",
+        ))
+        db.flush()
+        db.add_all([
+            ReferenceCategory(
+                id=101,
+                sector_id=1,
+                reference_key="pg-sector-01-category-01",
+                code="01",
+                name_fa="موتور",
+                examples_json='["پیستون"]',
+                approval_status="approved",
+                taxonomy_version="scb-2026-11-14-v1",
+            ),
+            ReferenceCategory(
+                id=102,
+                sector_id=1,
+                reference_key="pg-sector-01-category-02",
+                code="02",
+                name_fa="تعلیق",
+                examples_json='["سیبک"]',
+                approval_status="approved",
+                taxonomy_version="scb-2026-11-14-v1",
+            ),
+        ])
+        db.add(Industry(
+            name="حوزه PostgreSQL خودرو",
+            description="synthetic taxonomy race fixture",
+            is_active=True,
+            reference_sector_id=1,
+            sector_code="01",
+            taxonomy_version="scb-2026-11-14-v1",
+        ))
+        db.commit()
+
+
+def taxonomy_owner(client: TestClient) -> tuple[dict[str, str], list[dict]]:
+    seed_taxonomy_reference()
+    created = signup(client)
+    assert created.status_code == 201, created.text
+    headers = {
+        "Authorization": f"Bearer {created.json()['access_token']}",
+        "X-Device-Fingerprint": "postgres-device",
+        "X-Client-Data-Schema": "3",
+    }
+    state = client.get("/api/taxonomy/state", headers=headers).json()
+    adopted = client.post("/api/taxonomy/adopt", headers=headers, json={
+        "sector_code": "01",
+        "expected_policy_version": state["taxonomy_policy_version"],
+    })
+    assert adopted.status_code == 200, adopted.text
+    categories = client.get("/api/categories", headers=headers)
+    assert categories.status_code == 200, categories.text
+    return headers, categories.json()
+
+
 @pytest.mark.postgres
 def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database):
     assert MIGRATION_EVIDENCE["blocked"] is True
@@ -346,7 +439,14 @@ def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database
     assert MIGRATION_EVIDENCE["mode_rollback"] == ("20261101_0009", True)
     assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261110_0018"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20261120_0023"
+        seed_identity = MIGRATION_EVIDENCE["taxonomy_seed_identity"]
+        assert seed_identity[0] == "scb-2026-11-14-v1"
+        assert len(seed_identity[1]) == 64
+        assert seed_identity[2:] == (24, 25, 256)
+        assert "ix_catalog_products_cursor_scope" in {
+            index["name"] for index in inspect(engine).get_indexes("catalog_products")
+        }
         assert "MOBILE_PHONE_PREFLIGHT" in MIGRATION_EVIDENCE["mobile_preflight"]
         assert "malformed_count=1:user_ids=9401" in MIGRATION_EVIDENCE["mobile_preflight"]
         assert "duplicate_groups=1:user_ids=9101,9201" in MIGRATION_EVIDENCE["mobile_preflight"]
@@ -371,6 +471,8 @@ def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database
         assert {"store_id", "actor_user_id", "transfer_id", "content_sha256", "storage_key", "available_at"} <= media_columns
         operation_columns = {column["name"] for column in inspect(engine).get_columns("sync_operations")}
         assert {"request_fingerprint", "execution_mode", "policy_version"} <= operation_columns
+        assert MIGRATION_EVIDENCE["taxonomy_reference"] == (24, 281, 25, 256, 24)
+        assert tuple(MIGRATION_EVIDENCE["taxonomy_legacy"]) == ("legacy", True, None, True)
         assert next(column for column in inspect(engine).get_columns("inventory_items") if column["name"] == "store_id")["nullable"] is False
         assert tuple(MIGRATION_EVIDENCE["legacy_mode"]) == ("team", 1, 9101)
         assert tuple(MIGRATION_EVIDENCE["legacy_solo_mode"]) == ("solo", 1, 9201)
@@ -393,6 +495,28 @@ def test_migration_reaches_head_with_all_expected_tables(migrated_empty_database
             assert features["sync"] is True
             assert row[2] in {4_900_000, 9_900_000, 18_900_000}
             assert row[3:] == (1, "month", False)
+
+
+@pytest.mark.postgres
+def test_password_recovery_rate_limit_serializes_concurrent_requests(
+    migrated_empty_database,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(settings, "PASSWORD_RECOVERY_IDENTIFIER_LIMIT", 1)
+    identifier = f"concurrent-recovery-{uuid.uuid4().hex}"
+
+    def submit(source: str):
+        with SessionLocal() as db:
+            return request_recovery(db, identifier=identifier, source=source)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(submit, ("source-a", "source-b")))
+
+    assert sum(result is None for result in results) == 1
+    assert sum(isinstance(result, int) for result in results) == 1
+    with SessionLocal() as db:
+        outcomes = list(db.scalars(select(PasswordRecoveryEvent.outcome).order_by(PasswordRecoveryEvent.id)))
+        assert outcomes[-2:] == ["channel_unavailable", "rate_limited"]
 
 
 @pytest.mark.postgres
@@ -797,6 +921,115 @@ def test_concurrent_inventory_admission_respects_finite_capacity_atomically(clie
 
 
 @pytest.mark.postgres
+def test_concurrent_catalog_adoption_converges_on_one_stable_assignment(client, monkeypatch):
+    created = signup(client)
+    user_id = created.json()["user"]["id"]
+    headers = {
+        "Authorization": f"Bearer {created.json()['access_token']}",
+        "X-Device-Fingerprint": "postgres-device", "X-Client-Data-Schema": "2",
+    }
+    with SessionLocal() as db:
+        industry = Industry(name="On-demand adoption", is_active=True)
+        db.add(industry)
+        db.flush()
+        user = db.get(User, user_id)
+        store = db.scalar(select(Store).where(Store.owner_user_id == user_id))
+        user.industry_id = store.industry_id = industry.id
+        free = db.get(SubscriptionPlan, "free")
+        features = json.loads(free.features_json)
+        features["sync"] = True
+        free.features_json = json.dumps(features)
+        catalog = CatalogProduct(
+            industry_id=industry.id, name="Shared adoption", is_shared=True, is_active=True,
+        )
+        db.add(catalog)
+        db.commit()
+        store_id, catalog_id = store.id, catalog.id
+
+    monkeypatch.setattr(settings, "CATALOG_ON_DEMAND_ADOPTION_ENABLED", True)
+
+    def adopt(index: int):
+        operation = {
+            "operation_id": f"catalog-adoption-{index}", "entity": "product",
+            "entity_id": 1_700_003_000_000 + index, "operation": "CREATE",
+            "payload": {
+                "quantity": index, "price": 100, "custom_label": f"Device {index}",
+                "low_stock_threshold": 0, "low_stock_alert": False, "is_hidden": False,
+                "catalog_product": {"id": catalog_id, "name": "untrusted snapshot"},
+            },
+        }
+        # Each concurrent request needs its own AnyIO portal while the other
+        # request deliberately waits for the store row lock.
+        with TestClient(app) as isolated_client:
+            return isolated_client.post("/api/sync/batch", headers=headers, data={
+                "operations_json": json.dumps({"operations": [operation]}),
+            })
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(adopt, [1, 2]))
+    assert all(response.status_code == 200 for response in responses)
+    results = [response.json()["results"][0] for response in responses]
+    assert sorted(result["status"] for result in results) == ["applied", "conflict"]
+    assert next(result for result in results if result["status"] == "conflict")["error"] == "CATALOG_ALREADY_ADOPTED"
+    assert len({result["entity_id"] for result in results}) == 1
+    with SessionLocal() as db:
+        assert db.scalar(select(func.count(InventoryItem.id)).where(
+            InventoryItem.store_id == store_id,
+            InventoryItem.catalog_product_id == catalog_id,
+        )) == 1
+
+
+@pytest.mark.postgres
+def test_on_demand_provisioning_scale_has_constant_database_work(client, monkeypatch):
+    created = signup(client)
+    user_id = created.json()["user"]["id"]
+    with SessionLocal() as db:
+        industry = Industry(name="Gate 1 scale", is_active=True)
+        db.add(industry)
+        db.commit()
+        industry_id = industry.id
+
+    monkeypatch.setattr(settings, "CATALOG_ON_DEMAND_ADOPTION_ENABLED", True)
+    observed: list[tuple[int, int, int, float]] = []
+    seeded = 0
+    for target in (1_000, 5_000, 10_000):
+        with engine.begin() as connection:
+            connection.execute(text("""
+                INSERT INTO catalog_products
+                    (industry_id, name, is_shared, is_active, is_packaged)
+                SELECT :industry_id, 'Gate 1 catalog ' || value, true, true, false
+                FROM generate_series(CAST(:start AS bigint), CAST(:finish AS bigint)) AS value
+            """), {"industry_id": industry_id, "start": seeded + 1, "finish": target})
+        seeded = target
+        statements = 0
+
+        def count_statement(*_args):
+            nonlocal statements
+            statements += 1
+
+        event.listen(engine, "before_cursor_execute", count_statement)
+        started = perf_counter()
+        try:
+            with SessionLocal() as db:
+                provision_industry_inventory(db, db.get(User, user_id), industry_id)
+        finally:
+            elapsed_ms = (perf_counter() - started) * 1_000
+            event.remove(engine, "before_cursor_execute", count_statement)
+        with SessionLocal() as db:
+            rows = db.scalar(select(func.count(InventoryItem.id)).where(
+                InventoryItem.store_id == select(Store.id).where(Store.owner_user_id == user_id).scalar_subquery(),
+            )) or 0
+        observed.append((target, statements, rows, elapsed_ms))
+
+    print("GATE1_SCALE", observed)
+    assert [entry[2] for entry in observed] == [0, 0, 0]
+    # The first industry selection performs two one-time compatibility writes;
+    # catalog cardinality itself adds no statements.
+    assert max(entry[1] for entry in observed) <= 11
+    assert observed[1][1] == observed[2][1]
+
+
+@pytest.mark.postgres
 def test_concurrent_personnel_admission_respects_finite_capacity_atomically(client):
     created = signup(client)
     user_id = created.json()["user"]["id"]
@@ -1095,3 +1328,334 @@ def test_expired_subscription_preserves_reads_and_blocks_writes(client):
     blocked = client.post("/api/categories", headers=headers, json={"name": "Blocked"})
     assert blocked.status_code == 403
     assert blocked.json()["detail"] == "ENTITLEMENT_EXPIRED"
+
+
+@pytest.mark.postgres
+def test_taxonomy_adoption_serializes_with_first_product_create(client):
+    previous_gate = settings.TAXONOMY_ADOPTION_ENABLED
+    settings.TAXONOMY_ADOPTION_ENABLED = True
+    try:
+        seed_taxonomy_reference()
+        created = signup(client)
+        assert created.status_code == 201, created.text
+        headers = {
+            "Authorization": f"Bearer {created.json()['access_token']}",
+            "X-Device-Fingerprint": "postgres-device",
+            "X-Client-Data-Schema": "3",
+        }
+        state = client.get("/api/taxonomy/state", headers=headers).json()
+
+        def adopt():
+            return client.post("/api/taxonomy/adopt", headers=headers, json={
+                "sector_code": "01",
+                "expected_policy_version": state["taxonomy_policy_version"],
+            })
+
+        def create_first_product():
+            return client.post("/api/products", headers=headers, data={
+                "name": "اولین محصول هم‌زمان",
+                "quantity": "1",
+                "price": "100",
+            })
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            adoption_future = pool.submit(adopt)
+            product_future = pool.submit(create_first_product)
+            adoption = adoption_future.result()
+            product = product_future.result()
+
+        assert sorted([adoption.status_code, product.status_code]) in ([200, 422], [201, 409])
+        with SessionLocal() as db:
+            store = db.scalar(select(Store).where(Store.owner_user_id == created.json()["user"]["id"]))
+            assert store is not None
+            products = list(db.scalars(select(InventoryItem).where(InventoryItem.store_id == store.id)))
+            if adoption.status_code == 200:
+                assert store.taxonomy_version == "scb-2026-11-14-v1"
+                assert products == []
+                assert product.json()["detail"] == "CATEGORY_REQUIRED_AFTER_ADOPTION"
+            else:
+                assert adoption.json()["detail"] == "LEGACY_STORE_REVIEW_REQUIRED"
+                assert store.taxonomy_version is None
+                assert len(products) == 1 and products[0].category_id is None
+    finally:
+        settings.TAXONOMY_ADOPTION_ENABLED = previous_gate
+
+
+@pytest.mark.postgres
+def test_concurrent_recategorization_has_one_winner_and_no_orphan_state(client):
+    previous_gate = settings.TAXONOMY_ADOPTION_ENABLED
+    settings.TAXONOMY_ADOPTION_ENABLED = True
+    try:
+        headers, categories = taxonomy_owner(client)
+        created = client.post("/api/products", headers=headers, data={
+            "name": "محصول رقابت تغییر دسته",
+            "category_id": str(categories[0]["id"]),
+            "quantity": "1",
+            "price": "100",
+        })
+        assert created.status_code == 201, created.text
+        product_id = created.json()["id"]
+        preview = client.post("/api/taxonomy/recategorization/preview", headers=headers, json={
+            "product_ids": [product_id],
+            "destination_category_id": categories[1]["id"],
+        })
+        assert preview.status_code == 200, preview.text
+
+        def confirm(suffix: str):
+            body = preview.json()
+            return client.post("/api/taxonomy/recategorization/confirm", headers=headers, json={
+                "destination_category_id": categories[1]["id"],
+                "targets": body["targets"],
+                "expires_at": body["expires_at"],
+                "confirmation_token": body["confirmation_token"],
+                "operation_id": f"pg-concurrent-recategory-{suffix}",
+            })
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            responses = list(pool.map(confirm, ("a", "b")))
+
+        assert sorted(response.status_code for response in responses) == [200, 409]
+        assert next(response for response in responses if response.status_code == 409).json()["detail"] == "RECATEGORIZATION_PREVIEW_STALE"
+        with SessionLocal() as db:
+            product = db.get(InventoryItem, product_id)
+            barcodes = list(db.scalars(select(ProductBarcode).where(ProductBarcode.product_id == product_id)))
+            active = [barcode for barcode in barcodes if barcode.lifecycle_status == "active"]
+            retired = [barcode for barcode in barcodes if barcode.lifecycle_status == "retired"]
+            assert product is not None and product.category_id == categories[1]["id"]
+            assert len(active) == len(retired) == 1
+            assert active[0].symbology == "datamatrix"
+            old_reservation = db.get(BarcodeReservation, retired[0].reservation_id)
+            assert old_reservation is not None
+            assert old_reservation.status == "retired"
+            assert old_reservation.replaced_by_reservation_id == active[0].reservation_id
+    finally:
+        settings.TAXONOMY_ADOPTION_ENABLED = previous_gate
+
+
+@pytest.mark.postgres
+def test_recategorization_fault_rolls_back_category_and_barcode_lifecycle(client, monkeypatch):
+    import app.services.taxonomy_service as taxonomy_service
+
+    previous_gate = settings.TAXONOMY_ADOPTION_ENABLED
+    settings.TAXONOMY_ADOPTION_ENABLED = True
+    try:
+        headers, categories = taxonomy_owner(client)
+        created = client.post("/api/products", headers=headers, data={
+            "name": "محصول تزریق خطا",
+            "category_id": str(categories[0]["id"]),
+            "quantity": "1",
+            "price": "100",
+        })
+        assert created.status_code == 201, created.text
+        product_id = created.json()["id"]
+        preview = client.post("/api/taxonomy/recategorization/preview", headers=headers, json={
+            "product_ids": [product_id],
+            "destination_category_id": categories[1]["id"],
+        })
+        assert preview.status_code == 200, preview.text
+        with SessionLocal() as db:
+            before = db.get(InventoryItem, product_id)
+            assert before is not None
+            before_version = before.version
+            original_barcode = db.scalar(select(ProductBarcode).where(ProductBarcode.product_id == product_id))
+            assert original_barcode is not None
+            original_barcode_id = original_barcode.id
+            original_reservation_id = original_barcode.reservation_id
+
+        issue = taxonomy_service.issue_internal_barcode
+
+        def fail_after_issue(*args, **kwargs):
+            issue(*args, **kwargs)
+            raise RuntimeError("SYNTHETIC_FAILURE_AFTER_REPLACEMENT_ISSUE")
+
+        monkeypatch.setattr(taxonomy_service, "issue_internal_barcode", fail_after_issue)
+        body = preview.json()
+        with pytest.raises(RuntimeError, match="SYNTHETIC_FAILURE_AFTER_REPLACEMENT_ISSUE"):
+            client.post("/api/taxonomy/recategorization/confirm", headers=headers, json={
+                "destination_category_id": categories[1]["id"],
+                "targets": body["targets"],
+                "expires_at": body["expires_at"],
+                "confirmation_token": body["confirmation_token"],
+                "operation_id": "pg-fault-recategory",
+            })
+
+        with SessionLocal() as db:
+            product = db.get(InventoryItem, product_id)
+            barcodes = list(db.scalars(select(ProductBarcode).where(ProductBarcode.product_id == product_id)))
+            reservations = list(db.scalars(select(BarcodeReservation).where(
+                BarcodeReservation.store_id == product.store_id,
+                BarcodeReservation.target_id == product_id,
+            )))
+            assert product is not None
+            assert product.category_id == categories[0]["id"] and product.version == before_version
+            assert len(barcodes) == 1 and barcodes[0].id == original_barcode_id
+            assert barcodes[0].lifecycle_status == "active" and barcodes[0].is_active is True
+            assert len(reservations) == 1 and reservations[0].id == original_reservation_id
+            assert reservations[0].status == "active" and reservations[0].replaced_by_reservation_id is None
+            assert db.scalar(select(func.count(SyncOperation.id)).where(SyncOperation.operation_id == "pg-fault-recategory")) == 0
+    finally:
+        settings.TAXONOMY_ADOPTION_ENABLED = previous_gate
+
+
+@pytest.mark.postgres
+def test_catalog_cursor_query_scales_to_50k_and_uses_scope_index():
+    """Synthetic read-only evidence; the module fixture drops the test schema."""
+    measurements = []
+    with SessionLocal() as db:
+        industry = Industry(name="Catalog cursor scale", description="isolated benchmark", is_active=True)
+        db.add(industry)
+        db.commit()
+        db.refresh(industry)
+        previous = 0
+        last_boundary = None
+        for target in (1_000, 5_000, 10_000, 50_000):
+            increment = target - previous
+            db.execute(text("""
+                INSERT INTO catalog_products
+                    (industry_id, name, description, brand, is_shared, is_active, is_packaged, created_at)
+                SELECT :industry_id, 'scale-' || value, 'scale', 'benchmark', true, true, false,
+                       now() - (value * interval '1 millisecond')
+                FROM generate_series(CAST(:start AS bigint), CAST(:finish AS bigint)) AS value
+            """), {"industry_id": industry.id, "start": previous + 1, "finish": previous + increment})
+            db.commit()
+            db.execute(text("ANALYZE catalog_products"))
+            started = perf_counter()
+            rows = db.execute(text("""
+                SELECT id, created_at FROM catalog_products
+                WHERE is_shared = true AND is_active = true AND industry_id = :industry_id
+                ORDER BY created_at DESC, id DESC LIMIT 25
+            """), {"industry_id": industry.id}).all()
+            elapsed_ms = round((perf_counter() - started) * 1000, 3)
+            assert len(rows) == 25
+            if last_boundary is not None:
+                next_rows = db.execute(text("""
+                    SELECT id, created_at FROM catalog_products
+                    WHERE is_shared = true AND is_active = true AND industry_id = :industry_id
+                      AND (created_at < :created_at OR (created_at = :created_at AND id < :catalog_id))
+                    ORDER BY created_at DESC, id DESC LIMIT 25
+                """), {"industry_id": industry.id, "created_at": last_boundary.created_at, "catalog_id": last_boundary.id}).all()
+                assert not ({row.id for row in rows} & {row.id for row in next_rows})
+            last_boundary = rows[-1]
+            measurements.append({"rows": target, "first_page_ms": elapsed_ms})
+            previous = target
+
+        plan = "\n".join(row[0] for row in db.execute(text("""
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+            SELECT id, created_at FROM catalog_products
+            WHERE is_shared = true AND is_active = true AND industry_id = :industry_id
+            ORDER BY created_at DESC, id DESC LIMIT 25
+        """), {"industry_id": industry.id}))
+        assert "ix_catalog_products_cursor_scope" in plan
+        print("CATALOG_CURSOR_BENCHMARK=" + json.dumps(measurements))
+        print(plan)
+
+
+@pytest.mark.postgres
+def test_reference_manifest_generation_scales_to_50k_with_bounded_queries(client, tmp_path, monkeypatch):
+    measurements = []
+    monkeypatch.setattr(reference_asset_storage, "root", tmp_path)
+    with SessionLocal() as db:
+        admin = db.scalar(select(User).where(User.is_system_admin.is_(True)))
+        assert admin is not None
+        industry = Industry(name="Reference manifest scale", description="isolated benchmark", is_active=True)
+        db.add(industry)
+        db.flush()
+        primary = CatalogFamily(industry_id=industry.id, slug="all-parts", name="All parts", sort_order=1)
+        overlap = CatalogFamily(industry_id=industry.id, slug="even-parts", name="Even parts", sort_order=2)
+        db.add_all([primary, overlap])
+        assets = []
+        for index in range(100):
+            content = f"synthetic-reference-{index}".encode()
+            digest = hashlib.sha256(content).hexdigest()
+            storage_key = f"blobs/{digest[:2]}/{digest}.webp"
+            reference_asset_storage.put_blob_if_absent(storage_key, content)
+            assets.append(ReferenceMediaAsset(
+                id=str(uuid.uuid4()), source_sha256=hashlib.sha256(b"source-" + content).hexdigest(),
+                content_sha256=digest, mime_type="image/webp", width=320, height=240,
+                byte_size=len(content), storage_key=storage_key, variant_type="preview",
+                validation_status="approved", source_reference="synthetic:benchmark",
+                created_by_user_id=admin.id,
+            ))
+        db.add_all(assets)
+        db.commit()
+        db.refresh(industry)
+        db.refresh(primary)
+        db.refresh(overlap)
+        previous = 0
+        for target in (1_000, 5_000, 10_000, 50_000):
+            db.execute(text("""
+                INSERT INTO catalog_products
+                    (industry_id, name, description, brand, is_shared, is_active, is_packaged, created_at)
+                SELECT :industry_id, 'manifest-' || value, 'technical metadata', 'benchmark',
+                       true, true, false, now()
+                FROM generate_series(CAST(:start AS bigint), CAST(:finish AS bigint)) AS value
+            """), {"industry_id": industry.id, "start": previous + 1, "finish": target})
+            db.execute(text("""
+                INSERT INTO catalog_product_families (catalog_product_id, catalog_family_id)
+                SELECT id, :family_id FROM catalog_products
+                WHERE industry_id = :industry_id
+                ON CONFLICT DO NOTHING
+            """), {"family_id": primary.id, "industry_id": industry.id})
+            db.execute(text("""
+                INSERT INTO catalog_product_families (catalog_product_id, catalog_family_id)
+                SELECT id, :family_id FROM catalog_products
+                WHERE industry_id = :industry_id AND MOD(id, 2) = 0
+                ON CONFLICT DO NOTHING
+            """), {"family_id": overlap.id, "industry_id": industry.id})
+            db.execute(text("""
+                WITH products AS (
+                    SELECT id, row_number() OVER (ORDER BY id) AS position
+                    FROM catalog_products WHERE industry_id = :industry_id
+                ), assets AS (
+                    SELECT id, row_number() OVER (ORDER BY id) AS position
+                    FROM reference_media_assets WHERE source_reference = 'synthetic:benchmark'
+                )
+                INSERT INTO catalog_product_media
+                    (catalog_product_id, media_asset_id, role, sort_order)
+                SELECT products.id, assets.id, 'preview', 0
+                FROM products
+                JOIN assets ON assets.position = MOD(products.position - 1, 100) + 1
+                ON CONFLICT DO NOTHING
+            """), {"industry_id": industry.id})
+            db.commit()
+
+            release = CatalogRelease(
+                id=str(uuid.uuid4()), request_id=str(uuid.uuid4()),
+                industry_id=industry.id, version=target, status="staging",
+                created_by_user_id=admin.id,
+                created_at=datetime.now(timezone.utc),
+            )
+            statements = 0
+
+            def count_statement(*_args):
+                nonlocal statements
+                statements += 1
+
+            gc.collect()
+            tracemalloc.start()
+            event.listen(engine, "before_cursor_execute", count_statement)
+            started = perf_counter()
+            try:
+                files = _release_files(db, release)
+            finally:
+                event.remove(engine, "before_cursor_execute", count_statement)
+            elapsed_ms = round((perf_counter() - started) * 1000, 2)
+            _, peak = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+            total_bytes = sum(len(value) for value in files.values())
+            assert set(files) == {"index.json", "families/all-parts.json", "families/even-parts.json"}
+            assert statements <= 3
+            primary_manifest = json.loads(files["families/all-parts.json"])
+            assert primary_manifest["product_count"] == target
+            assert primary_manifest["asset_count"] == 100
+            measurements.append({
+                "products": target,
+                "relations": target + (target // 2),
+                "manifest_bytes": total_bytes,
+                "generation_ms": elapsed_ms,
+                "peak_memory_bytes": peak,
+                "query_count": statements,
+                "unique_assets": 100,
+            })
+            previous = target
+        print("REFERENCE_MANIFEST_BENCHMARK=" + json.dumps(measurements))

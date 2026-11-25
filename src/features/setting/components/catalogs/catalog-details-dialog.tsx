@@ -1,4 +1,3 @@
-import { resolveAssetUrl } from "@/shared/api/client";
 import { Button } from "@/shared/ui/button/button";
 import {
   CalendarIcon,
@@ -18,6 +17,7 @@ import {
 import { useState, type ReactNode } from "react";
 
 import { useCatalogProduct } from "../../mutations/use-catalog";
+import { useCatalogImage } from "../../hooks/use-catalog-image";
 import { formatJalaliDateTime } from "@/shared/lib/date/jalali";
 
 type Props = {
@@ -37,7 +37,11 @@ export default function CatalogDetailsDialog({
     open,
   );
 
-  const imageUrl = resolveAssetUrl(product?.image_url);
+  const image = useCatalogImage(
+    product?.reference_detail_url,
+    product?.reference_preview_url,
+    product?.image_url,
+  );
   const createdAt = product
     ? formatJalaliDateTime(product.created_at)
     : "—";
@@ -84,14 +88,12 @@ export default function CatalogDetailsDialog({
         {product && (
           <Flex direction="column" gap="5" mt="5">
             <Box className="aspect-[16/7] overflow-hidden rounded-xl bg-[var(--gray-a3)]">
-              {imageUrl ? (
+              {image.src ? (
                 <img
-                  src={imageUrl}
+                  src={image.src}
                   alt={product.name}
                   className="h-full w-full object-cover"
-                  onError={(event) => {
-                    event.currentTarget.style.display = "none";
-                  }}
+                  onError={image.onError}
                 />
               ) : (
                 <Flex height="100%" align="center" justify="center" direction="column" gap="2">

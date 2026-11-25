@@ -22,9 +22,9 @@ type Props = {
 };
 
 export function QuickAccessPage({ title, description, items, icon, sectionTo, footer }: Props) {
-  useEntitlementAccess();
+  const access = useEntitlementAccess();
   const { user } = useAuth();
-  const visibleItems = visibleNavigationItems(items, user);
+  const visibleItems = visibleNavigationItems(items, user, access);
   const guidedSection = title === "تنظیمات" || title === "ابزارها" || title === "مدیریت" ? title : null;
 
   return (

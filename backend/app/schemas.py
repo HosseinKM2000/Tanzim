@@ -86,6 +86,25 @@ class LoginRequest(BaseModel):
         return value
 
 
+class PasswordRecoveryRequest(BaseModel):
+    identifier: str = Field(min_length=1, max_length=120)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("identifier")
+    @classmethod
+    def normalize_identifier(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("RECOVERY_IDENTIFIER_REQUIRED")
+        return normalized
+
+
+class PasswordRecoveryResponse(BaseModel):
+    message: str = "PASSWORD_RECOVERY_REQUEST_ACCEPTED"
+    delivery_available: bool = False
+
+
 class UserUpdate(BaseModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=120)
     last_name: str | None = Field(default=None, min_length=1, max_length=120)
@@ -285,6 +304,7 @@ class CategoryCreate(CategoryBase):
 class CategoryUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = None
+    is_active: bool | None = None
 
 
 class CategoryOut(BaseModel):
@@ -293,6 +313,14 @@ class CategoryOut(BaseModel):
     id: int
     name: str
     description: str | None = None
+    code: str | None = None
+    sector_code: str | None = None
+    origin: Literal["system", "custom", "legacy"] = "legacy"
+    approval_status: str = "legacy"
+    is_active: bool = True
+    reference_key: str | None = None
+    taxonomy_version: str | None = None
+    version: int = 1
     created_at: datetime
     updated_at: datetime
 
@@ -300,6 +328,74 @@ class CategoryOut(BaseModel):
 class CategoryWithStats(CategoryOut):
     product_count: int
     total_quantity: int
+
+
+class ReferenceCategoryOut(BaseModel):
+    id: int
+    reference_key: str
+    code: str
+    name_fa: str
+    examples: list[str]
+    approval_status: Literal["approved", "proposed"]
+
+
+class ReferenceSectorOut(BaseModel):
+    id: int
+    reference_key: str
+    code: str
+    name_fa: str
+    taxonomy_version: str
+    custom_categories_allowed: bool
+
+
+class TaxonomyStoreStateOut(BaseModel):
+    taxonomy_version: str | None
+    taxonomy_policy_version: int
+    sector_code: str | None
+    adopted_at: datetime | None
+    has_historical_inventory_usage: bool
+    adoption_enabled: bool
+
+
+class TaxonomyAdoptRequest(BaseModel):
+    sector_code: str = Field(pattern=r"^\d{2}$")
+    expected_policy_version: int = Field(ge=0)
+
+
+class RecategorizationPreviewRequest(BaseModel):
+    product_ids: list[int] = Field(min_length=1, max_length=100)
+    destination_category_id: int = Field(gt=0)
+
+
+class RecategorizationTarget(BaseModel):
+    product_id: int
+    version: int
+    current_category_id: int | None
+    internal_labels_to_replace: int = Field(ge=0)
+
+
+class RecategorizationPreviewOut(BaseModel):
+    store_id: int
+    destination_category_id: int
+    targets: list[RecategorizationTarget]
+    expires_at: str
+    confirmation_token: str
+
+
+class RecategorizationConfirmRequest(BaseModel):
+    operation_id: str = Field(min_length=8, max_length=64)
+    destination_category_id: int = Field(gt=0)
+    targets: list[RecategorizationTarget] = Field(min_length=1, max_length=100)
+    expires_at: str
+    confirmation_token: str = Field(min_length=64, max_length=64)
+
+
+class BarcodeResolutionOut(BaseModel):
+    status: Literal["active", "retired", "ambiguous", "not_found", "unavailable"]
+    value: str
+    target_id: int | None = None
+    barcode_id: int | None = None
+    product_version: int | None = None
 
 
 class LabelOut(BaseModel):
@@ -315,6 +411,13 @@ class LabelOut(BaseModel):
 # =========================================================
 # CATALOG
 # =========================================================
+class CatalogAdoptionStatus(BaseModel):
+    enabled: bool
+    cursor_read_v2_enabled: bool
+    reference_media_v1_enabled: bool
+    offline_families_v1_enabled: bool
+
+
 class CatalogProductBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=5000)
@@ -379,6 +482,15 @@ class CatalogProductUpdate(BaseModel):
             return None
         return value.strip() or None
 
+class CatalogReferenceAssetSummary(BaseModel):
+    asset_id: str
+    content_hash: str
+    storage_key: str
+    width: int
+    height: int
+    byte_size: int
+
+
 class CatalogProductOut(BaseModel):
     id: int
 
@@ -394,6 +506,16 @@ class CatalogProductOut(BaseModel):
 
     image_url: str | None
 
+    reference_preview_url: str | None = None
+
+    reference_detail_url: str | None = None
+
+    reference_preview: CatalogReferenceAssetSummary | None = None
+
+    reference_detail: CatalogReferenceAssetSummary | None = None
+
+    reference_family_slug: str | None = None
+
     is_packaged: bool
 
     pack_size: int | None
@@ -403,6 +525,76 @@ class CatalogProductOut(BaseModel):
     industry: IndustrySimpleOut
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CatalogProductPage(BaseModel):
+    items: list[CatalogProductOut]
+    next_cursor: str | None
+    has_more: bool
+
+
+class CatalogFamilyCreate(BaseModel):
+    industry_id: int = Field(gt=0)
+    slug: str = Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", min_length=2, max_length=120)
+    name: str = Field(min_length=1, max_length=200)
+    sort_order: int = Field(default=0, ge=0)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_family_name(cls, value: str) -> str:
+        return value.strip()
+
+
+class CatalogFamilyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    industry_id: int
+    slug: str
+    name: str
+    is_active: bool
+    sort_order: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class ReferenceMediaAssetOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    source_sha256: str
+    content_sha256: str
+    mime_type: str
+    width: int
+    height: int
+    byte_size: int
+    variant_type: Literal["preview", "detail"]
+    validation_status: Literal["approved", "review", "rejected"]
+    created_at: datetime
+    read_url: str
+
+
+class ReferenceMediaIngestOut(BaseModel):
+    source_sha256: str
+    deduplicated: bool
+    assets: list[ReferenceMediaAssetOut]
+
+
+class CatalogPublishRequest(BaseModel):
+    request_id: str = Field(pattern=r"^[0-9a-fA-F-]{36}$")
+    industry_id: int = Field(gt=0)
+
+
+class CatalogReleaseOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    request_id: str
+    industry_id: int
+    version: int
+    status: Literal["staging", "published", "superseded", "failed"]
+    manifest_path: str | None
+    manifest_hash: str | None
+    previous_release_id: str | None
+    created_at: datetime
+    published_at: datetime | None
 
 
 # =========================================================
@@ -648,12 +840,15 @@ class BarcodeOut(BaseModel):
     product_id: int
     value: str
     source: Literal["manufacturer", "tanzim"]
-    symbology: Literal["code128", "ean13", "ean8", "upca", "upce", "unknown"]
+    symbology: Literal["code128", "datamatrix", "ean13", "ean8", "upca", "upce", "unknown"]
     meaning: Literal["unit", "package"]
     scan_quantity: int
     is_active: bool
     is_default: bool
     version: int
+    lifecycle_status: Literal["active", "retired", "deleted"] = "active"
+    reservation_id: int | None = None
+    category_reference_key: str | None = None
     created_at: datetime
     updated_at: datetime
 

@@ -43,13 +43,17 @@ import { Route as SettingIndustryRouteImport } from './routes/setting/industry'
 import { Route as SettingExportRouteImport } from './routes/setting/export'
 import { Route as SettingCategoriesRouteImport } from './routes/setting/categories'
 import { Route as SettingCatalogsRouteImport } from './routes/setting/catalogs'
+import { Route as SettingCatalogImagesRouteImport } from './routes/setting/catalog-images'
 import { Route as SettingBackupRouteImport } from './routes/setting/backup'
 import { Route as SettingAppearanceRouteImport } from './routes/setting/appearance'
 import { Route as ManagementUsersRouteImport } from './routes/management/users'
 import { Route as ManagementSubscriptionsRouteImport } from './routes/management/subscriptions'
 import { Route as ManagementIndustriesRouteImport } from './routes/management/industries'
 import { Route as ManagementCatalogsRouteImport } from './routes/management/catalogs'
+import { Route as LegalTermsRouteImport } from './routes/legal/terms'
+import { Route as LegalPrivacyRouteImport } from './routes/legal/privacy'
 import { Route as AuthRegisterRouteImport } from './routes/auth/register'
+import { Route as AuthRecoveryRouteImport } from './routes/auth/recovery'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as appIndustryRouteRouteImport } from './routes/(app)/industry/route'
 import { Route as appDashboardRouteRouteImport } from './routes/(app)/dashboard/route'
@@ -244,6 +248,11 @@ const SettingCatalogsRoute = SettingCatalogsRouteImport.update({
   path: '/catalogs',
   getParentRoute: () => SettingRouteRoute,
 } as any)
+const SettingCatalogImagesRoute = SettingCatalogImagesRouteImport.update({
+  id: '/catalog-images',
+  path: '/catalog-images',
+  getParentRoute: () => SettingRouteRoute,
+} as any)
 const SettingBackupRoute = SettingBackupRouteImport.update({
   id: '/backup',
   path: '/backup',
@@ -274,9 +283,24 @@ const ManagementCatalogsRoute = ManagementCatalogsRouteImport.update({
   path: '/catalogs',
   getParentRoute: () => ManagementRouteRoute,
 } as any)
+const LegalTermsRoute = LegalTermsRouteImport.update({
+  id: '/legal/terms',
+  path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
+  id: '/legal/privacy',
+  path: '/legal/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRegisterRoute = AuthRegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthRecoveryRoute = AuthRecoveryRouteImport.update({
+  id: '/recovery',
+  path: '/recovery',
   getParentRoute: () => AuthRouteRoute,
 } as any)
 const AuthLoginRoute = AuthLoginRouteImport.update({
@@ -417,13 +441,17 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof appDashboardRouteRouteWithChildren
   '/industry': typeof appIndustryRouteRouteWithChildren
   '/auth/login': typeof AuthLoginRoute
+  '/auth/recovery': typeof AuthRecoveryRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/management/catalogs': typeof ManagementCatalogsRoute
   '/management/industries': typeof ManagementIndustriesRoute
   '/management/subscriptions': typeof ManagementSubscriptionsRoute
   '/management/users': typeof ManagementUsersRoute
   '/setting/appearance': typeof SettingAppearanceRoute
   '/setting/backup': typeof SettingBackupRoute
+  '/setting/catalog-images': typeof SettingCatalogImagesRoute
   '/setting/catalogs': typeof SettingCatalogsRoute
   '/setting/categories': typeof SettingCategoriesRoute
   '/setting/export': typeof SettingExportRoute
@@ -477,13 +505,17 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
   '/auth/login': typeof AuthLoginRoute
+  '/auth/recovery': typeof AuthRecoveryRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/management/catalogs': typeof ManagementCatalogsRoute
   '/management/industries': typeof ManagementIndustriesRoute
   '/management/subscriptions': typeof ManagementSubscriptionsRoute
   '/management/users': typeof ManagementUsersRoute
   '/setting/appearance': typeof SettingAppearanceRoute
   '/setting/backup': typeof SettingBackupRoute
+  '/setting/catalog-images': typeof SettingCatalogImagesRoute
   '/setting/catalogs': typeof SettingCatalogsRoute
   '/setting/categories': typeof SettingCategoriesRoute
   '/setting/export': typeof SettingExportRoute
@@ -544,13 +576,17 @@ export interface FileRoutesById {
   '/(app)/dashboard': typeof appDashboardRouteRouteWithChildren
   '/(app)/industry': typeof appIndustryRouteRouteWithChildren
   '/auth/login': typeof AuthLoginRoute
+  '/auth/recovery': typeof AuthRecoveryRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/management/catalogs': typeof ManagementCatalogsRoute
   '/management/industries': typeof ManagementIndustriesRoute
   '/management/subscriptions': typeof ManagementSubscriptionsRoute
   '/management/users': typeof ManagementUsersRoute
   '/setting/appearance': typeof SettingAppearanceRoute
   '/setting/backup': typeof SettingBackupRoute
+  '/setting/catalog-images': typeof SettingCatalogImagesRoute
   '/setting/catalogs': typeof SettingCatalogsRoute
   '/setting/categories': typeof SettingCategoriesRoute
   '/setting/export': typeof SettingExportRoute
@@ -611,13 +647,17 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/industry'
     | '/auth/login'
+    | '/auth/recovery'
     | '/auth/register'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/management/catalogs'
     | '/management/industries'
     | '/management/subscriptions'
     | '/management/users'
     | '/setting/appearance'
     | '/setting/backup'
+    | '/setting/catalog-images'
     | '/setting/catalogs'
     | '/setting/categories'
     | '/setting/export'
@@ -671,13 +711,17 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/auth/login'
+    | '/auth/recovery'
     | '/auth/register'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/management/catalogs'
     | '/management/industries'
     | '/management/subscriptions'
     | '/management/users'
     | '/setting/appearance'
     | '/setting/backup'
+    | '/setting/catalog-images'
     | '/setting/catalogs'
     | '/setting/categories'
     | '/setting/export'
@@ -737,13 +781,17 @@ export interface FileRouteTypes {
     | '/(app)/dashboard'
     | '/(app)/industry'
     | '/auth/login'
+    | '/auth/recovery'
     | '/auth/register'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/management/catalogs'
     | '/management/industries'
     | '/management/subscriptions'
     | '/management/users'
     | '/setting/appearance'
     | '/setting/backup'
+    | '/setting/catalog-images'
     | '/setting/catalogs'
     | '/setting/categories'
     | '/setting/export'
@@ -801,6 +849,8 @@ export interface RootRouteChildren {
   ManagementRouteRoute: typeof ManagementRouteRouteWithChildren
   SettingRouteRoute: typeof SettingRouteRouteWithChildren
   ToolsRouteRoute: typeof ToolsRouteRouteWithChildren
+  LegalPrivacyRoute: typeof LegalPrivacyRoute
+  LegalTermsRoute: typeof LegalTermsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1043,6 +1093,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingCatalogsRouteImport
       parentRoute: typeof SettingRouteRoute
     }
+    '/setting/catalog-images': {
+      id: '/setting/catalog-images'
+      path: '/catalog-images'
+      fullPath: '/setting/catalog-images'
+      preLoaderRoute: typeof SettingCatalogImagesRouteImport
+      parentRoute: typeof SettingRouteRoute
+    }
     '/setting/backup': {
       id: '/setting/backup'
       path: '/backup'
@@ -1085,11 +1142,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ManagementCatalogsRouteImport
       parentRoute: typeof ManagementRouteRoute
     }
+    '/legal/terms': {
+      id: '/legal/terms'
+      path: '/legal/terms'
+      fullPath: '/legal/terms'
+      preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/privacy': {
+      id: '/legal/privacy'
+      path: '/legal/privacy'
+      fullPath: '/legal/privacy'
+      preLoaderRoute: typeof LegalPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/register': {
       id: '/auth/register'
       path: '/register'
       fullPath: '/auth/register'
       preLoaderRoute: typeof AuthRegisterRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/auth/recovery': {
+      id: '/auth/recovery'
+      path: '/recovery'
+      fullPath: '/auth/recovery'
+      preLoaderRoute: typeof AuthRecoveryRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/auth/login': {
@@ -1351,11 +1429,13 @@ const appRouteRouteWithChildren = appRouteRoute._addFileChildren(
 
 interface AuthRouteRouteChildren {
   AuthLoginRoute: typeof AuthLoginRoute
+  AuthRecoveryRoute: typeof AuthRecoveryRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthLoginRoute: AuthLoginRoute,
+  AuthRecoveryRoute: AuthRecoveryRoute,
   AuthRegisterRoute: AuthRegisterRoute,
 }
 
@@ -1386,6 +1466,7 @@ const ManagementRouteRouteWithChildren = ManagementRouteRoute._addFileChildren(
 interface SettingRouteRouteChildren {
   SettingAppearanceRoute: typeof SettingAppearanceRoute
   SettingBackupRoute: typeof SettingBackupRoute
+  SettingCatalogImagesRoute: typeof SettingCatalogImagesRoute
   SettingCatalogsRoute: typeof SettingCatalogsRoute
   SettingCategoriesRoute: typeof SettingCategoriesRoute
   SettingExportRoute: typeof SettingExportRoute
@@ -1406,6 +1487,7 @@ interface SettingRouteRouteChildren {
 const SettingRouteRouteChildren: SettingRouteRouteChildren = {
   SettingAppearanceRoute: SettingAppearanceRoute,
   SettingBackupRoute: SettingBackupRoute,
+  SettingCatalogImagesRoute: SettingCatalogImagesRoute,
   SettingCatalogsRoute: SettingCatalogsRoute,
   SettingCategoriesRoute: SettingCategoriesRoute,
   SettingExportRoute: SettingExportRoute,
@@ -1468,6 +1550,8 @@ const rootRouteChildren: RootRouteChildren = {
   ManagementRouteRoute: ManagementRouteRouteWithChildren,
   SettingRouteRoute: SettingRouteRouteWithChildren,
   ToolsRouteRoute: ToolsRouteRouteWithChildren,
+  LegalPrivacyRoute: LegalPrivacyRoute,
+  LegalTermsRoute: LegalTermsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,0 +1,761 @@
+import { expect, test, type Page } from "@playwright/test";
+
+type Role = "USER" | "ADMIN";
+
+async function seedAuthenticatedUser(page: Page, role: Role, online = false) {
+  await page.addInitScript(({ seededRole, seededOnline }) => {
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, get: () => seededOnline });
+    const now = new Date().toISOString();
+    const user = {
+      id: seededRole === "ADMIN" ? 7102 : 7101,
+      first_name: "Navigation",
+      last_name: "Tester",
+      username: `navigation-${seededRole.toLowerCase()}`,
+      email: null,
+      phone: null,
+      industry_id: 1,
+      plan: "pro",
+      is_active: true,
+      is_admin: seededRole === "ADMIN",
+      role: seededRole,
+      is_system_admin: false,
+      is_store_owner: seededRole === "USER",
+      store_id: seededRole === "USER" ? 8101 : 8102,
+      membership_id: seededRole === "USER" ? 9101 : 9102,
+      store_operating_mode: "solo",
+      store_policy_version: 1,
+      subscription_started_at: now,
+      subscription_expires_at: "2099-01-01T00:00:00.000Z",
+      created_at: now,
+    };
+    localStorage.setItem("access_token", JSON.stringify("navigation-test-token"));
+    localStorage.setItem("inventory-last-user", JSON.stringify(user));
+    localStorage.setItem(`inventory-entitlement-v2:${user.id}`, JSON.stringify({
+      user_id: user.id,
+      plan: "pro",
+      label: "Pro",
+      status: "active",
+      account_status: "active",
+      started_at: now,
+      expires_at: "2099-01-01T00:00:00.000Z",
+      server_time: now,
+      synced_at: now,
+      verified_at: now,
+      captured_at_ms: Date.now(),
+      last_observed_at_ms: Date.now(),
+      capabilities: {
+        "inventory.read": true,
+        "inventory.write": true,
+        "categories.write": true,
+        "labels.write": true,
+        "import.xlsx": true,
+        "export.local": true,
+        "export.server": true,
+        "backup": true,
+        "personnel": true,
+      },
+      limits: { inventory_items: null },
+    }));
+  }, { seededRole: role, seededOnline: online });
+  await page.route("http://localhost:8000/api/**", (route) => route.abort());
+}
+
+test("standard navigation separates Settings and Tools with contextual back behavior", async ({ page }) => {
+  await seedAuthenticatedUser(page, "USER");
+  await page.goto("/dashboard");
+
+  const routeMotion = await page.locator("main.app-route-transition").evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { name: style.animationName, duration: Number.parseFloat(style.animationDuration) };
+  });
+  expect(routeMotion.name).toContain("app-route-enter");
+  expect(routeMotion.duration).toBeGreaterThanOrEqual(.15);
+  expect(routeMotion.duration).toBeLessThanOrEqual(.25);
+
+  const header = page.locator(".app-header");
+  const leftControls = header.locator(".app-header-left");
+  const rightControls = header.locator(".app-header-right");
+  const backupShortcut = rightControls.getByRole("button", { name: /فایل پشتیبان/ });
+  const notificationShortcut = rightControls.getByRole("button", { name: /اعلان‌ها|هشدار فعال/ });
+  await expect(leftControls.getByRole("link", { name: "تنظیمات" })).toHaveCount(0);
+  await expect(backupShortcut).toBeVisible();
+  await expect(notificationShortcut).toBeVisible();
+  await expect(leftControls.locator(".sync-status-badge")).toBeVisible();
+  await expect(leftControls.getByRole("button", { name: /فایل پشتیبان/ })).toHaveCount(0);
+  await expect(leftControls.getByRole("button", { name: /اعلان‌ها|هشدار فعال/ })).toHaveCount(0);
+  await expect(rightControls.locator(".sync-status-badge")).toHaveCount(0);
+  expect((await notificationShortcut.boundingBox())!.x).toBeLessThan((await backupShortcut.boundingBox())!.x);
+  expect((await leftControls.boundingBox())!.x).toBeLessThan((await rightControls.boundingBox())!.x);
+  await expect(page.getByRole("button", { name: "بازگشت" })).toHaveCount(0);
+  await expect(header.getByRole("button", { name: /منو/ })).toHaveCount(0);
+
+  await notificationShortcut.click();
+  const notificationPopover = page.locator(".notification-popover");
+  await expect(notificationPopover).toBeVisible();
+  const notificationMotion = await notificationPopover.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { name: style.animationName, duration: Number.parseFloat(style.animationDuration) };
+  });
+  expect(notificationMotion.name).not.toBe("none");
+  expect(notificationMotion.duration).toBeGreaterThanOrEqual(.15);
+  expect(notificationMotion.duration).toBeLessThanOrEqual(.2);
+  await page.keyboard.press("Escape");
+  await expect(notificationPopover).toBeHidden();
+
+  const desktopNavigation = page.locator(".app-desktop-sidebar");
+  const bottomNavigation = page.locator(".app-bottom-navigation");
+  const desktopLayout = page.viewportSize()!.width >= 1200;
+  const primaryNavigation = desktopLayout ? desktopNavigation : bottomNavigation;
+  if (desktopLayout) {
+    await expect(desktopNavigation).toBeVisible();
+    await expect(bottomNavigation).toBeHidden();
+  } else {
+    await expect(desktopNavigation).toBeHidden();
+    await expect(bottomNavigation).toBeVisible();
+  }
+  await expect(primaryNavigation.locator('a[href="/tools"]')).toBeVisible();
+  await expect(primaryNavigation.locator('a[href="/setting"]')).toBeVisible();
+  await expect(primaryNavigation.locator('a[href="/inventory/add"]')).toBeVisible();
+
+  if (desktopLayout) {
+    const dashboardLink = primaryNavigation.locator('.desktop-sidebar-link[href="/dashboard"]');
+    await expect(dashboardLink).toHaveAttribute("data-active", "true");
+    await expect(dashboardLink.locator(".desktop-sidebar-active-marker")).toBeVisible();
+  } else {
+    const activeIndicator = primaryNavigation.locator('a[href="/dashboard"] .app-navigation-indicator');
+    const activeGlow = await activeIndicator.evaluate((element) => {
+      const glow = getComputedStyle(element, "::after");
+      return { content: glow.content, backgroundImage: glow.backgroundImage, opacity: glow.opacity };
+    });
+    expect(activeGlow.content).not.toBe("none");
+    expect(activeGlow.backgroundImage).not.toBe("none");
+    expect(Number(activeGlow.opacity)).toBeGreaterThanOrEqual(.38);
+    expect(Number(activeGlow.opacity)).toBeLessThanOrEqual(.6);
+    const indicatorBox = (await activeIndicator.boundingBox())!;
+    const navigationSurfaceBox = (await bottomNavigation.locator(".app-bottom-navigation-surface").boundingBox())!;
+    const indicatorTopOffset = indicatorBox.y - navigationSurfaceBox.y;
+    expect(indicatorTopOffset).toBeGreaterThanOrEqual(2);
+    expect(indicatorTopOffset).toBeLessThanOrEqual(5);
+  }
+
+  await primaryNavigation.locator('a[href="/setting"]').click();
+  await expect(page).toHaveURL(/\/setting\/?$/);
+  await expect(page.getByRole("heading", { name: "تنظیمات" })).toBeVisible();
+  const settingsContent = page.locator("main.app-shell-content");
+  await expect(settingsContent.getByRole("link", { name: /پروفایل/ })).toHaveAttribute("href", "/setting/profile");
+  await expect(settingsContent.getByRole("link", { name: /اشتراک/ })).toHaveAttribute("href", "/setting/subscription");
+  await expect(settingsContent.getByRole("link", { name: /بروزرسانی/ })).toHaveAttribute("href", "/setting/update");
+  await expect(page.getByRole("button", { name: "بازگشت" })).toBeVisible();
+  await expect(header.getByRole("button", { name: "بازگشت" })).toHaveCount(0);
+  await expect(page.locator(".page-guide").getByRole("button", { name: "بازگشت" })).toBeVisible();
+
+  await page.goto("/setting/update");
+  await expect(page.getByRole("heading", { name: "بروزرسانی برنامه" })).toBeVisible();
+  await expect(header.locator(".app-header-title")).toHaveText("تنظیمات · بروزرسانی");
+  await expect(page.getByText("نسخه نصب‌شده")).toBeVisible();
+  await expect(page.getByRole("button", { name: /بررسی دوباره/ })).toBeVisible();
+
+  await page.goto("/setting/subscription");
+  await expect(header.locator(".app-header-title")).toHaveText("تنظیمات · اشتراک من");
+
+  await page.goto("/tools/help");
+  await expect(header.locator(".app-header-title")).toHaveText("ابزارها · راهنما");
+
+  await page.goto("/tools");
+  await expect(page.getByRole("heading", { name: "ابزارها" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /دسته‌ها/ })).toHaveAttribute("href", "/tools/categories");
+  await expect(page.getByRole("link", { name: /بازیابی/ })).toHaveAttribute("href", "/tools/recovery");
+  await expect(page.getByRole("button", { name: "بازگشت" })).toBeVisible();
+
+  await page.goto("/tools/recovery");
+  await expect(page.locator(".recovery-refresh-panel")).toBeVisible();
+  const recoveryWidths = await page.evaluate(() => ({
+    guide: document.querySelector<HTMLElement>(".page-guide")!.getBoundingClientRect().width,
+    panel: document.querySelector<HTMLElement>(".recovery-refresh-panel")!.getBoundingClientRect().width,
+  }));
+  expect(Math.abs(recoveryWidths.guide - recoveryWidths.panel)).toBeLessThanOrEqual(1);
+
+  await page.goto("/setting/categories");
+  await expect(page).toHaveURL(/\/tools\/categories$/);
+  await page.goto("/management");
+  await expect(page).toHaveURL(/\/dashboard$/);
+});
+
+test("application motion respects reduced-motion preferences", async ({ page }) => {
+  await seedAuthenticatedUser(page, "USER");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/dashboard");
+
+  const duration = await page.locator("main.app-route-transition").evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).animationDuration),
+  );
+  expect(duration).toBeLessThanOrEqual(.001);
+});
+
+test("desktop sidebar collapses smoothly while tablet keeps bottom navigation", async ({ page }) => {
+  await seedAuthenticatedUser(page, "USER");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/dashboard");
+
+  const sidebar = page.locator(".app-desktop-sidebar");
+  const main = page.locator(".app-shell-main");
+  const header = page.locator(".app-header");
+  const toggle = sidebar.locator(".desktop-sidebar-collapse");
+  await expect(sidebar).toBeVisible();
+  await expect(page.locator(".app-bottom-navigation")).toBeHidden();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+  const [headerBox, sidebarBox] = await Promise.all([header.boundingBox(), sidebar.boundingBox()]);
+  expect(headerBox!.x).toBeLessThanOrEqual(1);
+  expect(headerBox!.width).toBeGreaterThanOrEqual(1439);
+  expect(sidebarBox!.x + sidebarBox!.width).toBeGreaterThanOrEqual(1439);
+  expect(sidebarBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 1);
+  await expect(sidebar.locator('.desktop-sidebar-logo img')).toHaveAttribute("src", "/favicon-48.png");
+  await expect(sidebar.locator('a[href="/setting/sync"]')).toHaveCount(0);
+  await expect(sidebar.locator('a[href="/setting/subscription"]')).toHaveCount(0);
+  await expect(sidebar.locator('a[href="/tools/help"]')).toHaveCount(0);
+  await expect(sidebar.locator('a[href="/setting/appearance"]')).toHaveCount(0);
+  const sidebarNavigationOverflow = await sidebar.locator(".desktop-sidebar-navigation").evaluate((element) =>
+    getComputedStyle(element).overflowY,
+  );
+  expect(sidebarNavigationOverflow).toBe("auto");
+  const dashboardSurface = await page.locator(".dashboard-card").first().evaluate((element) => {
+    const card = getComputedStyle(element);
+    const value = getComputedStyle(element.querySelector<HTMLElement>(".dashboard-card__value")!);
+    return { radius: Number.parseFloat(card.borderRadius), fontFamily: value.fontFamily };
+  });
+  expect(dashboardSurface.radius).toBeLessThanOrEqual(11);
+  expect(dashboardSurface.fontFamily).toContain("Rokh");
+
+  const expandedSidebar = (await sidebar.boundingBox())!;
+  const expandedMain = (await main.boundingBox())!;
+  const sidebarMotion = await sidebar.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return style.transitionDuration.split(",").map((value) => Number.parseFloat(value));
+  });
+  expect(Math.max(...sidebarMotion)).toBeGreaterThanOrEqual(.2);
+  expect(Math.max(...sidebarMotion)).toBeLessThanOrEqual(.3);
+  await toggle.click();
+  await expect(sidebar).toHaveAttribute("data-collapsed", "true");
+  await expect(toggle).toBeHidden();
+  await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeLessThan(expandedSidebar.width - 100);
+  const collapsedMain = (await main.boundingBox())!;
+  expect(collapsedMain.width).toBeGreaterThan(expandedMain.width + 100);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("tanzim:desktop-sidebar-collapsed"))).toBe("true");
+
+  const collapsedTiles = await sidebar.locator(".desktop-sidebar-store, .desktop-sidebar-add, .desktop-sidebar-link, .desktop-sidebar-user").evaluateAll((elements) =>
+    elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return { width: box.width, height: box.height };
+    }),
+  );
+  for (const tile of collapsedTiles) {
+    expect(Math.abs(tile.width - tile.height)).toBeLessThanOrEqual(1);
+  }
+  const collapsedAlignment = await sidebar.evaluate((element) => {
+    const sidebarBox = element.getBoundingClientRect();
+    const sidebarCenter = sidebarBox.x + sidebarBox.width / 2;
+    const pairs = [
+      [".desktop-sidebar-logo", ".desktop-sidebar-logo img"],
+      [".desktop-sidebar-store", ".desktop-sidebar-store-icon"],
+      [".desktop-sidebar-add", ".desktop-sidebar-add > svg"],
+      [".desktop-sidebar-link", ".desktop-sidebar-link-icon"],
+      [".desktop-sidebar-user", ".desktop-sidebar-user-avatar"],
+    ];
+    return pairs.map(([tileSelector, iconSelector]) => {
+      const tile = element.querySelector<HTMLElement>(tileSelector)!.getBoundingClientRect();
+      const icon = element.querySelector<HTMLElement>(iconSelector)!.getBoundingClientRect();
+      return {
+        tileFromSidebarCenter: Math.abs(tile.x + tile.width / 2 - sidebarCenter),
+        iconFromTileCenterX: Math.abs(icon.x + icon.width / 2 - (tile.x + tile.width / 2)),
+        iconFromTileCenterY: Math.abs(icon.y + icon.height / 2 - (tile.y + tile.height / 2)),
+      };
+    });
+  });
+  for (const alignment of collapsedAlignment) {
+    expect(alignment.tileFromSidebarCenter).toBeLessThanOrEqual(1);
+    expect(alignment.iconFromTileCenterX).toBeLessThanOrEqual(1);
+    expect(alignment.iconFromTileCenterY).toBeLessThanOrEqual(1);
+  }
+  const sidebarScrollbarWidth = await sidebar.locator(".desktop-sidebar-navigation").evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element, "::-webkit-scrollbar").width),
+  );
+  expect(sidebarScrollbarWidth).toBeLessThanOrEqual(3);
+  const separators = await sidebar.evaluate((element) => {
+    const footer = getComputedStyle(element.querySelector<HTMLElement>(".desktop-sidebar-footer")!);
+    const account = getComputedStyle(element.querySelector<HTMLElement>(".desktop-sidebar-account")!);
+    return [footer.borderTopWidth, account.borderTopWidth];
+  });
+  expect(separators).toEqual(["1px", "0px"]);
+
+  await sidebar.locator(".desktop-sidebar-brand").click();
+  await expect(sidebar).toHaveAttribute("data-collapsed", "false");
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  await expect(sidebar).toHaveAttribute("data-collapsed", "true");
+
+  await page.reload();
+  await expect(sidebar).toHaveAttribute("data-collapsed", "true");
+  await expect(sidebar.locator('.desktop-sidebar-link[href="/dashboard"]')).toHaveAttribute("title", "داشبورد");
+
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await expect(sidebar).toBeHidden();
+  await expect(page.locator(".app-bottom-navigation")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});
+
+test("desktop inventory keeps search filters on the left of product results", async ({ page }) => {
+  await seedAuthenticatedUser(page, "USER");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/inventory/list");
+
+  const filters = page.locator(".inventory-filter-sidebar");
+  const results = page.locator(".inventory-list-results");
+  await expect(filters).toBeVisible();
+  await expect(results).toBeVisible();
+  const [filtersBox, resultsBox] = await Promise.all([filters.boundingBox(), results.boundingBox()]);
+  expect(filtersBox!.x + filtersBox!.width).toBeLessThanOrEqual(resultsBox!.x + 1);
+
+  const scrollbarColor = await page.locator("main.app-shell-content").evaluate((element) =>
+    getComputedStyle(element).scrollbarColor,
+  );
+  expect(scrollbarColor).not.toBe("auto");
+});
+
+test("contextual back uses safe fallbacks for direct descendants and access pages", async ({ page }) => {
+  await seedAuthenticatedUser(page, "USER");
+  await page.goto("/tools/catalog");
+  await page.getByRole("button", { name: "بازگشت" }).click();
+  await expect(page).toHaveURL(/\/tools\/?$/);
+
+  await page.reload();
+  await page.getByRole("button", { name: "بازگشت" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+});
+
+test("settings and tools share a neutral responsive guide for roots and descendants", async ({ page }) => {
+  await seedAuthenticatedUser(page, "USER");
+  const rootStyles: Array<{ iconColor: string; iconBackground: string; descriptionBackground: string }> = [];
+
+  for (const path of ["/setting", "/tools"] as const) {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(path);
+    const guide = page.locator(".page-guide");
+    await expect(guide).toHaveAttribute("data-root", "true");
+    await expect(guide.locator(".page-guide-context")).toHaveCount(0);
+    const guideControls = await guide.evaluate((element) => {
+      const icon = element.querySelector<HTMLElement>(".page-guide-page-icon")!.getBoundingClientRect();
+      const back = element.querySelector<HTMLElement>(".page-guide-back")!;
+      const backBox = back.getBoundingClientRect();
+      const description = element.querySelector<HTMLElement>(".page-guide-description")!.getBoundingClientRect();
+      return {
+        icon: { width: icon.width, height: icon.height },
+        back: { left: backBox.left, width: backBox.width, height: backBox.height },
+        descriptionLeft: description.left,
+        paddingInline: Number.parseFloat(getComputedStyle(back).paddingInline),
+      };
+    });
+    expect(Math.abs(guideControls.back.width - guideControls.icon.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(guideControls.back.height - guideControls.icon.height)).toBeLessThanOrEqual(1);
+    expect(Math.abs(guideControls.back.left - guideControls.descriptionLeft)).toBeLessThanOrEqual(1);
+    expect(guideControls.paddingInline).toBeLessThanOrEqual(4);
+    rootStyles.push(await guide.evaluate((element) => {
+      const icon = element.querySelector<HTMLElement>(".page-guide-page-icon")!;
+      const description = element.querySelector<HTMLElement>(".page-guide-description")!;
+      return {
+        iconColor: getComputedStyle(icon).color,
+        iconBackground: getComputedStyle(icon).backgroundColor,
+        descriptionBackground: getComputedStyle(description).backgroundColor,
+      };
+    }));
+  }
+  expect(rootStyles[0]).toEqual(rootStyles[1]);
+
+  await page.goto("/tools/export");
+  const descendant = page.locator(".page-guide");
+  await expect(descendant).toHaveAttribute("data-root", "false");
+  await expect(descendant.locator(".page-guide-section")).toHaveAttribute("href", "/tools");
+  await expect(descendant.locator(".page-guide-breadcrumb")).toBeVisible();
+
+  for (const viewport of [{ width: 320, height: 568 }, { width: 768, height: 700 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    const boxes = await descendant.evaluate((element) => {
+      const guide = element.getBoundingClientRect();
+      const heading = element.querySelector<HTMLElement>(".page-guide-heading")!.getBoundingClientRect();
+      const description = element.querySelector<HTMLElement>(".page-guide-description")!.getBoundingClientRect();
+      return {
+        guide: { left: guide.left, right: guide.right },
+        headingBottom: heading.bottom,
+        descriptionTop: description.top,
+      };
+    });
+    expect(boxes.guide.left, `${viewport.width}px guide left`).toBeGreaterThanOrEqual(0);
+    expect(boxes.guide.right, `${viewport.width}px guide right`).toBeLessThanOrEqual(viewport.width);
+    expect(boxes.descriptionTop, `${viewport.width}px row order`).toBeGreaterThan(boxes.headingBottom);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
+
+  await page.evaluate(() => {
+    localStorage.setItem("inventory-appearance", "dark");
+    window.dispatchEvent(new CustomEvent("appearance-change", { detail: "dark" }));
+  });
+  await expect(page.locator("html")).toHaveAttribute("data-appearance", "dark");
+  await expect(descendant.locator(".page-guide-title")).toBeVisible();
+});
+
+test("administrators receive a polished fixed Management shortcut and guided management pages", async ({ page }) => {
+  await seedAuthenticatedUser(page, "ADMIN");
+  await page.goto("/dashboard");
+  const desktopLayout = page.viewportSize()!.width >= 1200;
+  const navigation = desktopLayout ? page.locator(".app-desktop-sidebar") : page.locator(".app-bottom-navigation");
+  const managementShortcut = navigation.locator('a[href="/management"]');
+  await expect(managementShortcut).toBeVisible();
+  await expect(page.locator(".app-header").getByRole("link", { name: "مدیریت" })).toHaveCount(0);
+
+  if (desktopLayout) {
+    await expect(managementShortcut).toHaveClass(/desktop-sidebar-link/);
+    await managementShortcut.click();
+  } else {
+    await expect(managementShortcut).toHaveClass(/app-admin-shortcut/);
+    const shortcutBox = await managementShortcut.boundingBox();
+    const navigationBox = await navigation.boundingBox();
+    expect(shortcutBox!.y + shortcutBox!.height).toBeLessThanOrEqual(navigationBox!.y + 1);
+    expect(Math.abs(shortcutBox!.width - shortcutBox!.height)).toBeLessThanOrEqual(1);
+
+    await page.mouse.move(shortcutBox!.x + shortcutBox!.width / 2, shortcutBox!.y + shortcutBox!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(120, 180, { steps: 6 });
+    await page.mouse.up();
+    const movedShortcutBox = await managementShortcut.boundingBox();
+    expect(movedShortcutBox!.x).toBeLessThan(shortcutBox!.x - 100);
+    expect(movedShortcutBox!.y).toBeLessThan(shortcutBox!.y - 100);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("tanzim-admin-shortcut-position-v1"))).not.toBeNull();
+
+    await page.reload();
+    const restoredShortcut = page.locator(".app-bottom-navigation").locator('a[href="/management"]');
+    const restoredShortcutBox = await restoredShortcut.boundingBox();
+    expect(Math.abs(restoredShortcutBox!.x - movedShortcutBox!.x)).toBeLessThanOrEqual(2);
+    expect(Math.abs(restoredShortcutBox!.y - movedShortcutBox!.y)).toBeLessThanOrEqual(2);
+    await restoredShortcut.click();
+  }
+  await expect(page).toHaveURL(/\/management\/?$/);
+
+  await expect(page.getByRole("heading", { name: "مدیریت" })).toBeVisible();
+  const managementGuide = page.locator(".page-guide");
+  await expect(managementGuide).toHaveAttribute("data-root", "true");
+  await expect(managementGuide.getByRole("button", { name: "بازگشت" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /مدیریت اشتراک‌ها/ })).toHaveAttribute(
+    "href",
+    "/management/subscriptions",
+  );
+  await expect(page.getByRole("link", { name: /کاربران/ })).toHaveAttribute("href", "/management/users");
+
+  await page.goto("/management/users");
+  await expect(page.locator(".page-guide")).toHaveAttribute("data-root", "false");
+  await expect(page.locator(".page-guide-section")).toHaveAttribute("href", "/management");
+});
+
+test("application navigation has no horizontal overflow at narrow and desktop widths", async ({ page }) => {
+  await seedAuthenticatedUser(page, "ADMIN");
+  for (const viewport of [{ width: 320, height: 568 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/management");
+    const dimensions = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth, `${viewport.width}px`).toBeLessThanOrEqual(dimensions.clientWidth);
+  }
+});
+
+test("management catalog filters use the full guided content width", async ({ page }) => {
+  await seedAuthenticatedUser(page, "ADMIN", true);
+
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/management/catalogs");
+
+    const guide = page.locator(".page-guide");
+    const filters = page.locator(".catalog-filter-grid");
+    await expect(guide).toBeVisible();
+    await expect(filters).toBeVisible();
+
+    const [guideBox, filtersBox] = await Promise.all([guide.boundingBox(), filters.boundingBox()]);
+    expect(Math.abs(guideBox!.width - filtersBox!.width), `${viewport.width}px width`).toBeLessThanOrEqual(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  }
+});
+
+test("help handbook keeps every topic accessible without horizontal scrolling", async ({ page }) => {
+  await seedAuthenticatedUser(page, "ADMIN");
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 390, height: 844 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/tools/help");
+
+    const topicNavigation = page.locator(".help-quick-nav");
+    await expect(topicNavigation).toBeVisible();
+    expect(await topicNavigation.locator("a").count()).toBeGreaterThan(10);
+
+    const dimensions = await page.evaluate(() => {
+      const navigation = document.querySelector<HTMLElement>(".help-quick-nav")!;
+      return {
+        pageClientWidth: document.documentElement.clientWidth,
+        pageScrollWidth: document.documentElement.scrollWidth,
+        navigationClientWidth: navigation.clientWidth,
+        navigationScrollWidth: navigation.scrollWidth,
+      };
+    });
+    expect(dimensions.pageScrollWidth, `${viewport.width}px page`).toBeLessThanOrEqual(dimensions.pageClientWidth);
+    expect(dimensions.navigationScrollWidth, `${viewport.width}px topics`).toBeLessThanOrEqual(dimensions.navigationClientWidth);
+  }
+});
+
+test("Persian activity uses Jalali filters, human summaries, contextual help, and a non-overlapping status header", async ({ page }) => {
+  await seedAuthenticatedUser(page, "USER");
+  await page.route("http://localhost:8000/api/store/personnel", (route) => route.fulfill({ json: [{
+    membership_id: 9101, user_id: 7101, first_name: "مریم", last_name: "نمونه", username: "maryam",
+    role_id: 1, role_name: "انباردار", active: true, temporary_password_required: false,
+    credentials_notice_viewed: true, created_at: "2026-11-01T08:00:00Z", last_activity_at: null,
+  }] }));
+  await page.route(/http:\/\/localhost:8000\/api\/store\/activity(?:\?.*)?$/, (route) => route.fulfill({ json: {
+    items: [{
+      id: 1, actor_user_id: 7101, actor_membership_id: 9101, actor_display_name: "مریم نمونه",
+      actor_role_name: "انباردار", operation_id: "safe-support-123", target_entity: "inventory_movement",
+      target_id: "99", action: "inventory.scan.receive", before: null,
+      after: { name: "لنت جلو", before_quantity: 7, quantity: 12 }, outcome: "applied",
+      client_occurred_at: "2026-11-05T08:00:00Z", accepted_at: "2026-11-05T08:00:01Z",
+    }], total: 1, page: 1, page_size: 25,
+  } }));
+
+  for (const scenario of [
+    { viewport: { width: 390, height: 844 }, appearance: "dark", size: "large" },
+    { viewport: { width: 1440, height: 900 }, appearance: "light", size: "compact" },
+  ]) {
+    await page.setViewportSize(scenario.viewport);
+    await page.goto("/tools/activity");
+    await page.evaluate(({ appearance, size }) => {
+      localStorage.setItem("inventory-appearance", appearance);
+      localStorage.setItem("inventory-display-size", size);
+    }, scenario);
+    await page.reload();
+
+    await expect(page.getByRole("heading", { name: "فعالیت مجموعه" })).toBeVisible();
+    await expect(page.getByText("افزایش موجودی «لنت جلو»")).toBeVisible();
+    await expect(page.getByText("۵ عدد به موجودی اضافه شد (از ۷ به ۱۲).")).toBeVisible();
+    await expect(page.getByText("inventory.scan.receive")).not.toBeVisible();
+    const from = page.getByLabel("از تاریخ جلالی");
+    await expect(from).toHaveAttribute("placeholder", "۱۴۰۳/۱۲/۰۱");
+    await expect(from).toHaveAttribute("inputmode", "numeric");
+    await from.fill("۱۴۰۳/۱۳/۰۱");
+    await expect(page.getByText("تاریخ را به شکل ۱۴۰۳/۱۲/۰۱ وارد کنید.")).toBeVisible();
+    await from.fill("");
+
+    const headerBox = (await page.locator(".app-header").boundingBox())!;
+    const guideBox = (await page.locator(".page-guide").boundingBox())!;
+    expect(headerBox.y + headerBox.height).toBeLessThanOrEqual(guideBox.y + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  }
+
+  await page.getByText("جزئیات برای پشتیبانی").click();
+  await expect(page.getByText("inventory.scan.receive")).toBeVisible();
+
+  await page.getByRole("link", { name: "راهنمای این بخش" }).click();
+  await expect(page).toHaveURL(/\/tools\/help#activity$/);
+  await expect(page.getByRole("heading", { name: "فعالیت مجموعه" })).toBeVisible();
+});
+
+test("bottom navigation stays ordered and circular without covering the final page action", async ({ page }) => {
+  await seedAuthenticatedUser(page, "USER");
+  await page.addInitScript(() => localStorage.setItem("inventory-display-size", "large"));
+
+  for (const viewport of [
+    { width: 320, height: 480 },
+    { width: 390, height: 700 },
+    { width: 768, height: 640 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/setting");
+
+    const main = page.locator("main.app-shell-content");
+    const logout = main.locator("button").last();
+    await expect(logout).toHaveCount(1);
+    await main.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
+    await expect(logout).toBeInViewport();
+
+    const metrics = await page.evaluate(() => {
+      const mainElement = document.querySelector<HTMLElement>("main.app-shell-content")!;
+      const navigationElement = document.querySelector<HTMLElement>(".app-bottom-navigation")!;
+      const surfaceElement = document.querySelector<HTMLElement>(".app-bottom-navigation-surface")!;
+      const addElement = document.querySelector<HTMLElement>(".app-bottom-navigation-add-button")!;
+      const logoutElement = [...mainElement.querySelectorAll<HTMLElement>("button")].at(-1)!;
+      const navigationBox = navigationElement.getBoundingClientRect();
+      const surfaceBox = surfaceElement.getBoundingClientRect();
+      const addBox = addElement.getBoundingClientRect();
+      const logoutBox = logoutElement.getBoundingClientRect();
+      const itemBoxes = [...surfaceElement.children].map((element) => {
+        const box = element.getBoundingClientRect();
+        return { left: box.left, right: box.right };
+      });
+      return {
+        paddingBottom: Number.parseFloat(getComputedStyle(mainElement).paddingBottom),
+        navigationHeight: navigationBox.height,
+        navigationTop: navigationBox.top,
+        surface: { left: surfaceBox.left, right: surfaceBox.right },
+        add: { width: addBox.width, height: addBox.height },
+        logoutBottom: logoutBox.bottom,
+        itemBoxes,
+      };
+    });
+
+    expect(metrics.paddingBottom, `${viewport.width}px bottom inset`).toBeGreaterThan(metrics.navigationHeight);
+    expect(metrics.logoutBottom, `${viewport.width}px final action`).toBeLessThanOrEqual(metrics.navigationTop);
+    expect(Math.abs(metrics.add.width - metrics.add.height), `${viewport.width}px add shape`).toBeLessThanOrEqual(1);
+    for (const item of metrics.itemBoxes) {
+      expect(item.left, `${viewport.width}px item left`).toBeGreaterThanOrEqual(metrics.surface.left - 1);
+      expect(item.right, `${viewport.width}px item right`).toBeLessThanOrEqual(metrics.surface.right + 1);
+    }
+  }
+});
+
+test("shared navigation inset keeps final form actions reachable in short viewports and large text", async ({ page }) => {
+  await seedAuthenticatedUser(page, "USER");
+  await page.addInitScript(() => localStorage.setItem("inventory-display-size", "large"));
+  await page.setViewportSize({ width: 320, height: 480 });
+  await page.goto("/inventory/add");
+
+  const main = page.locator("main.app-shell-content");
+  const submit = page.locator("form button[type='submit']");
+  await expect(submit).toBeVisible();
+  await main.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
+  await expect(submit).toBeInViewport();
+
+  const metrics = await page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    const mainElement = document.querySelector<HTMLElement>("main.app-shell-content")!;
+    const navElement = document.querySelector<HTMLElement>(".app-bottom-navigation")!;
+    const submitElement = document.querySelector<HTMLElement>("form button[type='submit']")!;
+    const navRect = navElement.getBoundingClientRect();
+    const submitRect = submitElement.getBoundingClientRect();
+    return {
+      measured: Number.parseFloat(root.getPropertyValue("--app-bottom-navigation-measured-height")),
+      padding: Number.parseFloat(getComputedStyle(mainElement).paddingBottom),
+      nav: { y: navRect.y, height: navRect.height },
+      submit: { bottom: submitRect.bottom },
+    };
+  });
+  expect(metrics.measured).toBeGreaterThanOrEqual(metrics.nav.height);
+  expect(metrics.padding).toBeGreaterThan(metrics.nav.height);
+  expect(metrics.submit.bottom).toBeLessThanOrEqual(metrics.nav.y);
+
+  await page.setViewportSize({ width: 640, height: 360 });
+  await main.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
+  await expect(submit).toBeInViewport();
+
+  await page.evaluate(() => {
+    localStorage.setItem("inventory-display-size", "compact");
+    document.documentElement.dataset.displaySize = "compact";
+    window.dispatchEvent(new CustomEvent("display-size-change", { detail: "compact" }));
+  });
+  await expect.poll(() => page.evaluate(() => Number.parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue("--app-bottom-navigation-measured-height"),
+  ))).toBeLessThan(metrics.measured);
+});
+
+test("sync status control exposes responsive details without navigation", async ({ page }) => {
+  await seedAuthenticatedUser(page, "USER");
+  await page.goto("/setting/sync");
+
+  await expect(page.getByRole("heading", { name: "همگام‌سازی و بک‌لاگ", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "همگام‌سازی اکنون", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "همگام‌سازی تغییرهای منتظر" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /پشتیبان‌گیری/ })).toHaveAttribute("href", "/setting/backup");
+  await expect(page.getByRole("heading", { name: "کارهای در انتظار" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "فیلتر وضعیت عملیات" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "گزارش وضعیت اخیر" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "تصاویر آفلاین" })).toBeVisible();
+  const mediaAction = page.getByRole("button", { name: "دریافت تصاویر برای استفاده آفلاین" });
+  await expect(mediaAction).toBeVisible();
+  const copyReport = page.getByRole("button", { name: "کپی گزارش" });
+  const downloadReport = page.getByRole("button", { name: "دریافت فایل گزارش" });
+  await expect(page.getByRole("heading", { name: "گزارش امن برای پشتیبانی" })).toBeVisible();
+  await expect(copyReport).toBeVisible();
+  await expect(downloadReport).toBeVisible();
+  await expect(page.locator(".sync-detail-page")).toHaveAttribute("dir", "rtl");
+
+  const header = page.locator(".app-header");
+  const currentUrl = page.url();
+  const statusBadge = header.locator(".sync-status-badge");
+  const statusControl = header.locator(".sync-status-control");
+  await expect(statusBadge).toHaveRole("button");
+  await expect(statusBadge).not.toHaveAttribute("href");
+  await expect(header.locator("[aria-label='باز کردن جزئیات همگام‌سازی']")).toHaveCount(0);
+
+  await statusBadge.click();
+  await expect(page).toHaveURL(currentUrl);
+  await expect(statusControl).toHaveAttribute("data-revealed", "true");
+  const revealBox = await statusControl.locator(".sync-status-reveal").boundingBox();
+  const statusIconBox = await statusBadge.locator(".sync-status-icon").boundingBox();
+  const leftColumnBox = await header.locator(".app-header-left").boundingBox();
+  const titleBox = await header.locator(".app-header-title").boundingBox();
+  expect(revealBox!.x).toBeLessThanOrEqual(statusIconBox!.x + 1);
+  expect(revealBox!.x + revealBox!.width).toBeGreaterThan(statusIconBox!.x + statusIconBox!.width + 24);
+  expect(revealBox!.width).toBeLessThanOrEqual(124);
+  expect(leftColumnBox!.x + leftColumnBox!.width).toBeLessThanOrEqual(titleBox!.x + 1);
+  await expect(header.locator(".app-header-left")).toHaveCSS("overflow", "hidden");
+  await expect(header.locator(".sync-status-label")).toBeVisible();
+
+  for (const viewport of [{ width: 320, height: 568 }, { width: 768, height: 800 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await expect(mediaAction).toBeVisible();
+    await expect(copyReport).toBeVisible();
+    await expect(downloadReport).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), `${viewport.width}px media overflow`).toBeLessThanOrEqual(1);
+    const badgeBox = await header.locator(".sync-status-badge").boundingBox();
+    const iconBox = await header.locator(".sync-status-icon").boundingBox();
+    const badgeCenter = { x: badgeBox!.x + badgeBox!.width / 2, y: badgeBox!.y + badgeBox!.height / 2 };
+    const iconCenter = { x: iconBox!.x + iconBox!.width / 2, y: iconBox!.y + iconBox!.height / 2 };
+    expect(Math.abs(badgeCenter.x - iconCenter.x), `${viewport.width}px horizontal center`).toBeLessThanOrEqual(1);
+    expect(Math.abs(badgeCenter.y - iconCenter.y), `${viewport.width}px vertical center`).toBeLessThanOrEqual(1);
+
+    if (viewport.width === 320) {
+      const filterGroup = page.getByRole("group", { name: "فیلتر وضعیت عملیات" });
+      const filterBounds = await filterGroup.boundingBox();
+      for (const filter of await filterGroup.getByRole("button").all()) {
+        const filterButtonBounds = await filter.boundingBox();
+        expect(filterButtonBounds!.x, "mobile filter left edge").toBeGreaterThanOrEqual(filterBounds!.x - 1);
+        expect(filterButtonBounds!.x + filterButtonBounds!.width, "mobile filter right edge").toBeLessThanOrEqual(filterBounds!.x + filterBounds!.width + 1);
+      }
+
+      const mediaPanel = page.locator(".sync-media-panel");
+      const mediaPanelBounds = await mediaPanel.boundingBox();
+      const mediaCopyBounds = await mediaPanel.locator(".sync-media-copy").boundingBox();
+      const mediaButtonBounds = await mediaAction.boundingBox();
+      expect(mediaCopyBounds!.width, "mobile offline media copy width").toBeGreaterThanOrEqual(mediaPanelBounds!.width - 36);
+      expect(mediaButtonBounds!.width, "mobile offline media button width").toBeGreaterThanOrEqual(mediaPanelBounds!.width - 36);
+    }
+  }
+});
+
+test("domain policy hides a tool and protects its direct route while Help remains available", async ({ page }) => {
+  await seedAuthenticatedUser(page, "USER");
+  await page.addInitScript(() => {
+    const user = JSON.parse(localStorage.getItem("inventory-last-user")!);
+    const key = `inventory-entitlement-v2:${user.id}`;
+    const entitlement = JSON.parse(localStorage.getItem(key)!);
+    entitlement.tools = { import: true, labels: true, categories: true, export: false, catalog: true, recovery: true };
+    localStorage.setItem(key, JSON.stringify(entitlement));
+  });
+
+  await page.goto("/tools");
+  await expect(page.getByRole("link", { name: /راهنمای برنامه/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^خروجی/ })).toHaveCount(0);
+
+  await page.goto("/tools/export");
+  await expect(page).toHaveURL(/\/tools\/?$/);
+  await page.goto("/tools/help");
+  await expect(page.getByRole("heading", { name: "راهنمای برنامه" })).toBeVisible();
+});

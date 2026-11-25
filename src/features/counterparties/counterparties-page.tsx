@@ -1,5 +1,6 @@
 import { PageGuide } from "@/features/app/layout/page-guide";
 import { accessState } from "@/shared/access/access-state";
+import { useEntitlementAccess } from "@/shared/access/use-entitlement";
 import { OnlineGuard } from "@/shared/access/online-guard";
 import { userErrorMessage } from "@/shared/lib/presentation/user-error";
 import { Button } from "@/shared/ui/button/button";
@@ -39,9 +40,11 @@ export function CounterpartiesPage() {
 }
 
 function CounterpartiesContent() {
+  const access = useEntitlementAccess();
   const client = useQueryClient();
   const canManage = accessState.hasStorePermission("counterparties.manage");
-  const hasInvoiceAccess = accessState.canUse("invoices.purchase") || accessState.canUse("invoices.sale");
+  const hasInvoiceAccess = !access.requiresOnlineVerification
+    && (accessState.canUse("invoices.purchase") || accessState.canUse("invoices.sale"));
   const query = useQuery({ queryKey: counterpartyKeys.all, queryFn: counterpartiesApi.list, enabled: hasInvoiceAccess });
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search.trim().toLocaleLowerCase("fa-IR"));

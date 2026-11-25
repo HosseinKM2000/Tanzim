@@ -11,6 +11,8 @@ import { pushJsonBatch } from "@/features/app/inventory/api/sync.api";
 import type { Category } from "../types";
 import { CATEGORY_ENTITY } from "./category.service";
 import { assertSyncAccountCurrent, captureSyncAccountContext } from "@/shared/lib/infrastructure/sync/sync-account-context";
+import { getReferenceSectors, getTaxonomyState } from "../api/taxonomy.api";
+import { syncMetadataStorage } from "@/shared/lib/infrastructure/storage/sync-metadata-storage";
 
 async function push(items: SyncQueueItem[]): Promise<SyncHandlerResult[]> {
   const account = captureSyncAccountContext();
@@ -38,8 +40,18 @@ async function push(items: SyncQueueItem[]): Promise<SyncHandlerResult[]> {
 
 async function pull() {
   const account = captureSyncAccountContext();
-  const server = await getCategories();
+  const [server, taxonomyState, sectors] = await Promise.all([
+    getCategories(),
+    getTaxonomyState(),
+    getReferenceSectors(),
+  ]);
   assertSyncAccountCurrent(account);
+  const sector = sectors.find((item) => item.code === taxonomyState.sector_code);
+  await Promise.all([
+    syncMetadataStorage.set("taxonomy-version", taxonomyState.taxonomy_version),
+    syncMetadataStorage.set("taxonomy-sector-code", taxonomyState.sector_code),
+    syncMetadataStorage.set("taxonomy-custom-categories", sector?.custom_categories_allowed ? "1" : "0"),
+  ]);
   const serverIds = new Set(server.map((category) => category.id));
   for (const local of await categoryStorage.getAll()) {
     assertSyncAccountCurrent(account);

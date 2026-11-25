@@ -1,0 +1,1 @@
+import{$ as e,Z as t}from"./index-DS5AQG9B.js";function n(n){let r=n.quantity.toLocaleString(`fa-IR`),i=e(n.catalog_product);if(!i.isPackaged)return`${r} عدد`;let a=t(n.quantity,i.packSize),o=a.remainingUnits>0?` و ${a.remainingUnits.toLocaleString(`fa-IR`)} واحد`:``;return`${r} واحد (${a.completePackages.toLocaleString(`fa-IR`)} بسته${o})`}export{n as t};

@@ -6,7 +6,7 @@ import type { Invoice } from "@/features/invoices/types";
 
 export const BACKUP_FORMAT = "tanzim-local-backup" as const;
 export const BACKUP_FORMAT_VERSION = 1 as const;
-export const BACKUP_SCHEMA_VERSION = 5 as const;
+export const BACKUP_SCHEMA_VERSION = 6 as const;
 export const DEFAULT_BACKUP_INTERVAL_MS = 5 * 60_000;
 
 export type BackupMode = "directory" | "file" | "manual";

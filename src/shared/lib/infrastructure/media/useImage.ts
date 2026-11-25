@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { apiFetch, resolveAssetUrl } from "@/shared/api/client";
+import { API_ORIGIN, apiFetch, REFERENCE_ASSET_ORIGIN, resolveAssetUrl, resolveReferenceAssetUrl } from "@/shared/api/client";
 import { imageService } from "./image.service";
 
 type ImageResult = {
@@ -16,7 +16,9 @@ export function useResolvedImage(path?: string | null) {
   useEffect(() => {
     currentPathRef.current = normalizedPath;
     const localImage = normalizedPath?.startsWith("local://") === true;
-    const protectedRemote = normalizedPath?.startsWith("/uploads/") || normalizedPath?.startsWith("/api/media/");
+    const protectedRemote = normalizedPath?.startsWith("/uploads/")
+      || normalizedPath?.startsWith("/api/media/")
+      || normalizedPath?.startsWith("/api/catalog-reference-assets/");
     if (!normalizedPath || (!localImage && !protectedRemote)) return;
 
     let cancelled = false;
@@ -24,7 +26,7 @@ export function useResolvedImage(path?: string | null) {
 
     const filePromise = localImage
       ? imageService.read(normalizedPath)
-      : normalizedPath.startsWith("/api/media/")
+      : normalizedPath.startsWith("/api/media/") || normalizedPath.startsWith("/api/catalog-reference-assets/")
         ? apiFetch<Blob>(normalizedPath.slice(4), { responseType: "blob" })
         : apiFetch<Blob>(`/files/${encodeURIComponent(normalizedPath.split("/").at(-1) ?? "")}`, { responseType: "blob" });
     filePromise
@@ -52,7 +54,12 @@ export function useResolvedImage(path?: string | null) {
 
   if (!normalizedPath) return { src: undefined, loading: false, error: undefined };
   const localImage = normalizedPath.startsWith("local://");
-  if (!localImage && !normalizedPath.startsWith("/uploads/") && !normalizedPath.startsWith("/api/media/")) {
+  if (
+    !localImage
+    && !normalizedPath.startsWith("/uploads/")
+    && !normalizedPath.startsWith("/api/media/")
+    && !normalizedPath.startsWith("/api/catalog-reference-assets/")
+  ) {
     return { src: resolveAssetUrl(normalizedPath), loading: false, error: undefined };
   }
 
@@ -66,4 +73,18 @@ export function useResolvedImage(path?: string | null) {
 
 export function useImage(path?: string | null) {
   return useResolvedImage(path).src;
+}
+
+export function useResolvedReferenceImage(path?: string | null) {
+  const authenticatedPath = REFERENCE_ASSET_ORIGIN === API_ORIGIN
+    && path?.startsWith("/api/catalog-reference-assets/")
+    ? path
+    : null;
+  const protectedImage = useResolvedImage(authenticatedPath);
+  if (authenticatedPath) return protectedImage;
+  return {
+    src: resolveReferenceAssetUrl(path),
+    loading: false,
+    error: undefined,
+  };
 }

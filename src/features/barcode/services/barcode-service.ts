@@ -4,7 +4,7 @@ import { localMutationStorage } from "@/shared/lib/infrastructure/storage/local-
 import { queueService } from "@/shared/lib/infrastructure/sync/queue.service";
 import { isTeamMode, teamCommandService } from "@/shared/lib/infrastructure/sync/team-command.service";
 import { inventoryRepository } from "@/features/app/inventory/services/inventory.repository";
-import { barcodeLookupCandidates, generateInternalBarcode, inferSymbology, validateBarcode } from "../domain/barcode";
+import { inferSymbology, validateBarcode } from "../domain/barcode";
 import type { BarcodeMeaning, BarcodeSource, BarcodeSymbology, ProductBarcode } from "../types";
 import { barcodeRepository } from "./barcode-repository";
 
@@ -13,12 +13,12 @@ export const BARCODE_ENTITY = "barcode";
 export type BarcodeResolution =
   | { status: "found"; barcode: ProductBarcode; productId: number }
   | { status: "unknown" }
+  | { status: "retired"; matches: ProductBarcode[] }
   | { status: "ambiguous"; matches: ProductBarcode[] };
 
 async function ensureUnique(value: string, exceptId?: number) {
-  const candidates = new Set(barcodeLookupCandidates(value));
   const matches = (await barcodeRepository.getAll()).filter((item) =>
-    item.is_active && item.id !== exceptId && barcodeLookupCandidates(item.value, item.symbology).some((candidate) => candidates.has(candidate)),
+    item.id !== exceptId && item.value === value,
   );
   if (matches.length) throw new Error("این بارکد در همین فروشگاه به محصول دیگری متصل است");
 }
@@ -27,14 +27,14 @@ export const barcodeService = {
   async resolve(rawValue: string): Promise<BarcodeResolution> {
     accessState.requireCapability("barcode.lookup");
     accessState.requireStorePermission("barcodes.lookup");
-    const symbology = inferSymbology(rawValue);
-    const values = barcodeLookupCandidates(rawValue, symbology);
-    const matches = (await Promise.all(values.map((value) => barcodeRepository.findByValue(value))))
-      .flat()
-      .filter((item) => item.is_active);
+    const exact = await barcodeRepository.findByValue(rawValue);
+    const matches = exact.filter((item) => item.is_active && (item.lifecycle_status ?? "active") === "active");
     const unique = [...new Map(matches.map((item) => [item.id, item])).values()];
     const products = new Set(unique.map((item) => item.product_id));
-    if (products.size === 0) return { status: "unknown" };
+    if (products.size === 0) {
+      const retired = exact.filter((item) => !item.is_active || item.lifecycle_status === "retired" || item.lifecycle_status === "deleted");
+      return retired.length ? { status: "retired", matches: retired } : { status: "unknown" };
+    }
     if (products.size > 1 || unique.length > 1) return { status: "ambiguous", matches: unique };
     return { status: "found", barcode: unique[0], productId: unique[0].product_id };
   },
@@ -72,6 +72,9 @@ export const barcodeService = {
       scan_quantity: input.scanQuantity,
       is_active: true,
       is_default: input.isDefault ?? existing.length === 0,
+      lifecycle_status: "active",
+      reservation_id: null,
+      category_reference_key: null,
       created_at: now,
       updated_at: now,
     };
@@ -101,18 +104,13 @@ export const barcodeService = {
     return barcode;
   },
 
-  async generate(productId: number, meaning: BarcodeMeaning, scanQuantity: number) {
-    const value = await generateInternalBarcode({ exists: async (candidate) => (await barcodeRepository.findByValue(candidate)).length > 0 });
-    return this.create({ productId, value, source: "tanzim", symbology: "code128", meaning, scanQuantity });
-  },
-
   async deactivate(id: number) {
     accessState.requireWrite();
     accessState.requireCapability("barcode.manage");
     accessState.requireStorePermission("barcodes.manage");
     const current = await barcodeRepository.get(id);
     if (!current) throw new Error("بارکد یافت نشد");
-    const updated = { ...current, is_active: false, is_default: false, updated_at: new Date().toISOString() };
+    const updated = { ...current, is_active: false, is_default: false, lifecycle_status: "retired" as const, updated_at: new Date().toISOString() };
     if (isTeamMode()) {
       await teamCommandService.submit(BARCODE_ENTITY, id, "UPDATE", updated);
       const confirmed = await barcodeRepository.get(id);
@@ -146,7 +144,7 @@ export const barcodeService = {
     }
 
     await localMutationStorage.barcode(async () => {
-      await barcodeRepository.remove(id);
+      await barcodeRepository.save({ ...current, is_active: false, is_default: false, lifecycle_status: "retired", updated_at: new Date().toISOString() });
       await queueService.enqueue(BARCODE_ENTITY, id, "DELETE", null);
       if (fallback) {
         const updated = { ...fallback, is_default: true, updated_at: new Date().toISOString() };

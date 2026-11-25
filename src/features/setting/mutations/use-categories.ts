@@ -53,6 +53,18 @@ export function useDeleteCategory() {
   });
 }
 
+export function useReactivateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: categoryService.reactivate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: categoryKeys.all });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
+      void syncService.sync();
+    },
+  });
+}
+
 export function useRefreshCategoriesFromServer() {
   const queryClient = useQueryClient();
   return useMutation({

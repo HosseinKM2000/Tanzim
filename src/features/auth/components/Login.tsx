@@ -1,6 +1,6 @@
 import { LockClosedIcon, PersonIcon } from "@radix-ui/react-icons";
 import { Callout } from "@radix-ui/themes";
-import { useState } from "react";
+import { Link as RouterLink } from "@tanstack/react-router";
 
 import { useAppForm } from "@/shared/lib/form/use-app-form";
 import { preventEventHandler } from "@/shared/lib/prevent-event";
@@ -16,7 +16,6 @@ import { AuthPageShell } from "./AuthPageShell";
 
 function LoginComponent() {
   const loginMutation = useLogin();
-  const [showRecoveryNotice, setShowRecoveryNotice] = useState(false);
   const form = useAppForm({
     schema: loginSchema,
     initialValues: { username: "", password: "", remember: false },
@@ -54,9 +53,8 @@ function LoginComponent() {
 
           <div className="auth-login-options">
             <label className="auth-remember"><input type="checkbox" name="remember" checked={form.values.remember} onChange={(event) => form.setValue("remember", event.target.checked)} /> مرا به خاطر بسپار</label>
-            <button className="auth-recovery" type="button" onClick={() => setShowRecoveryNotice((value) => !value)}>رمز عبور را فراموش کرده‌اید؟</button>
+            <RouterLink className="auth-recovery" to="/auth/recovery">رمز عبور را فراموش کرده‌اید؟</RouterLink>
           </div>
-          {showRecoveryNotice ? <p className="auth-inline-notice" role="status">برای بازیابی امن رمز عبور با مدیر مجموعه یا پشتیبانی تنظیم تماس بگیرید.</p> : null}
           <Button type="submit" className="auth-submit" loading={loginMutation.isPending}>ورود</Button>
         </Form>
       </section>

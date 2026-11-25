@@ -5,7 +5,7 @@ const api = process.env.E2E_REAL_API_URL;
 test.skip(!api, "E2E_REAL_API_URL is required for the live operation-resolution journey");
 
 test("authorized read-only resolution finds a committed result without replaying the command", async ({ request, browser, baseURL }) => {
-  const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const suffix = crypto.randomBytes(6).toString("hex");
   const phoneDigits = BigInt(`0x${crypto.createHash("sha256").update(suffix).digest("hex").slice(0, 12)}`) % 1_000_000_000n;
   const adminDevice = `resolution-admin-${suffix}`;
   const adminLogin = await request.post(`${api}/auth/login`, { data: {
@@ -33,6 +33,18 @@ test("authorized read-only resolution finds a committed result without replaying
   } });
   expect(signup.status()).toBe(201);
   const session = await signup.json();
+  const subscribed = await request.patch(`${api}/admin/users/${session.user.id}/subscription`, {
+    headers: {
+      Authorization: `Bearer ${admin.access_token}`,
+      "X-Device-Fingerprint": adminDevice,
+    },
+    data: {
+      plan: "personal",
+      subscription_started_at: new Date().toISOString(),
+      subscription_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    },
+  });
+  expect(subscribed.ok()).toBeTruthy();
   const headers = {
     Authorization: `Bearer ${session.access_token}`,
     "X-Device-Fingerprint": device,
@@ -76,7 +88,7 @@ test("authorized read-only resolution finds a committed result without replaying
   const context = await browser.newContext({ serviceWorkers: "block" });
   let resolutionRequests = 0;
   let batchRequests = 0;
-  await context.route("http://localhost:8000/api/**", async (route) => {
+  await context.route(`${api}/**`, async (route) => {
     const source = new URL(route.request().url());
     if (source.pathname.startsWith("/api/sync/operations/")) resolutionRequests += 1;
     if (source.pathname === "/api/sync/batch") batchRequests += 1;
@@ -95,7 +107,7 @@ test("authorized read-only resolution finds a committed result without replaying
     const page = await context.newPage();
     await page.goto(`${baseURL}/setting/sync`);
     await expect(page).toHaveURL(/\/setting\/sync$/);
-    await expect(page.locator("main")).toBeVisible();
+    await expect(page.getByRole("main").first()).toBeVisible();
     await page.evaluate(async ({ activeUser, id, opId, productPayload }) => {
       const database = await new Promise<IDBDatabase>((resolve, reject) => {
         const open = indexedDB.open("inventory-db");

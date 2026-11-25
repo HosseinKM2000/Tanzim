@@ -1,6 +1,6 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
-const now = "2026-11-10T12:00:00.000Z";
+const now = new Date().toISOString();
 const owner = {
   id: 8701, first_name: "مالک", last_name: "آزمایشی", username: "counterparty-owner",
   email: null, phone: "09120008701", industry_id: 1, plan: "free", is_active: true,
@@ -57,7 +57,12 @@ async function openCounterparties(page: Page) {
     }
     return route.abort();
   });
+  const entitlementVerified = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/api/plans/current" && response.status() === 200,
+  );
   await page.goto("/tools/counterparties");
+  await entitlementVerified;
+  await page.reload();
 }
 
 test("counterparty workspace creates, edits, searches and deletes online records", async ({ page }) => {

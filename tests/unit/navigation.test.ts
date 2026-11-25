@@ -64,6 +64,7 @@ describe("navigation metadata", () => {
       "/setting/roles",
       "/setting/sync",
       "/setting/backup",
+      "/setting/catalog-images",
       "/setting/subscription",
       "/setting/update",
     ]);

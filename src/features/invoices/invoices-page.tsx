@@ -5,6 +5,7 @@ import type { Product } from "@/features/app/inventory/types";
 import { BarcodeCaptureField } from "@/features/barcode/components/barcode-capture-field";
 import { counterpartiesApi, counterpartyKeys } from "@/features/counterparties/api";
 import { accessState } from "@/shared/access/access-state";
+import { useEntitlementAccess } from "@/shared/access/use-entitlement";
 import { formatJalaliDateTime } from "@/shared/lib/date/jalali";
 import { useResolvedImage } from "@/shared/lib/infrastructure/media/useImage";
 import { useOnline } from "@/shared/lib/infrastructure/sync/use-sync-status";
@@ -19,6 +20,7 @@ import { Boxes, Calculator, CalendarDays, Check, CircleAlert, Clock3, Coins, Dat
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { lookupInvoiceBarcode } from "./invoice-barcode-selection";
+import { sanitizeScannedValue } from "@/features/barcode/domain/barcode";
 import { refreshInvoiceHistory } from "./invoice-history";
 import { invoiceOutput } from "./invoice-output";
 import { invoiceRepository } from "./invoice-repository";
@@ -52,10 +54,11 @@ function InvoiceProductThumb({ product }: { product?: Product }) {
 }
 
 export function InvoicesPage() {
+  const access = useEntitlementAccess();
   const online = useOnline();
   const canPost = accessState.hasStorePermission("invoices.post");
-  const canPurchase = accessState.canUse("invoices.purchase") && canPost && accessState.hasStorePermission("products.purchase_price.view");
-  const canSale = accessState.canUse("invoices.sale") && canPost;
+  const canPurchase = !access.requiresOnlineVerification && accessState.canUse("invoices.purchase") && canPost && accessState.hasStorePermission("products.purchase_price.view");
+  const canSale = !access.requiresOnlineVerification && accessState.canUse("invoices.sale") && canPost;
   const parties = useQuery({
     queryKey: counterpartyKeys.all,
     queryFn: counterpartiesApi.list,
@@ -63,7 +66,7 @@ export function InvoicesPage() {
   });
   const [products, setProducts] = useState<Product[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [type, setType] = useState<"purchase" | "sale">(() => canSale ? "sale" : "purchase");
+  const [selectedType, setSelectedType] = useState<"purchase" | "sale" | null>(null);
   const [title, setTitle] = useState("");
   const [counterparty, setCounterparty] = useState("");
   const [counterpartyId, setCounterpartyId] = useState<number | null>(null);
@@ -77,6 +80,12 @@ export function InvoicesPage() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [successInvoice, setSuccessInvoice] = useState<Invoice | null>(null);
   const lastScan = useRef({ value: "", at: 0 });
+
+  const type = selectedType === "sale" && canSale
+    ? "sale"
+    : selectedType === "purchase" && canPurchase
+      ? "purchase"
+      : canSale ? "sale" : "purchase";
 
   const load = async () => {
     try { await refreshInvoiceHistory(); } catch { /* local history remains available */ }
@@ -94,7 +103,7 @@ export function InvoicesPage() {
         setInvoices(storedInvoices);
       });
     return () => { active = false; };
-  }, []);
+  }, [access.requiresOnlineVerification]);
 
   const total = useMemo(() => lines.reduce((sum, line) => sum + (Number(line.quantity) || 0) * (Number(line.price) || 0), 0), [lines]);
   const totalItems = useMemo(() => lines.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0), [lines]);
@@ -109,7 +118,7 @@ export function InvoicesPage() {
   };
   const changeQuantity = (index: number, delta: number) => updateLine(index, { quantity: String(Math.min(MAX_PRODUCT_QUANTITY, Math.max(1, (Number(lines[index].quantity) || 1) + delta))) });
   const setInvoiceType = (next: "purchase" | "sale") => {
-    setType(next);
+    setSelectedType(next);
     setLines((current) => current.map((line) => ({
       ...line,
       price: products.find((item) => item.id === Number(line.productId))?.[next === "purchase" ? "purchase_price" : "sale_price"]?.toString() ?? "",
@@ -132,7 +141,7 @@ export function InvoicesPage() {
   });
 
   const findBarcode = async (scanned = barcode) => {
-    const normalized = scanned.trim();
+    const normalized = sanitizeScannedValue(scanned);
     if (!normalized) return;
     const now = Date.now();
     if (lastScan.current.value === normalized && now - lastScan.current.at < 1200) return;
@@ -141,6 +150,7 @@ export function InvoicesPage() {
       const result = await lookupInvoiceBarcode(normalized, products, type);
       if (result.kind === "unknown") throw new Error("محصولی با این بارکد پیدا نشد");
       if (result.kind === "ambiguous") throw new Error("این بارکد چند محصول دارد؛ محصول را دستی انتخاب کنید.");
+      if (result.kind === "retired") throw new Error("این بارکد بازنشسته شده و نمی‌تواند ردیف فاکتور را انتخاب کند.");
       const existing = lines.findIndex((line) => Number(line.productId) === result.product.id);
       const empty = lines.findIndex((line) => !line.productId);
       const target = existing >= 0 ? existing : empty >= 0 ? empty : lines.length;
@@ -175,7 +185,7 @@ export function InvoicesPage() {
   };
 
   const resetDraft = () => {
-    setType(canSale ? "sale" : "purchase");
+    setSelectedType(null);
     setTitle(""); setCounterparty(""); setCounterpartyId(null); setLines([emptyLine()]); setBarcode("");
     setError(null); setErrorCode(null);
   };
@@ -267,13 +277,14 @@ function InvoiceHistoryCard({ invoice, canOutput, outputBusy, onOutput, onReload
   onReload: () => Promise<void>;
   onError: (error: unknown) => void;
 }) {
+  const access = useEntitlementAccess();
   const status = INVOICE_STATUS_META[invoice.status] ?? { label: "در انتظار", icon: Clock3 };
   const StatusIcon = status.icon;
   const dateTime = formatJalaliDateTime(invoice.posted_at).split(" ");
   const date = dateTime[0] ?? "—";
   const time = dateTime[1] ?? "—";
-  const mayOutput = canOutput && canUseInvoiceOutput(invoice);
-  const mayCancel = accessState.hasStorePermission("invoices.cancel")
+  const mayOutput = !access.requiresOnlineVerification && canOutput && canUseInvoiceOutput(invoice);
+  const mayCancel = !access.requiresOnlineVerification && accessState.hasStorePermission("invoices.cancel")
     && accessState.canUse(`invoices.${invoice.invoice_type}`)
     && !["cancelled", "cancel_pending", "rejected", "conflict"].includes(invoice.status);
 
