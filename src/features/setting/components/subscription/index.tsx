@@ -1,6 +1,7 @@
 import { useEntitlementAccess } from "@/shared/access/use-entitlement";
 import { isAdmin } from "@/shared/access/authorization";
 import { useAuth } from "@/shared/auth/use-auth";
+import { queryClient } from "@/shared/api/query-client";
 import {
   ArchiveIcon,
   CalendarIcon,
@@ -15,6 +16,7 @@ import {
 import {
   Badge,
   Box,
+  Button,
   Callout,
   Card,
   Flex,
@@ -22,9 +24,16 @@ import {
   Separator,
   Text,
 } from "@radix-ui/themes";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useAvailablePlans } from "../../mutations/use-admin";
+import {
+  getCheckoutStatus,
+  startPlanCheckout,
+  verifyPlanPayment,
+} from "../../api/plans.api";
 import {
   FEATURE_LABELS,
   formatPlanPrice,
@@ -74,8 +83,81 @@ export default function SubscriptionSettings() {
   const access = useEntitlementAccess();
   const current = access.entitlement;
   const plans = useAvailablePlans();
+  const checkoutStatus = useQuery({
+    queryKey: ["plans", "checkout-status"],
+    queryFn: getCheckoutStatus,
+  });
+  const [payingPlanId, setPayingPlanId] = useState<string | null>(null);
+  const [activeSlideId, setActiveSlideId] = useState<string>("pro");
+  const sliderRef = useRef<HTMLDivElement | null>(null);
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const scrollToPlan = (planId: string) => {
+    setActiveSlideId(planId);
+    const el = cardRefs.current[planId];
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
+  };
+  const [paymentBanner, setPaymentBanner] = useState<{
+    kind: "success" | "error" | "info";
+    text: string;
+  } | null>(null);
+  const verifiedDpRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const dpId = params.get("dp_id");
+    if (!dpId || verifiedDpRef.current === dpId) return;
+    verifiedDpRef.current = dpId;
+
+    setPaymentBanner({
+      kind: "info",
+      text: "در حال استعلام و تأیید پرداخت از درگاه دُنگی‌پی...",
+    });
+    void verifyPlanPayment(dpId)
+      .then(async (res) => {
+        if (res.verified) {
+          setPaymentBanner({
+            kind: "success",
+            text: `پرداخت با موفقیت تأیید شد و اشتراک شما فعال گردید.${res.ref_code ? ` (کد پیگیری: ${res.ref_code})` : ""}`,
+          });
+          toast.success("اشتراک شما با موفقیت فعال شد");
+          await queryClient.invalidateQueries();
+        } else {
+          setPaymentBanner({
+            kind: "error",
+            text: "پرداخت تکمیل نشد یا توسط کاربر لغو گردید.",
+          });
+        }
+      })
+      .catch((err) => {
+        setPaymentBanner({
+          kind: "error",
+          text: err instanceof Error ? err.message : "تأیید پرداخت ناموفق بود.",
+        });
+      })
+      .finally(() => {
+        const cleanUrl = `${window.location.pathname}`;
+        window.history.replaceState({}, "", cleanUrl);
+      });
+  }, []);
+
+  const handleSelectPlan = async (planId: string) => {
+    setPayingPlanId(planId);
+    try {
+      const res = await startPlanCheckout(planId);
+      window.location.href = res.pay_url;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "امکان اتصال به درگاه دُنگی‌پی فراهم نشد.");
+      setPayingPlanId(null);
+    }
+  };
+
   const plan = plans.data?.find((item) => item.id === current?.plan);
   const sortedPlans = sortPlansByPrice(plans.data ?? []);
+  const firstMonthEligible = checkoutStatus.data?.first_month_eligible ?? true;
   const expired = access.status === "expired";
   const verifying = access.requiresOnlineVerification;
   const remaining = access.remainingMs == null
@@ -90,6 +172,16 @@ export default function SubscriptionSettings() {
   return (
     <Box>
       <PageGuide section="تنظیمات" sectionTo="/setting" title="اشتراک من" description="وضعیت طرح، زمان باقی‌مانده و دسترسی‌های فعال حساب" icon={StarIcon} helpTopic="account" />
+
+      {paymentBanner ? (
+        <Callout.Root
+          color={paymentBanner.kind === "success" ? "green" : paymentBanner.kind === "error" ? "red" : "blue"}
+          mt="5"
+          dir="rtl"
+        >
+          <Callout.Text>{paymentBanner.text}</Callout.Text>
+        </Callout.Root>
+      ) : null}
 
       {expired && (
         <Callout.Root color="red" mt="5" dir="rtl">
@@ -298,26 +390,217 @@ export default function SubscriptionSettings() {
         )}
       </Card>
       <Box mt="6">
-        <Text as="div" size="5" weight="bold">مقایسه طرح‌ها</Text>
-        <Text as="p" size="2" color="gray" mt="1">قابلیت‌های محلی پایه در طرح رایگان باقی می‌مانند؛ ارتقا برای ظرفیت، همگام‌سازی ابری و همکاری امن تیمی است.</Text>
-        <Grid columns={{ initial: "1", sm: "2", lg: "4" }} gap="3" mt="4">
-          {sortedPlans.map((candidate) => (
-            <Card key={candidate.id} size="2" style={candidate.id === "pro" ? { borderColor: "var(--violet-8)" } : undefined}>
-              <Flex justify="between" align="center" gap="2">
-                <Text weight="bold">{candidate.name}</Text>
-                {candidate.id === "pro" ? <Badge color="violet">محبوب‌ترین</Badge> : null}
-              </Flex>
-              <Text as="div" size="4" weight="bold" mt="3">{formatPlanPrice(candidate)}<Text size="1" color="gray"> / ماه</Text></Text>
-              <Text as="p" size="2" color="gray" mt="2">تا {candidate.limits.inventory_items?.toLocaleString("fa-IR") ?? "نامحدود"} کالا</Text>
-              <Text as="p" size="2" color="gray">{candidate.features.sync ? "همگام‌سازی ابری" : "استفاده محلی بدون همگام‌سازی"}</Text>
-              <Text as="p" size="2" color="gray">{candidate.features.personnel ? `مالک + ${candidate.limits.active_personnel ?? 0} همکار` : "یک کاربر مالک"}</Text>
-            </Card>
-          ))}
-        </Grid>
+        <Flex justify="between" align="center" wrap="wrap" gap="3">
+          <Box>
+            <Text as="div" size="5" weight="bold">انتخاب و ارتقای طرح اشتراک</Text>
+            <Text as="p" size="2" color="gray" mt="1">قابلیت‌های محلی پایه در طرح رایگان باقی می‌مانند؛ ارتقا برای ظرفیت، همگام‌سازی ابری و همکاری امن تیمی است.</Text>
+          </Box>
+          {firstMonthEligible ? (
+            <Badge color="crimson" variant="soft" size="2">
+              🎉 تخفیف ویژه ماه اول برای خرید اول فعال است
+            </Badge>
+          ) : null}
+        </Flex>
+        <Flex justify="between" align="center" wrap="wrap" gap="3" mt="4">
+          <div
+            role="tablist"
+            aria-label="انتخاب سریع طرح"
+            style={{
+              display: "inline-flex",
+              gap: "6px",
+              padding: "5px",
+              borderRadius: "999px",
+              background: "var(--gray-a3)",
+              border: "1px solid var(--gray-a5)",
+              overflowX: "auto",
+              maxWidth: "100%",
+            }}
+          >
+            {sortedPlans.map((candidate) => {
+              const selected = activeSlideId === candidate.id;
+              return (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => scrollToPlan(candidate.id)}
+                  style={{
+                    border: "none",
+                    borderRadius: "999px",
+                    padding: "7px 18px",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    transition: "all 0.2s ease",
+                    background: selected ? "var(--violet-9)" : "transparent",
+                    color: selected ? "#ffffff" : "var(--gray-12)",
+                    boxShadow: selected ? "0 4px 12px rgba(110, 86, 207, 0.35)" : "none",
+                  }}
+                >
+                  {candidate.name}
+                  {candidate.id === "pro" ? " ✨" : ""}
+                </button>
+              );
+            })}
+          </div>
+          <Text size="1" color="gray">← برای مشاهده همه طرح‌ها به چپ یا راست بکشید →</Text>
+        </Flex>
+
+        <div
+          ref={sliderRef}
+          dir="rtl"
+          style={{
+            display: "flex",
+            gap: "16px",
+            overflowX: "auto",
+            scrollSnapType: "x mandatory",
+            scrollBehavior: "smooth",
+            padding: "16px 4px 20px 4px",
+            WebkitOverflowScrolling: "touch",
+            scrollbarWidth: "thin",
+          }}
+        >
+          {sortedPlans.map((candidate) => {
+            const isPaid = candidate.id !== "free";
+            const isCurrent = current?.plan === candidate.id && !expired;
+            const isPro = candidate.id === "pro";
+            const hasFirstMonthDiscount =
+              firstMonthEligible &&
+              isPaid &&
+              candidate.first_month_price_toman != null &&
+              candidate.price_toman != null &&
+              candidate.first_month_price_toman < candidate.price_toman;
+            const fa = new Intl.NumberFormat("fa-IR");
+            return (
+              <div
+                key={candidate.id}
+                ref={(el) => { cardRefs.current[candidate.id] = el; }}
+                onClick={() => setActiveSlideId(candidate.id)}
+                style={{
+                  flex: "0 0 min(320px, 84vw)",
+                  scrollSnapAlign: "center",
+                }}
+              >
+                <Card
+                  size="3"
+                  style={{
+                    height: "100%",
+                    borderRadius: "20px",
+                    borderColor: isPro ? "var(--violet-9)" : activeSlideId === candidate.id ? "var(--violet-7)" : "var(--gray-a5)",
+                    borderWidth: isPro || activeSlideId === candidate.id ? "2px" : "1px",
+                    background: isPro
+                      ? "linear-gradient(165deg, var(--violet-a2) 0%, var(--iris-a2) 100%)"
+                      : undefined,
+                    boxShadow: isPro
+                      ? "0 18px 36px rgba(110, 86, 207, 0.16)"
+                      : "0 8px 24px rgba(0, 0, 0, 0.04)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    gap: "16px",
+                  }}
+                >
+                  <Box>
+                    <Flex justify="between" align="center" gap="2" wrap="wrap">
+                      <Text size="5" weight="bold">{candidate.name}</Text>
+                      <Flex gap="1" align="center">
+                        {isPro ? <Badge color="violet" variant="solid">محبوب‌ترین</Badge> : null}
+                        {hasFirstMonthDiscount && candidate.discount_percent ? (
+                          <Badge color="crimson" variant="soft">
+                            {fa.format(candidate.discount_percent)}٪ تخفیف ماه اول
+                          </Badge>
+                        ) : null}
+                      </Flex>
+                    </Flex>
+
+                    {hasFirstMonthDiscount ? (
+                      <Box mt="3">
+                        <Text as="div" size="2" color="gray" style={{ textDecoration: "line-through" }}>
+                          {fa.format(candidate.price_toman!)} تومان / ماه
+                        </Text>
+                        <Flex align="baseline" gap="1" mt="1">
+                          <Text size="7" weight="bold" color={isPro ? "violet" : "crimson"}>
+                            {fa.format(candidate.first_month_price_toman!)}
+                          </Text>
+                          <Text size="2" weight="bold">تومان</Text>
+                          <Text size="1" color="gray">/ ماه اول</Text>
+                        </Flex>
+                        <Text as="div" size="1" color="gray" mt="1">
+                          تمدید ماه‌های بعد: {fa.format(candidate.price_toman!)} تومان
+                        </Text>
+                      </Box>
+                    ) : (
+                      <Box mt="3">
+                        <Flex align="baseline" gap="1">
+                          <Text size="7" weight="bold">
+                            {candidate.id === "free" ? "رایگان" : formatPlanPrice(candidate)}
+                          </Text>
+                          {isPaid ? <Text size="1" color="gray">/ ماه</Text> : null}
+                        </Flex>
+                        <Text as="div" size="1" color="gray" mt="1">
+                          {candidate.id === "free" ? "بدون محدودیت زمانی" : "اشتراک ۳۰ روزه"}
+                        </Text>
+                      </Box>
+                    )}
+
+                    <Box mt="4">
+                      {isPaid ? (
+                        <Button
+                          size="3"
+                          className="w-full!"
+                          color={isPro ? "violet" : "iris"}
+                          variant={isCurrent ? "soft" : "solid"}
+                          disabled={isCurrent || administrator || payingPlanId !== null}
+                          loading={payingPlanId === candidate.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleSelectPlan(candidate.id);
+                          }}
+                        >
+                          {isCurrent ? "طرح فعلی شما" : `ارتقا به ${candidate.name}`}
+                        </Button>
+                      ) : (
+                        <Button size="3" className="w-full!" variant="soft" color="gray" disabled>
+                          {isCurrent ? "طرح فعلی شما" : "طرح پایه رایگان"}
+                        </Button>
+                      )}
+                    </Box>
+
+                    <Separator size="4" my="4" />
+
+                    <Flex direction="column" gap="2">
+                      <Flex align="center" gap="2">
+                        <CheckCircledIcon color="var(--green-9)" />
+                        <Text size="2">تا {candidate.limits.inventory_items?.toLocaleString("fa-IR") ?? "نامحدود"} کالا در انبار</Text>
+                      </Flex>
+                      <Flex align="center" gap="2">
+                        <CheckCircledIcon color="var(--green-9)" />
+                        <Text size="2">تا {candidate.limits.catalog_items?.toLocaleString("fa-IR") ?? "نامحدود"} کالای کاتالوگی آماده</Text>
+                      </Flex>
+                      <Flex align="center" gap="2">
+                        <CheckCircledIcon color="var(--green-9)" />
+                        <Text size="2">{candidate.features.sync ? "همگام‌سازی ابری آنی بین موبایل و وب" : "استفاده محلی روی همین دستگاه"}</Text>
+                      </Flex>
+                      <Flex align="center" gap="2">
+                        <CheckCircledIcon color="var(--green-9)" />
+                        <Text size="2">{candidate.features.personnel ? `مدیریت تیم: مالک + ${candidate.limits.active_personnel ?? 0} همکار` : "تک‌کاربره (مالک فروشگاه)"}</Text>
+                      </Flex>
+                      <Flex align="center" gap="2">
+                        <CheckCircledIcon color="var(--green-9)" />
+                        <Text size="2">فاکتور خرید و فروش، بارکدخوان و چاپ لیبل</Text>
+                      </Flex>
+                    </Flex>
+                  </Box>
+                </Card>
+              </div>
+            );
+          })}
+        </div>
       </Box>
       <Text as="div" size="2" color="gray" mt="3">
-        خرید و درگاه پرداخت در این مرحله فعال نیست؛ ساختار طرح‌ها برای اتصال
-        آینده به پرداخت حفظ شده است.
+        پرداخت آنلاین به‌صورت امن از طریق درگاه دُنگی‌پی (pdongi.ir) انجام می‌شود و اشتراک بلافاصله پس از تأیید پرداخت فعال می‌گردد.
       </Text>
     </Box>
   );

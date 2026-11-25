@@ -55,15 +55,19 @@ export class AppDatabase extends Dexie {
   invoices!: EntityTable<Invoice, "local_key">;
 
 
-  constructor(name = "inventory-db") {
+  constructor(name = "tanzim-db-v2") {
 
     super(name);
+
+    if (name === "tanzim-db-v2" && typeof indexedDB !== "undefined") {
+      void Dexie.delete("inventory-db").catch(() => {});
+    }
 
 
     this.version(1).stores({
 
       inventoryItems:
-        "id, catalog_product_id, updated_at",
+        "local_key, id, catalog_product_id, updated_at",
 
       syncQueue:
         "id, entity, entityId, updatedAt",
@@ -75,7 +79,7 @@ export class AppDatabase extends Dexie {
       .stores({
 
         inventoryItems:
-          "id, catalog_product_id, updated_at",
+          "local_key, id, catalog_product_id, updated_at",
 
         syncQueue:
           "id, entity, entityId, status, nextAttemptAt, createdAt, updatedAt",
@@ -107,7 +111,7 @@ export class AppDatabase extends Dexie {
 
     this.version(3)
       .stores({
-        inventoryItems: "id, catalog_product_id, updated_at",
+        inventoryItems: "local_key, id, catalog_product_id, updated_at",
         syncQueue:
           "id, operationId, entity, entityId, status, nextAttemptAt, createdAt, updatedAt",
         syncMetadata: "key, updatedAt",
@@ -130,20 +134,20 @@ export class AppDatabase extends Dexie {
       });
 
     this.version(4).stores({
-      inventoryItems: "id, catalog_product_id, category_id, updated_at",
+      inventoryItems: "local_key, id, catalog_product_id, category_id, updated_at",
       syncQueue:
         "id, operationId, entity, entityId, status, nextAttemptAt, createdAt, updatedAt",
       syncMetadata: "key, updatedAt",
-      categories: "id, name, updated_at",
+      categories: "local_key, id, name, updated_at",
     });
 
     this.version(5)
       .stores({
-        inventoryItems: "id, local_user_id, catalog_product_id, category_id, updated_at",
+        inventoryItems: "local_key, id, local_user_id, catalog_product_id, category_id, updated_at",
         syncQueue:
           "id, ownerUserId, operationId, entity, entityId, status, nextAttemptAt, createdAt, updatedAt",
         syncMetadata: "key, updatedAt",
-        categories: "id, local_user_id, name, updated_at",
+        categories: "local_key, id, local_user_id, name, updated_at",
       })
       .upgrade(async (transaction) => {
         let lastUserId: number | undefined;
@@ -177,19 +181,19 @@ export class AppDatabase extends Dexie {
       });
 
     this.version(6).stores({
-      inventoryItems: "id, local_user_id, catalog_product_id, category_id, updated_at",
+      inventoryItems: "local_key, id, local_user_id, catalog_product_id, category_id, updated_at",
       syncQueue: "id, ownerUserId, operationId, entity, entityId, status, nextAttemptAt, createdAt, updatedAt",
       syncMetadata: "key, updatedAt",
-      categories: "id, local_user_id, name, updated_at",
-      labels: "id, local_user_id, normalized_name, updated_at",
+      categories: "local_key, id, local_user_id, name, updated_at",
+      labels: "local_key, id, local_user_id, normalized_name, updated_at",
     });
 
     this.version(7).stores({
-      inventoryItems: "id, local_user_id, catalog_product_id, category_id, updated_at",
+      inventoryItems: "local_key, id, local_user_id, catalog_product_id, category_id, updated_at",
       syncQueue: "id, ownerUserId, operationId, entity, entityId, status, nextAttemptAt, createdAt, updatedAt",
       syncMetadata: "key, updatedAt",
-      categories: "id, local_user_id, name, updated_at",
-      labels: "id, local_user_id, normalized_name, updated_at",
+      categories: "local_key, id, local_user_id, name, updated_at",
+      labels: "local_key, id, local_user_id, normalized_name, updated_at",
       backupSettings: "userId, mode, nextAttemptAt",
     });
 

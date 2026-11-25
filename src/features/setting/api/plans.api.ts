@@ -20,3 +20,35 @@ export const createStorePlanGrant = (value: {
   request_id: string; store_id: number; plan_id: "personal" | "pro" | "vip"; source: string;
   reason: string; starts_at: string; ends_at: string;
 }) => apiFetch<StorePlanGrant>("/admin/grants", { method: "POST", json: value });
+
+export type CheckoutStatus = {
+  gateway_ready: boolean;
+  first_month_eligible: boolean;
+};
+
+export type PlanCheckoutResponse = {
+  payment_id: number;
+  order_ref: string;
+  dp_id: string;
+  pay_url: string;
+  plan_id: string;
+  amount_toman: number;
+  is_first_month_discount: boolean;
+};
+
+export type PlanVerifyResponse = {
+  verified: boolean;
+  status?: string;
+  plan_id: string;
+  amount_toman: number;
+  ref_code?: string | null;
+};
+
+export const getCheckoutStatus = () => apiFetch<CheckoutStatus>("/plans/checkout-status");
+export const startPlanCheckout = (planId: string) =>
+  apiFetch<PlanCheckoutResponse>(`/plans/${planId}/checkout`, { method: "POST" });
+export const verifyPlanPayment = (dpId: string) =>
+  apiFetch<PlanVerifyResponse>("/plans/payments/verify", {
+    method: "POST",
+    json: { dp_id: dpId },
+  });

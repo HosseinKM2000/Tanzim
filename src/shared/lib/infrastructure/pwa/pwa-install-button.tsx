@@ -86,6 +86,9 @@ export function usePwaInstallPrompt() {
 
   return {
     available: !installed && !dismissed && Boolean(promptEvent || iosInstructionsAvailable),
+    canPromptInstall: !installed,
+    hasNativePrompt: Boolean(promptEvent),
+    isIos: iosInstructionsAvailable,
     instructionsOpen,
     setInstructionsOpen,
     install,
@@ -104,7 +107,8 @@ export function PwaInstallButton({
   presentation = "icon",
   controller,
 }: Props) {
-  if (!controller.available) return null;
+  if (presentation === "icon" && !controller.available) return null;
+  if (presentation === "menu" && !controller.canPromptInstall) return null;
 
   const { instructionsOpen, setInstructionsOpen, install } = controller;
 
@@ -136,9 +140,11 @@ export function PwaInstallButton({
         </Tooltip>
       )}
       <Dialog.Content maxWidth="420px" dir="rtl">
-        <Dialog.Title>افزودن به صفحه اصلی</Dialog.Title>
+        <Dialog.Title>نصب نسخه اپلیکیشن (PWA)</Dialog.Title>
         <Dialog.Description>
-          در Safari دکمه اشتراک‌گذاری را بزنید و سپس «Add to Home Screen» را انتخاب کنید. این مرورگر نصب خودکار را در اختیار برنامه قرار نمی‌دهد.
+          {controller.isIos
+            ? "در Safari دکمه اشتراک‌گذاری (Share) را بزنید و سپس گزینه «Add to Home Screen» را انتخاب کنید."
+            : "در منوی مرورگر (سه نقطه بالای صفحه در Chrome یا Edge) گزینه «Install app» یا «Add to Home screen» را انتخاب کنید تا تنظیم با آیکون اختصاصی روی دستگاه نصب شود."}
         </Dialog.Description>
         <Flex justify="end" mt="5">
           <Dialog.Close><Button>متوجه شدم</Button></Dialog.Close>

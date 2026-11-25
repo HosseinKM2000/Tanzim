@@ -42,13 +42,15 @@ class Settings:
         for origin in os.getenv(
             "CORS_ORIGINS",
             "http://localhost:5173,http://127.0.0.1:5173,"
-            "http://localhost:5174,http://127.0.0.1:5174",
+            "http://localhost:5174,http://127.0.0.1:5174,"
+            "https://tanzimapp.ir,https://www.tanzimapp.ir,"
+            "https://app.tanzimapp.ir",
         ).split(",")
         if origin.strip()
     ]
     SYSTEM_ADMIN_PASSWORD: str | None = os.getenv("SYSTEM_ADMIN_PASSWORD")
     APP_BUILD_ID: str = os.getenv("APP_BUILD_ID", "development").strip() or "development"
-    DATABASE_SCHEMA_VERSION: str = "20261120_0023"
+    DATABASE_SCHEMA_VERSION: str = "20261125_0024"
     PASSWORD_RECOVERY_WINDOW_MINUTES: int = int(
         os.getenv("PASSWORD_RECOVERY_WINDOW_MINUTES", "15")
     )
@@ -98,6 +100,22 @@ class Settings:
     REFERENCE_ASSET_WEBP_QUALITY: int = int(
         os.getenv("REFERENCE_ASSET_WEBP_QUALITY", "88")
     )
+    APP_ORIGIN: str = os.getenv("APP_ORIGIN", "https://app.tanzimapp.ir").strip().rstrip("/")
+    DONGI_OCR_URL: str = os.getenv("DONGI_OCR_URL", "http://127.0.0.1:8031/api/v1/public/ocr").strip()
+    DONGI_OCR_PUBLIC_URL: str = os.getenv("DONGI_OCR_PUBLIC_URL", "https://api.chat.dongigpt.ir/api/v1/public/ocr").strip()
+    DONGI_CHAT_URL: str = os.getenv("DONGI_CHAT_URL", "http://127.0.0.1:8031/api/v1/public/chat").strip()
+    DONGI_CHAT_PUBLIC_URL: str = os.getenv("DONGI_CHAT_PUBLIC_URL", "https://api.chat.dongigpt.ir/api/v1/public/chat").strip()
+    DONGI_OCR_TOKEN: str = os.getenv("DONGI_OCR_TOKEN", "").strip()
+    AI_VISION_MODEL: str = os.getenv("AI_VISION_MODEL", "netarz-openrouter-google-gemini-3.1-flash-lite-image").strip()
+    DONGIPAY_BASE_URL: str = os.getenv(
+        "DONGIPAY_BASE_URL", "https://api.chat.dongigpt.ir/api/v1/dongipay"
+    ).strip().rstrip("/")
+    DONGIPAY_TOKEN: str = os.getenv("DONGIPAY_TOKEN", "").strip()
+    TELEWHAT_RELAY_URL: str = os.getenv(
+        "TELEWHAT_RELAY_URL", "http://127.0.0.1:8100/api/send"
+    ).strip()
+    TELEWHAT_TG_TARGET: str = os.getenv("TELEWHAT_TG_TARGET", "-1004353847525").strip()
+    TELEWHAT_ENABLED: bool = _environment_flag("TELEWHAT_ENABLED")
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
     # Product media must survive application/database replacement. Production
     # deployments provide an absolute durable mount; tests/development use an

@@ -18,6 +18,9 @@ import { accountScrollRestorationKey } from "@/shared/lib/navigation/scroll-rest
 import { startBackupAutomation } from "@/features/backup/services/backup-bootstrap";
 import { appUpdateService } from "@/features/app-update/services/app-update.service";
 import { db } from "@/shared/lib/infrastructure/storage/db";
+import { installRemoteErrorHandlers } from "@/shared/lib/diagnostics/remote-logger";
+
+installRemoteErrorHandlers();
 
 const router = createRouter({
   routeTree,
@@ -63,7 +66,21 @@ registerServiceWorker({
 });
 
 db.on("blocked", () => appUpdateService.notifyClientMigrationFailed(true));
-void db.open().catch(() => appUpdateService.notifyClientMigrationFailed(false));
+void db.open().catch(async (err) => {
+  const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  if (/UpgradeError|primary key|VersionError/i.test(msg)) {
+    try {
+      db.close();
+      await db.delete();
+      await db.open();
+      void startSync();
+      return;
+    } catch {
+      // Fall through to migration failed notice if recreation is blocked
+    }
+  }
+  appUpdateService.notifyClientMigrationFailed(false);
+});
 
 profileMediaRepository.cleanupLegacyPreference();
 startBackupAutomation();

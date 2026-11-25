@@ -1,3 +1,5 @@
+import { enqueueRemoteLog } from "./remote-logger";
+
 const PREFIX = "tanzim-diagnostics-v1:";
 const MAX_ENTRIES = 40;
 const MAX_SERIALIZED_BYTES = 48 * 1024;
@@ -104,6 +106,16 @@ export function recordDiagnostic(input: DiagnosticInput) {
     details: input.details == null ? undefined : sanitizeDiagnosticValue(input.details),
   };
   write([...read(), entry]);
+  enqueueRemoteLog({
+    level: entry.httpStatus && entry.httpStatus >= 500 ? "error" : "warn",
+    source: "frontend",
+    event: `diagnostic.${entry.kind}`,
+    message: entry.summary,
+    request_id: entry.requestId,
+    path: entry.path,
+    status_code: entry.httpStatus,
+    details: entry.details && typeof entry.details === "object" ? entry.details as Record<string, unknown> : undefined,
+  });
   return entry;
 }
 

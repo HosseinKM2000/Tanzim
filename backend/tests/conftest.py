@@ -16,4 +16,13 @@ os.environ["SECRET_KEY"] = "test-only-signing-key-never-use-in-production"
 
 
 def pytest_sessionfinish(session, exitstatus):
-    FAST_DATABASE_PATH.unlink(missing_ok=True)
+    try:
+        from app.database import engine
+        engine.dispose()
+    except Exception:
+        pass
+    try:
+        FAST_DATABASE_PATH.unlink(missing_ok=True)
+    except Exception:
+        pass
+

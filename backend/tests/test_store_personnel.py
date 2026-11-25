@@ -230,6 +230,7 @@ def test_platform_administrator_has_unrestricted_store_access(client: TestClient
         db.add(industry)
         db.flush()
         catalog = CatalogProduct(
+            id=88001,
             industry_id=industry.id,
             name=f"Customer-only {customer_username}",
             is_shared=False,
@@ -258,6 +259,7 @@ def test_store_inventory_is_shared_with_personnel_and_isolated_from_other_store(
         db.add(industry)
         db.flush()
         catalog = CatalogProduct(
+            id=88002,
             industry_id=industry.id,
             name=f"Shared product {suffix}",
             is_shared=True,

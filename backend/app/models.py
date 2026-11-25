@@ -1362,3 +1362,105 @@ class Industry(Base):
     users: Mapped[list["User"]] = relationship(
         back_populates="industry"
     )
+
+
+class AppLog(Base):
+    __tablename__ = "app_logs"
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, index=True)
+    level: Mapped[str] = mapped_column(String(20), index=True)
+    source: Mapped[str] = mapped_column(String(32), index=True)
+    event: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    store_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    message: Mapped[str] = mapped_column(Text)
+    details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+
+class SubscriptionPayment(Base):
+    __tablename__ = "subscription_payments"
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    order_ref: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    dp_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    store_id: Mapped[int | None] = mapped_column(ForeignKey("stores.id"), nullable=True, index=True)
+    plan_id: Mapped[str] = mapped_column(String(40), index=True)
+    amount_toman: Mapped[int] = mapped_column(BigInteger)
+    is_first_month_discount: Mapped[bool] = mapped_column(Boolean, default=False)
+    gateway: Mapped[str] = mapped_column(String(32), default="dongipay")
+    status: Mapped[str] = mapped_column(String(32), default="created", index=True)
+    pay_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ref_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, index=True)
+    verified_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+
+
+class LogApp(Base):
+    __tablename__ = "log_apps"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    api_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    logs: Mapped[list["CentralLog"]] = relationship(back_populates="app", cascade="all, delete-orphan")
+    rules: Mapped[list["LogRule"]] = relationship(back_populates="app", cascade="all, delete-orphan")
+
+
+class CentralLog(Base):
+    __tablename__ = "central_logs"
+    __table_args__ = (
+        CheckConstraint("level IN ('debug', 'info', 'warn', 'error', 'critical', 'audit')", name="ck_central_logs_level"),
+        Index("ix_central_logs_app_time", "app_id", "created_at"),
+        Index("ix_central_logs_level_time", "level", "created_at"),
+        Index("ix_central_logs_category", "category"),
+        Index("ix_central_logs_store", "store_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    app_id: Mapped[str] = mapped_column(ForeignKey("log_apps.id", ondelete="CASCADE"))
+    level: Mapped[str] = mapped_column(String(16))
+    category: Mapped[str] = mapped_column(String(64))
+    action: Mapped[str] = mapped_column(String(64))
+    title: Mapped[str] = mapped_column(Text)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    store_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    context_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    device: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    location: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    app: Mapped["LogApp"] = relationship(back_populates="logs")
+
+
+class LogRule(Base):
+    __tablename__ = "log_rules"
+    __table_args__ = (
+        UniqueConstraint("app_id", "category", name="uq_log_rules_app_category"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    app_id: Mapped[str] = mapped_column(ForeignKey("log_apps.id", ondelete="CASCADE"))
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    min_level: Mapped[str] = mapped_column(String(16), default="info")
+    save_to_db: Mapped[bool] = mapped_column(Boolean, default=True)
+    send_telegram: Mapped[bool] = mapped_column(Boolean, default=True)
+    telegram_thread_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mute_until: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
+
+    app: Mapped["LogApp"] = relationship(back_populates="rules")
+

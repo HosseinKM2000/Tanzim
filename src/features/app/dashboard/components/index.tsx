@@ -8,6 +8,7 @@ import { personnelApi } from "@/features/personnel/api";
 import { accessState } from "@/shared/access/access-state";
 import { isAdmin } from "@/shared/access/authorization";
 import { consumeDashboardReturnAnchor, rememberDashboardReturnAnchor } from "@/shared/lib/navigation/scroll-restoration";
+import { enqueueRemoteLog } from "@/shared/lib/diagnostics/remote-logger";
 
 import { dashboardCards } from "../data/dashboard-cards";
 import { useDashboardStats } from "../mutations/use-dashboard";
@@ -37,7 +38,18 @@ const DashboardComponent = () => {
   const userId = user?.id;
   const storeId = user?.store_id;
   const isOwner = user?.is_store_owner === true || isAdmin(user);
-  const { data: stats, isLoading, isError } = useDashboardStats();
+  const { data: stats, isLoading, isError, error, refetch } = useDashboardStats();
+
+  useEffect(() => {
+    if (!isError || !error) return;
+    enqueueRemoteLog({
+      level: "error",
+      source: "frontend",
+      event: "dashboard.stats_error",
+      message: error instanceof Error ? error.message : String(error),
+      path: "/dashboard",
+    });
+  }, [isError, error]);
 
   useEffect(() => {
     const anchorId = consumeDashboardReturnAnchor(userId, storeId);
@@ -67,7 +79,16 @@ const DashboardComponent = () => {
         <div><h1>داشبورد</h1><p>تصویر روشن و به‌روز از وضعیت موجودی و کارهای مهم مجموعه</p></div>
       </header>
 
-      {isError ? <Callout.Root color="red" dir="rtl" role="alert"><Callout.Text>دریافت اطلاعات داشبورد انجام نشد. اتصال را بررسی و دوباره تلاش کنید.</Callout.Text></Callout.Root> : null}
+      {isError ? (
+        <Callout.Root color="red" dir="rtl" role="alert">
+          <Callout.Text>
+            دریافت اطلاعات داشبورد انجام نشد. اتصال را بررسی و دوباره تلاش کنید.{" "}
+            <button type="button" className="underline font-semibold" onClick={() => { void refetch(); }}>
+              تلاش مجدد
+            </button>
+          </Callout.Text>
+        </Callout.Root>
+      ) : null}
 
       {alertCards.length ? <section className="dashboard-alerts" aria-label="هشدارهای فوری">
         {alertCards.map((card) => <DashboardSummaryCard key={card.id} card={card} stats={stats} loading={isLoading} variant="alert" onOpen={openCard} />)}
