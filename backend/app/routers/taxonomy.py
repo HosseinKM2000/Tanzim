@@ -65,7 +65,7 @@ def approved_categories(sector_code: str, current_user: CurrentUser, db: DbSessi
         code=item.code,
         name_fa=item.name_fa,
         examples=json.loads(item.examples_json),
-        approval_status="approved",
+        approval_status=item.approval_status,
     ) for item in list_reference_categories(db, sector_code)]
 
 

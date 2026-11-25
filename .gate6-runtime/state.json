@@ -1,0 +1,86 @@
+{
+  "industry_id": 25,
+  "product_id": 1,
+  "family_id": 1,
+  "family_slug": "gate6-family-c9fd1c10a4",
+  "release_1": {
+    "id": "56a76b70-4cc2-4d89-b797-947b2e797453",
+    "request_id": "e1c2f6ce-22c3-4d90-8aa6-a23f2864914d",
+    "industry_id": 25,
+    "version": 1,
+    "status": "published",
+    "manifest_path": "releases/56a76b70-4cc2-4d89-b797-947b2e797453/index.json",
+    "manifest_hash": "61eb8e71917360ca323c6565928c8e4d1d58582e778aeaf4f4c536b6ee6e9627",
+    "previous_release_id": null,
+    "created_at": "2026-11-18T19:07:34.991384Z",
+    "published_at": "2026-11-18T19:07:35.026544Z"
+  },
+  "assets_1": [
+    {
+      "id": "60f15e86-d5ae-42af-a8cd-f14838c1ef37",
+      "source_sha256": "cb3da58216dbc5ab2ffe3c1311a6ef73815af727bb5fd42dd212f1f3f90ccd11",
+      "content_sha256": "2e2ce28adc9e8b8da5a99c90da3e4d4aa9963e211302f87b15b48a54b7650087",
+      "mime_type": "image/webp",
+      "width": 96,
+      "height": 96,
+      "byte_size": 1580,
+      "variant_type": "preview",
+      "validation_status": "approved",
+      "created_at": "2026-11-18T19:07:34.936423Z",
+      "read_url": "/api/catalog-reference-assets/60f15e86-d5ae-42af-a8cd-f14838c1ef37"
+    },
+    {
+      "id": "4c915efa-639e-4703-9686-83ed5b2ac261",
+      "source_sha256": "cb3da58216dbc5ab2ffe3c1311a6ef73815af727bb5fd42dd212f1f3f90ccd11",
+      "content_sha256": "2e2ce28adc9e8b8da5a99c90da3e4d4aa9963e211302f87b15b48a54b7650087",
+      "mime_type": "image/webp",
+      "width": 96,
+      "height": 96,
+      "byte_size": 1580,
+      "variant_type": "detail",
+      "validation_status": "approved",
+      "created_at": "2026-11-18T19:07:34.936426Z",
+      "read_url": "/api/catalog-reference-assets/4c915efa-639e-4703-9686-83ed5b2ac261"
+    }
+  ],
+  "release_2": {
+    "id": "241ef13d-5d31-4134-a56c-81fc4797c405",
+    "request_id": "03f3de05-338e-464b-8770-1849ad33254e",
+    "industry_id": 25,
+    "version": 2,
+    "status": "published",
+    "manifest_path": "releases/241ef13d-5d31-4134-a56c-81fc4797c405/index.json",
+    "manifest_hash": "f790c2c18e84348cf21b7efaa7dbb1fd24d276cf810500dfeaae35f2164c2fcd",
+    "previous_release_id": "56a76b70-4cc2-4d89-b797-947b2e797453",
+    "created_at": "2026-11-18T19:10:38.354185Z",
+    "published_at": "2026-11-18T19:10:38.394110Z"
+  },
+  "assets_2": [
+    {
+      "id": "0e533e41-5678-4e17-84d4-570c778e4703",
+      "source_sha256": "13fab5dd35c4752044428c3e93a16eeac42f86bfcfb10761e31feb58bf826045",
+      "content_sha256": "ced8a63e154011c4882d56fd56b826a85ea3c68c2394778c47d14f827c14d00f",
+      "mime_type": "image/webp",
+      "width": 128,
+      "height": 128,
+      "byte_size": 2034,
+      "variant_type": "preview",
+      "validation_status": "approved",
+      "created_at": "2026-11-18T19:10:38.310235Z",
+      "read_url": "/api/catalog-reference-assets/0e533e41-5678-4e17-84d4-570c778e4703"
+    },
+    {
+      "id": "b8241443-2196-4563-8187-403f4f46ac15",
+      "source_sha256": "13fab5dd35c4752044428c3e93a16eeac42f86bfcfb10761e31feb58bf826045",
+      "content_sha256": "ced8a63e154011c4882d56fd56b826a85ea3c68c2394778c47d14f827c14d00f",
+      "mime_type": "image/webp",
+      "width": 128,
+      "height": 128,
+      "byte_size": 2034,
+      "variant_type": "detail",
+      "validation_status": "approved",
+      "created_at": "2026-11-18T19:10:38.310239Z",
+      "read_url": "/api/catalog-reference-assets/b8241443-2196-4563-8187-403f4f46ac15"
+    }
+  ]
+}

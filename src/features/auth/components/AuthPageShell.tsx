@@ -14,7 +14,7 @@ type AuthPageShellProps = {
   switchText: string;
   switchLabel: string;
   switchTo: "/auth/login" | "/auth/register";
-  trustText: string;
+  trustText: ReactNode;
 };
 
 export function AuthPageShell({

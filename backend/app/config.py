@@ -48,10 +48,23 @@ class Settings:
     ]
     SYSTEM_ADMIN_PASSWORD: str | None = os.getenv("SYSTEM_ADMIN_PASSWORD")
     APP_BUILD_ID: str = os.getenv("APP_BUILD_ID", "development").strip() or "development"
-    DATABASE_SCHEMA_VERSION: str = "20261118_0021"
+    DATABASE_SCHEMA_VERSION: str = "20261120_0023"
+    PASSWORD_RECOVERY_WINDOW_MINUTES: int = int(
+        os.getenv("PASSWORD_RECOVERY_WINDOW_MINUTES", "15")
+    )
+    PASSWORD_RECOVERY_IDENTIFIER_LIMIT: int = int(
+        os.getenv("PASSWORD_RECOVERY_IDENTIFIER_LIMIT", "5")
+    )
+    PASSWORD_RECOVERY_SOURCE_LIMIT: int = int(
+        os.getenv("PASSWORD_RECOVERY_SOURCE_LIMIT", "20")
+    )
     # Reference data may be deployed before customer adoption. Keep this off
     # until the Code 128 label-capacity and physical release gates are cleared.
     TAXONOMY_ADOPTION_ENABLED: bool = _environment_flag("TAXONOMY_ADOPTION_ENABLED")
+    # QA-only proposed taxonomy. The version override selects a versioned
+    # reference file and never changes the production default (`scb-2026-11-14-v1`).
+    TAXONOMY_VERSION_OVERRIDE: str = os.getenv("TAXONOMY_VERSION_OVERRIDE", "").strip()
+    QA_PROPOSED_TAXONOMY_ENABLED: bool = _environment_flag("QA_PROPOSED_TAXONOMY_ENABLED")
     # Gate 1: preserve legacy Catalog fan-out unless a development environment
     # explicitly enables on-demand Store adoption.
     CATALOG_ON_DEMAND_ADOPTION_ENABLED: bool = _environment_flag(
@@ -109,6 +122,10 @@ if settings.DATABASE_URL.startswith("sqlite") and settings.ENVIRONMENT != "test"
     raise RuntimeError("SQLite is supported only when ENVIRONMENT=test")
 if settings.ENVIRONMENT in {"production", "prod"} and settings.SECRET_KEY == "dev-secret-change-me":
     raise RuntimeError("SECRET_KEY must be configured before production startup")
+if (settings.TAXONOMY_VERSION_OVERRIDE or settings.QA_PROPOSED_TAXONOMY_ENABLED) and settings.ENVIRONMENT not in {"qa", "test"}:
+    raise RuntimeError("TAXONOMY_VERSION_OVERRIDE_AND_QA_PROPOSED_REQUIRE_QA_OR_TEST")
+if settings.QA_PROPOSED_TAXONOMY_ENABLED and not settings.TAXONOMY_VERSION_OVERRIDE:
+    raise RuntimeError("QA_PROPOSED_TAXONOMY_REQUIRES_VERSION_OVERRIDE")
 settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 if settings.ENVIRONMENT in {"production", "prod"} and not os.getenv("MEDIA_STORAGE_DIR"):
     raise RuntimeError("MEDIA_STORAGE_DIR is required in production")

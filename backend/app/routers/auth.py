@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 from fastapi import Header
 
@@ -9,6 +9,8 @@ from ..schemas import (
     LoginRequest,
     MessageResponse,
     PasswordUpdate,
+    PasswordRecoveryRequest,
+    PasswordRecoveryResponse,
     SignupRequest,
     TokenResponse,
     UserOut,
@@ -23,6 +25,7 @@ from ..services.auth_service import (
     update_password as update_password_service,
 )
 from ..services.catalog_provisioning_service import provision_industry_inventory
+from ..services.password_recovery_service import request_recovery
 
 router = APIRouter(
     prefix="/auth",
@@ -91,6 +94,30 @@ def login(
         db=db,
         payload=payload,
     )
+
+
+@router.post(
+    "/recovery/request",
+    response_model=PasswordRecoveryResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def password_recovery_request(
+    payload: PasswordRecoveryRequest,
+    request: Request,
+    db: DbSession,
+):
+    retry_after = request_recovery(
+        db,
+        identifier=payload.identifier,
+        source=request.client.host if request.client else "unknown",
+    )
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="PASSWORD_RECOVERY_RATE_LIMITED",
+            headers={"Retry-After": str(retry_after)},
+        )
+    return PasswordRecoveryResponse()
 
 
 # =========================================================

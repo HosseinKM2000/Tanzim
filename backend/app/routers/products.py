@@ -15,7 +15,7 @@ from ..services.subscription_service import entitlement_for_user, locked_invento
 from ..services.authorization_service import is_admin
 from ..inventory_policy import MAX_PRODUCT_QUANTITY
 from ..services.taxonomy_service import (
-    TAXONOMY_VERSION,
+    active_taxonomy_version,
     issue_internal_barcode,
     validate_category_for_new_intent,
 )
@@ -215,7 +215,7 @@ async def create_product(
     )
     db.add(product)
     db.flush()
-    if store.taxonomy_version == TAXONOMY_VERSION:
+    if store.taxonomy_version == active_taxonomy_version():
         assert category is not None
         issue_internal_barcode(db, store, product, category)
     store.has_historical_inventory_usage = True
@@ -279,7 +279,7 @@ async def update_product(
 
     if category_id is not None:
         validate_category_for_new_intent(db, store, category_id)
-        if store.taxonomy_version == TAXONOMY_VERSION and category_id != product.category_id:
+        if store.taxonomy_version == active_taxonomy_version() and category_id != product.category_id:
             raise HTTPException(status_code=409, detail="CATEGORY_CHANGE_REQUIRES_PREVIEW")
 
     updates = {

@@ -59,6 +59,18 @@ export function updatePassword(payload: PasswordChangePayload): Promise<void> {
   });
 }
 
+export type PasswordRecoveryResponse = {
+  message: "PASSWORD_RECOVERY_REQUEST_ACCEPTED";
+  delivery_available: false;
+};
+
+export function requestPasswordRecovery(identifier: string): Promise<PasswordRecoveryResponse> {
+  return apiFetch<PasswordRecoveryResponse>("/auth/recovery/request", {
+    method: "POST",
+    json: { identifier },
+  });
+}
+
 export function logout(): Promise<void> {
   return apiFetch<void>("/auth/logout", {
     method: "POST",

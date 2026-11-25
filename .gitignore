@@ -15,6 +15,11 @@ coverage/
 playwright-report/
 test-results/
 artifacts/codex-*/
+.v1-audit-runtime/
+.qa-automotive-runtime/
+.qa-taxonomy-runtime/
+docs/qa-readiness/.qa-accounts-login.local.md
+.qa-taxonomy-plan.txt
 .tanstack/tmp/
 backend/.coverage
 backend/.pytest_cache/

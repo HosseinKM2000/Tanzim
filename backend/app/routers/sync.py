@@ -42,7 +42,7 @@ from ..services.store_service import active_store_context
 from ..services.store_mode_policy import validate_sync_acceptance
 from ..services.invoice_service import cancel_invoice, post_invoice
 from ..services.taxonomy_service import (
-    TAXONOMY_VERSION,
+    active_taxonomy_version,
     custom_category_code,
     issue_internal_barcode,
     reserve_external_barcode,
@@ -546,7 +546,7 @@ def _apply_category(db: DbSession, user: User, operation: SyncOperationIn) -> Sy
         store = db.get(Store, user.store_id)
         if store is None:
             raise ValueError("STORE_NOT_FOUND")
-        adopted = store.taxonomy_version == TAXONOMY_VERSION
+        adopted = store.taxonomy_version == active_taxonomy_version()
         sector = db.get(Industry, store.industry_id) if adopted and store.industry_id is not None else None
         if adopted and (sector is None or not sector.sector_code):
             raise ValueError("STORE_SECTOR_MAPPING_INVALID")
@@ -566,7 +566,7 @@ def _apply_category(db: DbSession, user: User, operation: SyncOperationIn) -> Sy
             sector_code=sector.sector_code if sector else None,
             origin="custom" if adopted else "legacy",
             approval_status="approved" if adopted else "legacy",
-            is_active=True, taxonomy_version=TAXONOMY_VERSION if adopted else None,
+            is_active=True, taxonomy_version=active_taxonomy_version() if adopted else None,
         )
         db.add(category)
     elif category.origin == "system":
@@ -730,8 +730,28 @@ def _apply_barcode(db: DbSession, user: User, operation: SyncOperationIn) -> Syn
     if created:
         if operation.operation == "UPDATE":
             raise ValueError("BARCODE_NOT_FOUND")
-        barcode = ProductBarcode(id=operation.entity_id, store_id=user.store_id, product_id=product.id, value=value, source="manufacturer")
+        product_category = db.get(Category, product.category_id) if product.category_id is not None else None
+        try:
+            reservation = reserve_external_barcode(
+                db,
+                store_id=user.store_id,
+                product_id=product.id,
+                value=value,
+                category_reference_key=(product_category.reference_key if product_category else None),
+            )
+        except ValueError as error:
+            return SyncOperationResult(operation_id=operation.operation_id, status="conflict", entity_id=operation.entity_id, error=str(error))
+        barcode = ProductBarcode(
+            id=operation.entity_id,
+            store_id=user.store_id,
+            product_id=product.id,
+            value=value,
+            source="manufacturer",
+            reservation_id=reservation.id,
+            category_reference_key=(product_category.reference_key if product_category else None),
+        )
         db.add(barcode)
+        db.flush()
     elif operation.base_version is not None and barcode.version != operation.base_version:
         return SyncOperationResult(operation_id=operation.operation_id, status="conflict", entity_id=barcode.id, record=BarcodeOut.model_validate(barcode).model_dump(mode="json"), error="Server record has a newer version")
 
@@ -749,20 +769,7 @@ def _apply_barcode(db: DbSession, user: User, operation: SyncOperationIn) -> Syn
     if source == "tanzim":
         raise ValueError("INTERNAL_BARCODE_SERVER_ISSUED_ONLY")
 
-    if created:
-        product_category = db.get(Category, product.category_id) if product.category_id is not None else None
-        try:
-            reservation = reserve_external_barcode(
-                db,
-                store_id=user.store_id,
-                product_id=product.id,
-                value=value,
-                category_reference_key=(product_category.reference_key if product_category else None),
-            )
-        except ValueError as error:
-            return SyncOperationResult(operation_id=operation.operation_id, status="conflict", entity_id=operation.entity_id, error=str(error))
-        barcode.reservation_id = reservation.id
-    elif barcode.value != value:
+    if not created and barcode.value != value:
         raise ValueError("BARCODE_VALUE_IMMUTABLE")
 
     barcode.product_id = product.id
@@ -1096,7 +1103,7 @@ async def _apply_product_operation(
     else:
         category = None
         if (
-            store.taxonomy_version == TAXONOMY_VERSION
+            store.taxonomy_version == active_taxonomy_version()
             and "category_id" in payload
             and requested_category_id != item.category_id
         ):
@@ -1165,7 +1172,7 @@ async def _apply_product_operation(
             _create_embedded_external_barcodes(
                 db, store=store, product=item, category=category, payload=external_barcodes,
             )
-        elif store.taxonomy_version == TAXONOMY_VERSION:
+        elif store.taxonomy_version == active_taxonomy_version():
             assert category is not None
             if internal_barcode is not None:
                 if (

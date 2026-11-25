@@ -1,5 +1,6 @@
 import { LockClosedIcon, MobileIcon, PersonIcon } from "@radix-ui/react-icons";
 import { Callout } from "@radix-ui/themes";
+import { Link as RouterLink } from "@tanstack/react-router";
 import { useRef } from "react";
 
 import { ApiError } from "@/shared/api/api-error";
@@ -42,7 +43,7 @@ function RegisterComponent() {
     : null;
 
   return (
-    <AuthPageShell title="ساخت حساب تنظیم" description="در حال حاضر فقط اطلاعات ورود نیاز است و می‌توانید جزئیات پروفایل خود را بعداً تکمیل کنید." badge="راه‌اندازی سریع مدیریت موجودی و کسب‌وکار" descriptionAfterBadge switchText="از قبل حساب دارید؟" switchLabel="وارد شوید" switchTo="/auth/login" trustText="با ساخت حساب، قوانین استفاده و حریم خصوصی را می‌پذیرید.">
+    <AuthPageShell title="ساخت حساب تنظیم" description="در حال حاضر فقط اطلاعات ورود نیاز است و می‌توانید جزئیات پروفایل خود را بعداً تکمیل کنید." badge="راه‌اندازی سریع مدیریت موجودی و کسب‌وکار" descriptionAfterBadge switchText="از قبل حساب دارید؟" switchLabel="وارد شوید" switchTo="/auth/login" trustText={<>پیش از ساخت حساب، <RouterLink to="/legal/terms">وضعیت قوانین استفاده</RouterLink> و <RouterLink to="/legal/privacy">حریم خصوصی</RouterLink> را مرور کنید. متن حقوقی نهایی هنوز نیازمند تأیید است.</>}>
       <section className="auth-card" aria-label="فرم ساخت حساب">
         {serverError ? <Callout.Root color="red" dir="rtl" className="auth-server-error" role="alert"><Callout.Text>{serverError}</Callout.Text></Callout.Root> : null}
         <Form className="auth-form" dir="rtl" noValidate isDirty={form.isDirty} isSubmitting={registerMutation.isPending} onSubmit={preventEventHandler(form.submit)}>
