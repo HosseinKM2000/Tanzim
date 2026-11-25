@@ -1,0 +1,240 @@
+from fastapi import APIRouter, HTTPException, Request, status
+from sqlalchemy import select
+from fastapi import Header
+
+from ..deps import CurrentUser, DbSession, DeviceFingerprint
+from ..models import Industry, Store, User
+from ..schemas import (
+    IndustrySelect,
+    LoginRequest,
+    MessageResponse,
+    PasswordUpdate,
+    PasswordRecoveryRequest,
+    PasswordRecoveryResponse,
+    SignupRequest,
+    TokenResponse,
+    UserOut,
+    UserUpdate,
+)
+
+from ..services.auth_service import (
+    signup as signup_service,
+    login as login_service,
+    logout,
+    update_user,
+    update_password as update_password_service,
+)
+from ..services.catalog_provisioning_service import provision_industry_inventory
+from ..services.password_recovery_service import request_recovery
+
+router = APIRouter(
+    prefix="/auth",
+    tags=["auth"],
+)
+
+
+# =========================================================
+# CHECK USERNAME
+# =========================================================
+
+def _username_taken(
+    db: DbSession,
+    username: str,
+    exclude_id: int | None = None,
+) -> bool:
+
+    stmt = select(User).where(User.username == username)
+
+    if exclude_id:
+        stmt = stmt.where(User.id != exclude_id)
+
+    return db.scalar(stmt) is not None
+
+
+# =========================================================
+# SIGNUP
+# =========================================================
+
+@router.post(
+    "/signup",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def signup(
+    payload: SignupRequest,
+    db: DbSession,
+):
+
+    if _username_taken(db, payload.username):
+        raise HTTPException(
+            status_code=409,
+            detail="Username already exists",
+        )
+
+    return signup_service(
+        db=db,
+        payload=payload,
+    )
+
+
+# =========================================================
+# LOGIN
+# =========================================================
+
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+)
+def login(
+    payload: LoginRequest,
+    db: DbSession,
+):
+
+    return login_service(
+        db=db,
+        payload=payload,
+    )
+
+
+@router.post(
+    "/recovery/request",
+    response_model=PasswordRecoveryResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def password_recovery_request(
+    payload: PasswordRecoveryRequest,
+    request: Request,
+    db: DbSession,
+):
+    retry_after = request_recovery(
+        db,
+        identifier=payload.identifier,
+        source=request.client.host if request.client else "unknown",
+    )
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="PASSWORD_RECOVERY_RATE_LIMITED",
+            headers={"Retry-After": str(retry_after)},
+        )
+    return PasswordRecoveryResponse()
+
+
+# =========================================================
+# CURRENT USER
+# =========================================================
+
+@router.get(
+    "/me",
+    response_model=UserOut,
+)
+def me(
+    current_user: CurrentUser,
+):
+    return current_user
+
+
+# =========================================================
+# UPDATE PROFILE
+# =========================================================
+
+@router.patch(
+    "/me",
+    response_model=UserOut,
+)
+def update_me(
+    payload: UserUpdate,
+    current_user: CurrentUser,
+    db: DbSession,
+):
+    if (
+        payload.username
+        and _username_taken(
+            db,
+            payload.username,
+            current_user.id,
+        )
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Username already exists",
+        )
+
+    return update_user(
+        db=db,
+        user=current_user,
+        payload=payload,
+    )
+
+# =========================================================
+# CHANGE PASSWORD
+# =========================================================
+
+@router.patch(
+    "/me/password",
+    response_model=MessageResponse,
+)
+def update_password(
+    payload: PasswordUpdate,
+    current_user: CurrentUser,
+    db: DbSession,
+    device_fingerprint: DeviceFingerprint,
+):
+
+    update_password_service(
+        db=db,
+        user=current_user,
+        current_password=payload.current_password,
+        new_password=payload.new_password,
+        current_fingerprint=device_fingerprint,
+    )
+
+    return MessageResponse(
+        message="Password updated successfully.",
+    )
+
+
+# =========================================================
+# SET INDUSTRY
+# =========================================================
+
+@router.patch(
+    "/industry",
+    response_model=UserOut,
+)
+def set_industry(
+    payload: IndustrySelect,
+    current_user: CurrentUser,
+    db: DbSession,
+):
+    store = db.get(Store, current_user.store_id)
+    industry = db.get(Industry, payload.industry_id)
+    if store is None:
+        raise HTTPException(status_code=404, detail="STORE_NOT_FOUND")
+    # Reference-sector selection is exclusively handled by /taxonomy/adopt,
+    # which is owner-only, version-bound and serialized with first use.
+    if store.taxonomy_version is not None or (industry is not None and industry.reference_sector_id is not None):
+        raise HTTPException(status_code=409, detail="TAXONOMY_ADOPTION_ENDPOINT_REQUIRED")
+    return provision_industry_inventory(
+        db=db,
+        user=current_user,
+        industry_id=payload.industry_id,
+    )
+
+@router.post("/logout")
+def logout_endpoint(
+    current_user: CurrentUser,
+    db: DbSession,
+    device_fingerprint: str = Header(
+        alias="X-Device-Fingerprint"
+    ),
+):
+    logout(
+        db=db,
+        current_user=current_user,
+        fingerprint=device_fingerprint,
+    )
+
+    return {
+        "message": "Logged out successfully"
+    }
