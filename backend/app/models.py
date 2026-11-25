@@ -1,0 +1,1466 @@
+
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import datetime, timezone
+
+from .database import Base
+
+
+ENTITY_ID = BigInteger().with_variant(Integer, "sqlite")
+UTC_DATETIME = DateTime(timezone=True)
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+# ---------- User ----------
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("phone", name="uq_users_phone_canonical"),
+        CheckConstraint(
+            "(device_limit_mode IN ('inherit', 'unlimited') AND device_limit_override IS NULL) OR "
+            "(device_limit_mode = 'limited' AND device_limit_override > 0)",
+            name="ck_users_device_limit_policy",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+
+    first_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+    username: Mapped[str] = mapped_column(
+        String(120),
+        unique=True,
+        index=True
+    )
+
+    email: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True
+    )
+
+    phone: Mapped[str | None] = mapped_column(
+        String(40),
+        nullable=True
+    )
+
+    hashed_password: Mapped[str] = mapped_column(String(255))
+
+    plan: Mapped[str] = mapped_column(
+        String(30),
+        default="free"
+    )
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    role: Mapped[str] = mapped_column(String(20), default="USER", index=True)
+    is_system_admin: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    system_key: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True)
+    subscription_started_at: Mapped[datetime | None] = mapped_column(
+        UTC_DATETIME, nullable=True
+    )
+    subscription_expires_at: Mapped[datetime | None] = mapped_column(
+        UTC_DATETIME, nullable=True
+    )
+    device_limit_mode: Mapped[str] = mapped_column(String(20), default="inherit")
+    device_limit_override: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    industry_id: Mapped[int | None] = mapped_column(
+        ForeignKey("industries.id"),
+        nullable=True,
+        index=True,
+    )
+
+    industry: Mapped["Industry | None"] = relationship(
+    back_populates="users"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        UTC_DATETIME,
+        default=_now
+    )
+
+    categories: Mapped[list["Category"]] = relationship(
+        back_populates="owner",
+        cascade="all, delete-orphan"
+    )
+
+    labels: Mapped[list["Label"]] = relationship(
+        back_populates="owner", cascade="all, delete-orphan"
+    )
+
+    inventory_items: Mapped[list["InventoryItem"]] = relationship(
+        back_populates="owner",
+        cascade="all, delete-orphan"
+    )
+
+    custom_products: Mapped[list["CustomProduct"]] = relationship(
+        back_populates="owner",
+        cascade="all, delete-orphan"
+    )
+
+    transactions: Mapped[list["InventoryTransaction"]] = relationship(
+        back_populates="owner",
+        cascade="all, delete-orphan"
+    )
+
+    sessions: Mapped[list["UserSession"]]  = relationship(
+    "UserSession",
+    back_populates="user",
+    cascade="all, delete-orphan",
+    )
+
+    store_memberships: Mapped[list["StoreMembership"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class Store(Base):
+    __tablename__ = "stores"
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    name: Mapped[str] = mapped_column(String(160))
+    owner_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), unique=True, index=True
+    )
+    plan: Mapped[str] = mapped_column(String(30), default="free")
+    subscription_started_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+    subscription_expires_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+    personnel_limit_override: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    industry_id: Mapped[int | None] = mapped_column(
+        ForeignKey("industries.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    operating_mode: Mapped[str] = mapped_column(String(10), default="solo")
+    taxonomy_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    taxonomy_adopted_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+    taxonomy_adopted_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    taxonomy_policy_version: Mapped[int] = mapped_column(Integer, default=0)
+    has_historical_inventory_usage: Mapped[bool] = mapped_column(Boolean, default=False)
+    policy_version: Mapped[int] = mapped_column(Integer, default=1)
+    policy_changed_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    policy_changed_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
+
+    owner: Mapped["User"] = relationship(foreign_keys=[owner_user_id])
+    memberships: Mapped[list["StoreMembership"]] = relationship(
+        back_populates="store", cascade="all, delete-orphan"
+    )
+    roles: Mapped[list["StoreRole"]] = relationship(
+        back_populates="store", cascade="all, delete-orphan"
+    )
+
+
+class StoreModeTransition(Base):
+    __tablename__ = "store_mode_transitions"
+    __table_args__ = (
+        UniqueConstraint("store_id", "transition_id", name="uq_store_mode_transition_request"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    actor_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    actor_membership_id: Mapped[int] = mapped_column(ForeignKey("store_memberships.id", ondelete="RESTRICT"))
+    transition_id: Mapped[str] = mapped_column(String(64))
+    from_mode: Mapped[str] = mapped_column(String(10))
+    to_mode: Mapped[str] = mapped_column(String(10))
+    from_policy_version: Mapped[int] = mapped_column(Integer)
+    to_policy_version: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+
+class StoreRole(Base):
+    __tablename__ = "store_roles"
+    __table_args__ = (UniqueConstraint("store_id", "name", name="uq_store_roles_store_name"),)
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    permissions_json: Mapped[str] = mapped_column(Text, default="[]")
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
+
+    store: Mapped["Store"] = relationship(back_populates="roles")
+    memberships: Mapped[list["StoreMembership"]] = relationship(back_populates="role")
+
+
+class StoreMembership(Base):
+    __tablename__ = "store_memberships"
+    __table_args__ = (
+        UniqueConstraint("store_id", "user_id", name="uq_store_memberships_store_user"),
+        CheckConstraint("status IN ('active', 'inactive')", name="ck_store_memberships_status"),
+        CheckConstraint(
+            "(is_owner AND role_id IS NULL) OR (NOT is_owner AND role_id IS NOT NULL)",
+            name="ck_store_memberships_owner_role",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    role_id: Mapped[int | None] = mapped_column(ForeignKey("store_roles.id", ondelete="RESTRICT"), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    is_owner: Mapped[bool] = mapped_column(Boolean, default=False)
+    temporary_password_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    credentials_notice_viewed_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+    authorization_checked_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
+
+    store: Mapped["Store"] = relationship(back_populates="memberships")
+    user: Mapped["User"] = relationship(back_populates="store_memberships")
+    role: Mapped["StoreRole | None"] = relationship(back_populates="memberships")
+
+
+class StoreActivity(Base):
+    __tablename__ = "store_activity"
+    __table_args__ = (
+        UniqueConstraint(
+            "store_id", "actor_user_id", "operation_id",
+            name="uq_store_activity_actor_operation",
+        ),
+        Index("ix_store_activity_store_accepted", "store_id", "accepted_at"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    actor_user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    actor_membership_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    actor_display_name: Mapped[str] = mapped_column(String(250))
+    actor_role_name: Mapped[str] = mapped_column(String(100))
+    operation_id: Mapped[str] = mapped_column(String(80))
+    target_entity: Mapped[str] = mapped_column(String(50), index=True)
+    target_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    action: Mapped[str] = mapped_column(String(80), index=True)
+    before_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    after_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    outcome: Mapped[str] = mapped_column(String(20), index=True)
+    client_occurred_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+    accepted_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, index=True)
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+    __table_args__ = (
+        Index(
+            "ix_user_sessions_user_fingerprint_active",
+            "user_id",
+            "device_fingerprint",
+            "is_active",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        index=True,
+    )
+
+    device_fingerprint: Mapped[str] = mapped_column(
+        String(255),
+        index=True,
+    )
+
+    access_token: Mapped[str] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        UTC_DATETIME,
+        default=_now,
+    )
+
+    last_seen: Mapped[datetime] = mapped_column(
+        UTC_DATETIME,
+        default=_now,
+        onupdate=_now,
+    )
+
+    user: Mapped["User"] = relationship(
+        back_populates="sessions",
+    )
+
+
+class PasswordRecoveryEvent(Base):
+    """Enumeration-safe audit and rate-limit record; never stores an identifier or secret."""
+
+    __tablename__ = "password_recovery_events"
+    __table_args__ = (
+        Index("ix_password_recovery_identifier_time", "identifier_hash", "requested_at"),
+        Index("ix_password_recovery_source_time", "source_hash", "requested_at"),
+        CheckConstraint(
+            "outcome IN ('channel_unavailable','rate_limited')",
+            name="ck_password_recovery_event_outcome",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    identifier_hash: Mapped[str] = mapped_column(String(64))
+    source_hash: Mapped[str] = mapped_column(String(64))
+    outcome: Mapped[str] = mapped_column(String(32))
+    requested_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+
+# ---------- Sector/category reference contract ----------
+class ReferenceSector(Base):
+    __tablename__ = "reference_sectors"
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    reference_key: Mapped[str] = mapped_column(String(80), unique=True)
+    code: Mapped[str] = mapped_column(String(2), unique=True)
+    name_fa: Mapped[str] = mapped_column(String(160))
+    taxonomy_version: Mapped[str] = mapped_column(String(40), index=True)
+    custom_categories_allowed: Mapped[bool] = mapped_column(Boolean, default=True)
+    label_status: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    categories: Mapped[list["ReferenceCategory"]] = relationship(
+        back_populates="sector", cascade="all, delete-orphan"
+    )
+
+
+class ReferenceCategory(Base):
+    __tablename__ = "reference_categories"
+    __table_args__ = (
+        UniqueConstraint("sector_id", "code", name="uq_reference_categories_sector_code"),
+        CheckConstraint(
+            "approval_status IN ('approved','proposed')",
+            name="ck_reference_categories_approval",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    sector_id: Mapped[int] = mapped_column(
+        ForeignKey("reference_sectors.id", ondelete="CASCADE"), index=True
+    )
+    reference_key: Mapped[str] = mapped_column(String(80), unique=True)
+    code: Mapped[str] = mapped_column(String(24))
+    name_fa: Mapped[str] = mapped_column(String(160))
+    examples_json: Mapped[str] = mapped_column(Text, default="[]")
+    approval_status: Mapped[str] = mapped_column(String(20), index=True)
+    taxonomy_version: Mapped[str] = mapped_column(String(40), index=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    sector: Mapped["ReferenceSector"] = relationship(back_populates="categories")
+
+
+class CanonicalTaxonomySeed(Base):
+    __tablename__ = "canonical_taxonomy_seeds"
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    taxonomy_version: Mapped[str] = mapped_column(String(40), unique=True)
+    content_sha256: Mapped[str] = mapped_column(String(64), unique=True)
+    sector_count: Mapped[int] = mapped_column(Integer)
+    approved_category_count: Mapped[int] = mapped_column(Integer)
+    proposed_category_count: Mapped[int] = mapped_column(Integer)
+    applied_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+
+# ---------- Category ----------
+class Category(Base):
+    __tablename__ = "categories"
+    __table_args__ = (
+        UniqueConstraint("store_id", "name", name="uq_categories_store_name"),
+        UniqueConstraint("id", "store_id", name="uq_categories_id_store"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    code: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    sector_code: Mapped[str | None] = mapped_column(String(2), nullable=True, index=True)
+    origin: Mapped[str] = mapped_column(String(20), default="custom", index=True)
+    approval_status: Mapped[str] = mapped_column(String(20), default="approved")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    reference_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    reference_category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("reference_categories.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    taxonomy_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        index=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    updated_at: Mapped[datetime] = mapped_column(
+        UTC_DATETIME, default=_now, onupdate=_now
+    )
+
+    owner: Mapped["User"] = relationship(back_populates="categories")
+
+
+class Label(Base):
+    __tablename__ = "labels"
+    __table_args__ = (
+        UniqueConstraint("store_id", "normalized_name", name="uq_labels_store_normalized_name"),
+        UniqueConstraint("id", "store_id", name="uq_labels_id_store"),
+    )
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(60))
+    normalized_name: Mapped[str] = mapped_column(String(60))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
+    owner: Mapped["User"] = relationship(back_populates="labels")
+    inventory_items: Mapped[list["InventoryItem"]] = relationship(
+        secondary="inventory_item_labels", back_populates="labels"
+    )
+
+
+class InventoryItemLabel(Base):
+    __tablename__ = "inventory_item_labels"
+    inventory_item_id: Mapped[int] = mapped_column(
+        ForeignKey("inventory_items.id", ondelete="CASCADE"), primary_key=True
+    )
+    label_id: Mapped[int] = mapped_column(
+        ForeignKey("labels.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
+# ---------- Shared Catalog ----------
+class CatalogProduct(Base):
+    __tablename__ = "catalog_products"
+    __table_args__ = (
+        CheckConstraint(
+            "(NOT is_packaged AND pack_size IS NULL) OR "
+            "(is_packaged AND pack_size > 0)",
+            name="ck_catalog_products_packaging",
+        ),
+        Index(
+            "ix_catalog_products_shared_active_industry_created",
+            "is_shared",
+            "is_active",
+            "industry_id",
+            "created_at",
+        ),
+        Index(
+            "ix_catalog_products_cursor_scope",
+            "is_shared",
+            "is_active",
+            "industry_id",
+            "created_at",
+            "id",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+
+    industry_id: Mapped[int] = mapped_column(
+        ForeignKey("industries.id"),
+        index=True,
+    )
+
+    industry: Mapped["Industry"] = relationship(
+        back_populates="catalog_products"
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(200),
+        index=True,
+    )
+
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    brand: Mapped[str | None] = mapped_column(
+        String(120),
+        nullable=True,
+    )
+
+    image_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    is_packaged: Mapped[bool] = mapped_column(Boolean, default=False)
+    pack_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Legacy user-created products are represented by a private catalog row
+    # because inventory_items.catalog_product_id is currently non-nullable.
+    # Only shared rows belong to the administrator-managed catalog.
+    is_shared: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+    # Archive/restore toggles this flag. Permanent deletion is an explicit,
+    # transactional service operation that deletes dependent inventory first.
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        UTC_DATETIME,
+        default=_now,
+    )
+
+    inventory_items: Mapped[list["InventoryItem"]] = relationship(
+        back_populates="catalog_product"
+    )
+    family_links: Mapped[list["CatalogProductFamily"]] = relationship(
+        back_populates="catalog_product", cascade="all, delete-orphan"
+    )
+    reference_media_links: Mapped[list["CatalogProductMedia"]] = relationship(
+        back_populates="catalog_product", cascade="all, delete-orphan"
+    )
+
+    def _reference_url(self, role: str) -> str | None:
+        from .config import settings
+        if not settings.CATALOG_REFERENCE_MEDIA_V1_ENABLED:
+            return None
+        for link in self.reference_media_links:
+            if (
+                link.role == role
+                and link.media_asset.validation_status == "approved"
+            ):
+                return f"/api/catalog-reference-assets/{link.media_asset.id}"
+        return None
+
+    def _reference_asset(self, role: str) -> dict | None:
+        from .config import settings
+        if not settings.CATALOG_REFERENCE_MEDIA_V1_ENABLED:
+            return None
+        for link in self.reference_media_links:
+            asset = link.media_asset
+            if link.role == role and asset.validation_status == "approved":
+                return {
+                    "asset_id": asset.id,
+                    "content_hash": asset.content_sha256,
+                    "storage_key": asset.storage_key,
+                    "width": asset.width,
+                    "height": asset.height,
+                    "byte_size": asset.byte_size,
+                }
+        return None
+
+    @property
+    def reference_preview_url(self) -> str | None:
+        return self._reference_url("preview")
+
+    @property
+    def reference_detail_url(self) -> str | None:
+        return self._reference_url("detail")
+
+    @property
+    def reference_preview(self) -> dict | None:
+        return self._reference_asset("preview")
+
+    @property
+    def reference_detail(self) -> dict | None:
+        return self._reference_asset("detail")
+
+    @property
+    def reference_family_slug(self) -> str | None:
+        from .config import settings
+        if not settings.CATALOG_REFERENCE_MEDIA_V1_ENABLED:
+            return None
+        for link in self.family_links:
+            if link.family.is_active:
+                return link.family.slug
+        return None
+
+
+class CatalogFamily(Base):
+    __tablename__ = "catalog_families"
+    __table_args__ = (
+        UniqueConstraint("industry_id", "slug", name="uq_catalog_families_industry_slug"),
+        CheckConstraint("sort_order >= 0", name="ck_catalog_families_sort_order"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    industry_id: Mapped[int] = mapped_column(
+        ForeignKey("industries.id", ondelete="RESTRICT"), index=True
+    )
+    slug: Mapped[str] = mapped_column(String(120))
+    name: Mapped[str] = mapped_column(String(200))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
+
+    product_links: Mapped[list["CatalogProductFamily"]] = relationship(
+        back_populates="family", cascade="all, delete-orphan"
+    )
+
+
+class CatalogProductFamily(Base):
+    __tablename__ = "catalog_product_families"
+
+    catalog_product_id: Mapped[int] = mapped_column(
+        ForeignKey("catalog_products.id", ondelete="CASCADE"), primary_key=True
+    )
+    catalog_family_id: Mapped[int] = mapped_column(
+        ForeignKey("catalog_families.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    catalog_product: Mapped["CatalogProduct"] = relationship(back_populates="family_links")
+    family: Mapped["CatalogFamily"] = relationship(back_populates="product_links")
+
+
+class ReferenceMediaAsset(Base):
+    __tablename__ = "reference_media_assets"
+    __table_args__ = (
+        UniqueConstraint("source_sha256", "variant_type", name="uq_reference_assets_source_variant"),
+        UniqueConstraint("content_sha256", "variant_type", name="uq_reference_assets_content_variant"),
+        CheckConstraint("variant_type IN ('preview','detail')", name="ck_reference_assets_variant"),
+        CheckConstraint(
+            "validation_status IN ('approved','review','rejected')",
+            name="ck_reference_assets_validation",
+        ),
+        CheckConstraint("byte_size > 0 AND width > 0 AND height > 0", name="ck_reference_assets_dimensions"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    source_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    content_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    mime_type: Mapped[str] = mapped_column(String(80))
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    byte_size: Mapped[int] = mapped_column(BigInteger)
+    # Preview/detail rows may intentionally share one physical blob when a
+    # small source produces byte-identical variants.
+    storage_key: Mapped[str] = mapped_column(String(500))
+    variant_type: Mapped[str] = mapped_column(String(20), index=True)
+    validation_status: Mapped[str] = mapped_column(String(20), index=True)
+    source_reference: Mapped[str] = mapped_column(String(500))
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    product_links: Mapped[list["CatalogProductMedia"]] = relationship(
+        back_populates="media_asset"
+    )
+
+
+class CatalogProductMedia(Base):
+    __tablename__ = "catalog_product_media"
+    __table_args__ = (
+        UniqueConstraint("catalog_product_id", "role", name="uq_catalog_product_media_role"),
+        CheckConstraint("role IN ('preview','detail')", name="ck_catalog_product_media_role"),
+        CheckConstraint("sort_order >= 0", name="ck_catalog_product_media_sort_order"),
+    )
+
+    catalog_product_id: Mapped[int] = mapped_column(
+        ForeignKey("catalog_products.id", ondelete="CASCADE"), primary_key=True
+    )
+    media_asset_id: Mapped[str] = mapped_column(
+        ForeignKey("reference_media_assets.id", ondelete="RESTRICT"), primary_key=True
+    )
+    role: Mapped[str] = mapped_column(String(20))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    catalog_product: Mapped["CatalogProduct"] = relationship(back_populates="reference_media_links")
+    media_asset: Mapped["ReferenceMediaAsset"] = relationship(back_populates="product_links")
+
+
+class CatalogRelease(Base):
+    __tablename__ = "catalog_releases"
+    __table_args__ = (
+        UniqueConstraint("industry_id", "version", name="uq_catalog_releases_industry_version"),
+        UniqueConstraint("request_id", name="uq_catalog_releases_request"),
+        CheckConstraint(
+            "status IN ('staging','published','superseded','failed')",
+            name="ck_catalog_releases_status",
+        ),
+        CheckConstraint("version > 0", name="ck_catalog_releases_version"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(36))
+    industry_id: Mapped[int] = mapped_column(ForeignKey("industries.id", ondelete="RESTRICT"), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    manifest_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    manifest_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    previous_release_id: Mapped[str | None] = mapped_column(
+        ForeignKey("catalog_releases.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    published_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+
+
+class CatalogReleasePointer(Base):
+    __tablename__ = "catalog_release_pointers"
+
+    industry_id: Mapped[int] = mapped_column(
+        ForeignKey("industries.id", ondelete="RESTRICT"), primary_key=True
+    )
+    release_id: Mapped[str] = mapped_column(
+        ForeignKey("catalog_releases.id", ondelete="RESTRICT"), unique=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
+
+# ---------- Durable product media ----------
+class MediaAsset(Base):
+    __tablename__ = "media_assets"
+    __table_args__ = (
+        UniqueConstraint(
+            "store_id", "actor_user_id", "transfer_id",
+            name="uq_media_assets_store_actor_transfer",
+        ),
+        Index("ix_media_assets_store_created", "store_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    store_id: Mapped[int] = mapped_column(
+        ForeignKey("stores.id", ondelete="CASCADE"), index=True
+    )
+    actor_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    transfer_id: Mapped[str] = mapped_column(String(36))
+    content_sha256: Mapped[str] = mapped_column(String(64))
+    storage_key: Mapped[str] = mapped_column(String(500))
+    mime_type: Mapped[str] = mapped_column(String(80))
+    byte_size: Mapped[int] = mapped_column(BigInteger)
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    available_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+
+# ---------- User Inventory ----------
+class InventoryItem(Base):
+    __tablename__ = "inventory_items"
+    __table_args__ = (
+        UniqueConstraint(
+            "store_id",
+            "catalog_product_id",
+            name="uq_inventory_items_store_catalog",
+        ),
+        UniqueConstraint("id", "store_id", name="uq_inventory_items_id_store"),
+        ForeignKeyConstraint(
+            ["category_id", "store_id"],
+            ["categories.id", "categories.store_id"],
+            name="fk_inventory_items_category_store",
+        ),
+        CheckConstraint("quantity >= 0", name="ck_inventory_items_quantity"),
+        CheckConstraint("price >= 0", name="ck_inventory_items_price"),
+        CheckConstraint("sale_price IS NULL OR sale_price >= 0", name="ck_inventory_items_sale_price"),
+        CheckConstraint("purchase_price IS NULL OR purchase_price >= 0", name="ck_inventory_items_purchase_price"),
+        CheckConstraint(
+            "low_stock_threshold >= 0",
+            name="ck_inventory_items_low_stock_threshold",
+        ),
+        Index(
+            "ix_inventory_items_store_visibility_created",
+            "store_id",
+            "deleted_at",
+            "is_hidden",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        index=True
+    )
+
+    catalog_product_id: Mapped[int] = mapped_column(
+        ForeignKey("catalog_products.id"),
+        index=True
+    )
+
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id"), nullable=True, index=True
+    )
+
+    quantity: Mapped[int] = mapped_column(BigInteger, default=0)
+    # `price` is the legacy wire/storage alias for sale_price. New clients use
+    # the nullable canonical fields; writes keep the alias synchronized.
+    price: Mapped[int] = mapped_column(BigInteger, default=0)
+    sale_price: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    purchase_price: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    media_asset_id: Mapped[str | None] = mapped_column(
+        ForeignKey("media_assets.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    media_asset: Mapped["MediaAsset | None"] = relationship()
+
+    @property
+    def media_version(self) -> int | None:
+        return self.media_asset.version if self.media_asset else None
+
+    @property
+    def media_content_sha256(self) -> str | None:
+        return self.media_asset.content_sha256 if self.media_asset else None
+
+    @property
+    def media_byte_size(self) -> int | None:
+        return self.media_asset.byte_size if self.media_asset else None
+
+    @property
+    def media_preview_url(self) -> str | None:
+        return f"/api/media/{self.media_asset_id}/preview" if self.media_asset_id else None
+
+    @property
+    def media_detail_url(self) -> str | None:
+        return f"/api/media/{self.media_asset_id}/detail" if self.media_asset_id else None
+
+    is_catalog_backed: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        index=True,
+    )
+
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+    custom_label: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True
+    )
+
+    note: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
+    low_stock_threshold: Mapped[int] = mapped_column(BigInteger, default=0)
+
+    low_stock_alert: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False
+    )
+
+    is_hidden: Mapped[bool] = mapped_column(
+    Boolean,
+    default=False
+    )
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        UTC_DATETIME,
+        nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    updated_at: Mapped[datetime] = mapped_column(
+        UTC_DATETIME,
+        default=_now,
+        onupdate=_now
+    )
+
+    owner: Mapped["User"] = relationship(
+        back_populates="inventory_items"
+    )
+
+    catalog_product: Mapped["CatalogProduct"] = relationship(
+        back_populates="inventory_items"
+    )
+
+    transactions: Mapped[list["InventoryTransaction"]] = relationship(
+        back_populates="inventory_item",
+        cascade="all, delete-orphan",
+        foreign_keys="InventoryTransaction.inventory_item_id",
+    )
+
+    labels: Mapped[list["Label"]] = relationship(
+        secondary="inventory_item_labels", back_populates="inventory_items"
+    )
+
+    barcodes: Mapped[list["ProductBarcode"]] = relationship(
+        back_populates="inventory_item",
+        cascade="all, delete-orphan",
+        foreign_keys="ProductBarcode.product_id",
+    )
+
+    @property
+    def label_ids(self) -> list[int]:
+        return [label.id for label in self.labels]
+
+    @property
+    def status(self) -> str:
+        if self.quantity <= 0:
+            return "out_of_stock"
+
+        if (
+            self.low_stock_threshold > 0
+            and self.quantity <= self.low_stock_threshold
+        ):
+            return "low_stock"
+
+        return "in_stock"
+
+
+class ProductBarcode(Base):
+    __tablename__ = "product_barcodes"
+    __table_args__ = (
+        UniqueConstraint("store_id", "value", name="uq_product_barcodes_store_value"),
+        UniqueConstraint("id", "store_id", name="uq_product_barcodes_id_store"),
+        ForeignKeyConstraint(
+            ["inventory_item_id", "store_id"],
+            ["inventory_items.id", "inventory_items.store_id"],
+            name="fk_product_barcodes_inventory_store",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("source IN ('manufacturer', 'tanzim')", name="ck_product_barcodes_source"),
+        CheckConstraint("meaning IN ('unit', 'package')", name="ck_product_barcodes_meaning"),
+        CheckConstraint("scan_quantity > 0", name="ck_product_barcodes_scan_quantity"),
+        Index("ix_product_barcodes_store_active_value", "store_id", "is_active", "value"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    product_id: Mapped[int] = mapped_column("inventory_item_id", ForeignKey("inventory_items.id", ondelete="CASCADE"), index=True)
+    value: Mapped[str] = mapped_column(String(64))
+    source: Mapped[str] = mapped_column(String(20))
+    symbology: Mapped[str] = mapped_column(String(20), default="code128")
+    meaning: Mapped[str] = mapped_column(String(20), default="unit")
+    scan_quantity: Mapped[int] = mapped_column(BigInteger, default=1)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    lifecycle_status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    reservation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("barcode_reservations.id", ondelete="RESTRICT"), nullable=True, unique=True
+    )
+    category_reference_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
+
+    inventory_item: Mapped["InventoryItem"] = relationship(
+        back_populates="barcodes", foreign_keys=[product_id]
+    )
+
+
+class BarcodeReservation(Base):
+    __tablename__ = "barcode_reservations"
+    __table_args__ = (
+        UniqueConstraint("store_id", "value", name="uq_barcode_reservations_store_value"),
+        CheckConstraint("origin IN ('external','internal','legacy_unknown')", name="ck_barcode_reservations_origin"),
+        CheckConstraint("status IN ('active','retired','deleted')", name="ck_barcode_reservations_status"),
+        CheckConstraint("target_type IN ('product')", name="ck_barcode_reservations_target_type"),
+        Index("ix_barcode_reservations_store_status_value", "store_id", "status", "value"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    value: Mapped[str] = mapped_column(String(64))
+    target_type: Mapped[str] = mapped_column(String(20), default="product")
+    target_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    origin: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), default="active")
+    category_reference_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    replaced_by_reservation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("barcode_reservations.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    retired_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+
+
+class InventoryMovement(Base):
+    __tablename__ = "inventory_movements"
+    __table_args__ = (
+        UniqueConstraint(
+            "store_id", "actor_user_id", "operation_id",
+            name="uq_inventory_movements_store_actor_operation",
+        ),
+        UniqueConstraint(
+            "store_id", "actor_user_id", "reverses_operation_id",
+            name="uq_inventory_movements_store_actor_reversal",
+        ),
+        ForeignKeyConstraint(
+            ["product_id", "store_id"],
+            ["inventory_items.id", "inventory_items.store_id"],
+            name="fk_inventory_movements_product_store",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["barcode_id", "store_id"],
+            ["product_barcodes.id", "product_barcodes.store_id"],
+            name="fk_inventory_movements_barcode_store",
+        ),
+        ForeignKeyConstraint(
+            ["invoice_id", "store_id"], ["invoices.id", "invoices.store_id"],
+            name="fk_inventory_movements_invoice_store", ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["invoice_line_id", "store_id"], ["invoice_lines.id", "invoice_lines.store_id"],
+            name="fk_inventory_movements_invoice_line_store", ondelete="RESTRICT",
+        ),
+        CheckConstraint("kind IN ('receive', 'issue', 'correction', 'reversal')", name="ck_inventory_movements_kind"),
+        CheckConstraint("delta <> 0", name="ck_inventory_movements_delta"),
+        CheckConstraint("before_quantity >= 0 AND after_quantity >= 0", name="ck_inventory_movements_nonnegative"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id", ondelete="CASCADE"), index=True)
+    actor_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    actor_membership_id: Mapped[int] = mapped_column(ForeignKey("store_memberships.id"), index=True)
+    operation_id: Mapped[str] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(20))
+    delta: Mapped[int] = mapped_column(BigInteger)
+    correction_quantity: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    scan_source: Mapped[str] = mapped_column(String(20))
+    barcode_id: Mapped[int | None] = mapped_column(ForeignKey("product_barcodes.id", ondelete="SET NULL"), nullable=True)
+    barcode_value: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    scan_quantity: Mapped[int] = mapped_column(BigInteger, default=1)
+    before_quantity: Mapped[int] = mapped_column(BigInteger)
+    after_quantity: Mapped[int] = mapped_column(BigInteger)
+    reverses_operation_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    invoice_id: Mapped[int | None] = mapped_column(ENTITY_ID, nullable=True, index=True)
+    invoice_line_id: Mapped[int | None] = mapped_column(ENTITY_ID, nullable=True, index=True)
+    client_occurred_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+
+class Counterparty(Base):
+    __tablename__ = "counterparties"
+    __table_args__ = (
+        UniqueConstraint("id", "store_id", name="uq_counterparties_id_store"),
+        CheckConstraint("kind IN ('person', 'organization')", name="ck_counterparties_kind"),
+        Index("ix_counterparties_store_name", "store_id", "name"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    kind: Mapped[str] = mapped_column(String(16), default="person")
+    name: Mapped[str] = mapped_column(String(160))
+    phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
+
+
+class Invoice(Base):
+    __tablename__ = "invoices"
+    __table_args__ = (
+        UniqueConstraint("store_id", "post_operation_id", name="uq_invoices_store_post_operation"),
+        UniqueConstraint("store_id", "cancel_operation_id", name="uq_invoices_store_cancel_operation"),
+        UniqueConstraint("id", "store_id", name="uq_invoices_id_store"),
+        CheckConstraint("invoice_type IN ('purchase', 'sale')", name="ck_invoices_type"),
+        CheckConstraint("status IN ('posted', 'cancelled')", name="ck_invoices_status"),
+        CheckConstraint("total_amount >= 0", name="ck_invoices_total_nonnegative"),
+        Index("ix_invoices_store_posted", "store_id", "posted_at"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    actor_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    actor_membership_id: Mapped[int] = mapped_column(ForeignKey("store_memberships.id", ondelete="RESTRICT"))
+    invoice_type: Mapped[str] = mapped_column(String(12), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    counterparty_id: Mapped[int | None] = mapped_column(
+        ForeignKey("counterparties.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    counterparty: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    status: Mapped[str] = mapped_column(String(12), default="posted", index=True)
+    total_amount: Mapped[int] = mapped_column(BigInteger)
+    post_operation_id: Mapped[str] = mapped_column(String(64))
+    cancel_operation_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    posted_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    cancelled_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+    cancelled_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    cancelled_by_membership_id: Mapped[int | None] = mapped_column(
+        ForeignKey("store_memberships.id", ondelete="RESTRICT"), nullable=True
+    )
+    lines: Mapped[list["InvoiceLine"]] = relationship(
+        back_populates="invoice", cascade="all, delete-orphan", order_by="InvoiceLine.position"
+    )
+
+
+class InvoiceLine(Base):
+    __tablename__ = "invoice_lines"
+    __table_args__ = (
+        UniqueConstraint("invoice_id", "product_id", name="uq_invoice_lines_invoice_product"),
+        UniqueConstraint("id", "store_id", name="uq_invoice_lines_id_store"),
+        ForeignKeyConstraint(
+            ["invoice_id", "store_id"], ["invoices.id", "invoices.store_id"],
+            name="fk_invoice_lines_invoice_store", ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["product_id", "store_id"], ["inventory_items.id", "inventory_items.store_id"],
+            name="fk_invoice_lines_product_store", ondelete="RESTRICT",
+        ),
+        CheckConstraint("quantity > 0", name="ck_invoice_lines_quantity_positive"),
+        CheckConstraint("base_quantity > 0", name="ck_invoice_lines_base_quantity_positive"),
+        CheckConstraint("unit_price >= 0", name="ck_invoice_lines_price_nonnegative"),
+        CheckConstraint("line_total >= 0", name="ck_invoice_lines_total_nonnegative"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True, autoincrement=True)
+    invoice_id: Mapped[int] = mapped_column(ENTITY_ID, index=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    product_id: Mapped[int] = mapped_column(ENTITY_ID, index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    product_name: Mapped[str] = mapped_column(String(200))
+    quantity: Mapped[int] = mapped_column(BigInteger)
+    unit: Mapped[str] = mapped_column(String(40))
+    pack_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    base_quantity: Mapped[int] = mapped_column(BigInteger)
+    unit_price: Mapped[int] = mapped_column(BigInteger)
+    line_total: Mapped[int] = mapped_column(BigInteger)
+    before_quantity: Mapped[int] = mapped_column(BigInteger)
+    after_quantity: Mapped[int] = mapped_column(BigInteger)
+    invoice: Mapped["Invoice"] = relationship(back_populates="lines")
+
+
+class SyncOperation(Base):
+    __tablename__ = "sync_operations"
+    __table_args__ = (
+        UniqueConstraint(
+            "store_id", "actor_user_id", "operation_id",
+            name="uq_sync_store_actor_operation",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    actor_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    operation_id: Mapped[str] = mapped_column(String(64), index=True)
+    request_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    execution_mode: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    policy_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    result_payload: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+
+class SyncChange(Base):
+    __tablename__ = "sync_changes"
+    __table_args__ = (
+        Index("ix_sync_changes_store_cursor", "store_id", "id"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    actor_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    entity: Mapped[str] = mapped_column(String(40), index=True)
+    entity_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    operation: Mapped[str] = mapped_column(String(20))
+    payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+
+class SubscriptionPlan(Base):
+    __tablename__ = "subscription_plans"
+    __table_args__ = (
+        CheckConstraint(
+            "price_minor IS NULL OR (price_minor >= 0 AND price_minor % 10 = 0)",
+            name="ck_subscription_plans_price_toman_storage",
+        ),
+        CheckConstraint(
+            "(duration IS NULL AND duration_unit IS NULL) OR "
+            "(duration > 0 AND duration_unit IN ('day','month','year'))",
+            name="ck_subscription_plans_duration_pair",
+        ),
+        CheckConstraint(
+            "NOT is_offer_available OR (id IN ('personal','pro','vip') "
+            "AND price_minor IS NOT NULL AND price_minor > 0 "
+            "AND duration IS NOT NULL AND duration > 0 "
+            "AND duration_unit IS NOT NULL AND duration_unit IN ('day','month','year'))",
+            name="ck_subscription_plans_offer_complete",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    price_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    currency: Mapped[str] = mapped_column(String(10), default="IRR")
+    duration: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    duration_unit: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    is_offer_available: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    features_json: Mapped[str] = mapped_column(Text, default="{}")
+    limits_json: Mapped[str] = mapped_column(Text, default="{}")
+    policy_revision: Mapped[int] = mapped_column(Integer, default=1)
+    commercial_status: Mapped[str] = mapped_column(String(30), default="legacy_unapproved")
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
+
+
+class StorePlanGrant(Base):
+    __tablename__ = "store_plan_grants"
+    __table_args__ = (
+        UniqueConstraint("request_id", name="uq_store_plan_grants_request"),
+        CheckConstraint("ends_at > starts_at", name="ck_store_plan_grants_window"),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(64))
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    plan_id: Mapped[str] = mapped_column(ForeignKey("subscription_plans.id", ondelete="RESTRICT"), index=True)
+    source: Mapped[str] = mapped_column(String(40))
+    reason: Mapped[str] = mapped_column(Text)
+    starts_at: Mapped[datetime] = mapped_column(UTC_DATETIME)
+    ends_at: Mapped[datetime] = mapped_column(UTC_DATETIME)
+    granted_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+    revoked_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    revocation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_logs"
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    actor_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    # Intentionally not a foreign key: the audit trail must survive target deletion.
+    target_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(80), index=True)
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, index=True)
+
+
+# ---------- Custom Products ----------
+class CustomProduct(Base):
+    __tablename__ = "custom_products"
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        index=True
+    )
+
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    quantity: Mapped[int] = mapped_column(BigInteger, default=0)
+    price: Mapped[int] = mapped_column(BigInteger, default=0)
+
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    updated_at: Mapped[datetime] = mapped_column(
+        UTC_DATETIME,
+        default=_now,
+        onupdate=_now
+    )
+
+    owner: Mapped["User"] = relationship(
+        back_populates="custom_products"
+    )
+
+# ---------- Inventory Transactions ----------
+class InventoryTransaction(Base):
+    __tablename__ = "inventory_transactions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["inventory_item_id", "store_id"],
+            ["inventory_items.id", "inventory_items.store_id"],
+            name="fk_inventory_transactions_inventory_store",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True)
+    actor_user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        index=True
+    )
+
+    inventory_item_id: Mapped[int] = mapped_column(
+        ForeignKey("inventory_items.id"),
+        index=True
+    )
+
+    type: Mapped[str] = mapped_column(String(20))
+    quantity: Mapped[int] = mapped_column(BigInteger)
+
+    before_quantity: Mapped[int] = mapped_column(BigInteger)
+    after_quantity: Mapped[int] = mapped_column(BigInteger)
+
+    note: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    owner: Mapped["User"] = relationship(
+        back_populates="transactions"
+    )
+
+    inventory_item: Mapped["InventoryItem"] = relationship(
+        back_populates="transactions", foreign_keys=[inventory_item_id]
+    )
+
+
+class Industry(Base):
+    __tablename__ = "industries"
+
+    id: Mapped[int] = mapped_column(ENTITY_ID, primary_key=True)
+
+    name: Mapped[str] = mapped_column(
+        String(100),
+        unique=True,
+        index=True,
+    )
+
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+    )
+    reference_sector_id: Mapped[int | None] = mapped_column(
+        ForeignKey("reference_sectors.id", ondelete="RESTRICT"), nullable=True, unique=True
+    )
+    sector_code: Mapped[str | None] = mapped_column(String(2), nullable=True, unique=True)
+    taxonomy_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+    # NULL is deliberately interpreted as every existing tool enabled. This
+    # keeps pre-migration industries behaviorally unchanged.
+    tools_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    catalog_products: Mapped[list["CatalogProduct"]] = relationship(
+        back_populates="industry",
+    )
+
+    users: Mapped[list["User"]] = relationship(
+        back_populates="industry"
+    )
+
+
+class AppLog(Base):
+    __tablename__ = "app_logs"
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, index=True)
+    level: Mapped[str] = mapped_column(String(20), index=True)
+    source: Mapped[str] = mapped_column(String(32), index=True)
+    event: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    store_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    message: Mapped[str] = mapped_column(Text)
+    details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+
+class SubscriptionPayment(Base):
+    __tablename__ = "subscription_payments"
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    order_ref: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    dp_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    store_id: Mapped[int | None] = mapped_column(ForeignKey("stores.id"), nullable=True, index=True)
+    plan_id: Mapped[str] = mapped_column(String(40), index=True)
+    amount_toman: Mapped[int] = mapped_column(BigInteger)
+    is_first_month_discount: Mapped[bool] = mapped_column(Boolean, default=False)
+    gateway: Mapped[str] = mapped_column(String(32), default="dongipay")
+    status: Mapped[str] = mapped_column(String(32), default="created", index=True)
+    pay_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ref_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, index=True)
+    verified_at: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+
+
+class LogApp(Base):
+    __tablename__ = "log_apps"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    api_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    logs: Mapped[list["CentralLog"]] = relationship(back_populates="app", cascade="all, delete-orphan")
+    rules: Mapped[list["LogRule"]] = relationship(back_populates="app", cascade="all, delete-orphan")
+
+
+class CentralLog(Base):
+    __tablename__ = "central_logs"
+    __table_args__ = (
+        CheckConstraint("level IN ('debug', 'info', 'warn', 'error', 'critical', 'audit')", name="ck_central_logs_level"),
+        Index("ix_central_logs_app_time", "app_id", "created_at"),
+        Index("ix_central_logs_level_time", "level", "created_at"),
+        Index("ix_central_logs_category", "category"),
+        Index("ix_central_logs_store", "store_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    app_id: Mapped[str] = mapped_column(ForeignKey("log_apps.id", ondelete="CASCADE"))
+    level: Mapped[str] = mapped_column(String(16))
+    category: Mapped[str] = mapped_column(String(64))
+    action: Mapped[str] = mapped_column(String(64))
+    title: Mapped[str] = mapped_column(Text)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    store_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    context_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    device: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    location: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now)
+
+    app: Mapped["LogApp"] = relationship(back_populates="logs")
+
+
+class LogRule(Base):
+    __tablename__ = "log_rules"
+    __table_args__ = (
+        UniqueConstraint("app_id", "category", name="uq_log_rules_app_category"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    app_id: Mapped[str] = mapped_column(ForeignKey("log_apps.id", ondelete="CASCADE"))
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    min_level: Mapped[str] = mapped_column(String(16), default="info")
+    save_to_db: Mapped[bool] = mapped_column(Boolean, default=True)
+    send_telegram: Mapped[bool] = mapped_column(Boolean, default=True)
+    telegram_thread_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mute_until: Mapped[datetime | None] = mapped_column(UTC_DATETIME, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(UTC_DATETIME, default=_now, onupdate=_now)
+
+    app: Mapped["LogApp"] = relationship(back_populates="rules")
+

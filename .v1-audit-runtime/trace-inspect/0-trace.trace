@@ -1,0 +1,86 @@
+{"version":8,"type":"context-options","origin":"library","browserName":"","playwrightVersion":"1.62.1","options":{},"platform":"win32","wallTime":1795094527766,"monotonicTime":1653.802,"sdkLanguage":"javascript","contextId":"request-context@c199c9aa1179ca01cdba97f55918a3ae","title":"catalog-previous-client-real.spec.ts:14 › previous client reads the restored published Catalog and protected reference image"}
+{"type":"before","callId":"call@13","startTime":1656.868,"class":"APIRequestContext","method":"fetch","params":{"url":"http://127.0.0.1:8002/api/auth/login","method":"POST","jsonData":"{\"username\":\"HosseinKM2000\",\"password\":\"Test-only-system-admin-password-123!\",\"device_fingerprint\":\"gate6-compat-admin-a77f8d5401\"}"},"stepId":"pw:api@37"}
+{"type":"log","callId":"call@13","time":1662.5,"message":"→ POST http://127.0.0.1:8002/api/auth/login"}
+{"type":"log","callId":"call@13","time":1662.553,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"}
+{"type":"log","callId":"call@13","time":1662.587,"message":"  accept: */*"}
+{"type":"log","callId":"call@13","time":1662.6,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@13","time":1662.615,"message":"  content-type: application/json"}
+{"type":"log","callId":"call@13","time":1662.623,"message":"  content-length: 131"}
+{"type":"log","callId":"call@13","time":1941.566,"message":"← 200 OK"}
+{"type":"log","callId":"call@13","time":1941.593,"message":"  date: Thu, 19 Nov 2026 13:22:07 GMT"}
+{"type":"log","callId":"call@13","time":1941.601,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@13","time":1941.617,"message":"  content-length: 1498"}
+{"type":"log","callId":"call@13","time":1941.627,"message":"  content-type: application/json"}
+{"type":"log","callId":"call@13","time":1941.632,"message":"  x-request-id: 1376f255fbb0406d81aac642092e9425"}
+{"type":"log","callId":"call@13","time":1941.637,"message":"  x-tanzim-build: gate6-rehearsal"}
+{"type":"log","callId":"call@13","time":1941.641,"message":"  x-tanzim-schema: 20261118_0021"}
+{"type":"log","callId":"call@13","time":1941.646,"message":"  x-content-type-options: nosniff"}
+{"type":"log","callId":"call@13","time":1941.651,"message":"  x-frame-options: DENY"}
+{"type":"log","callId":"call@13","time":1941.655,"message":"  referrer-policy: strict-origin-when-cross-origin"}
+{"type":"log","callId":"call@13","time":1941.659,"message":"  permissions-policy: camera=(), microphone=(), geolocation=()"}
+{"type":"after","callId":"call@13","endTime":1943.925,"result":{"response":{"url":"http://127.0.0.1:8002/api/auth/login","status":200,"statusText":"OK","headers":[{"name":"date","value":"Thu, 19 Nov 2026 13:22:07 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"1498"},{"name":"content-type","value":"application/json"},{"name":"x-request-id","value":"1376f255fbb0406d81aac642092e9425"},{"name":"x-tanzim-build","value":"gate6-rehearsal"},{"name":"x-tanzim-schema","value":"20261118_0021"},{"name":"x-content-type-options","value":"nosniff"},{"name":"x-frame-options","value":"DENY"},{"name":"referrer-policy","value":"strict-origin-when-cross-origin"},{"name":"permissions-policy","value":"camera=(), microphone=(), geolocation=()"}],"timing":{"startTime":1795094527771,"domainLookupStart":-1,"domainLookupEnd":-1,"connectStart":0,"secureConnectionStart":-1,"connectEnd":6.076000000000022,"requestStart":6.076000000000022,"responseStart":282.00700000000006},"responseEndTiming":283.41200000000003,"fetchUid":"e61373de70446d7d942cafb40993bc78"}}}
+{"type":"before","callId":"call@16","startTime":1950.327,"class":"APIRequestContext","method":"fetch","params":{"url":"http://127.0.0.1:8002/api/auth/signup","method":"POST","jsonData":"{\"username\":\"gate6-compat-a77f8d5401\",\"password\":\"StrongPass123!\",\"device_fingerprint\":\"gate6-compat-owner-a77f8d5401\",\"phone\":\"09399506945\"}"},"stepId":"pw:api@39"}
+{"type":"log","callId":"call@16","time":1951.01,"message":"→ POST http://127.0.0.1:8002/api/auth/signup"}
+{"type":"log","callId":"call@16","time":1951.025,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"}
+{"type":"log","callId":"call@16","time":1951.031,"message":"  accept: */*"}
+{"type":"log","callId":"call@16","time":1951.035,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@16","time":1951.039,"message":"  content-type: application/json"}
+{"type":"log","callId":"call@16","time":1951.046,"message":"  content-length: 141"}
+{"type":"log","callId":"call@16","time":2223.874,"message":"← 201 Created"}
+{"type":"log","callId":"call@16","time":2223.902,"message":"  date: Thu, 19 Nov 2026 13:22:07 GMT"}
+{"type":"log","callId":"call@16","time":2223.909,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@16","time":2223.914,"message":"  content-length: 1485"}
+{"type":"log","callId":"call@16","time":2223.919,"message":"  content-type: application/json"}
+{"type":"log","callId":"call@16","time":2223.923,"message":"  x-request-id: 65698644be5146c7816c5bd31affcfba"}
+{"type":"log","callId":"call@16","time":2223.928,"message":"  x-tanzim-build: gate6-rehearsal"}
+{"type":"log","callId":"call@16","time":2223.933,"message":"  x-tanzim-schema: 20261118_0021"}
+{"type":"log","callId":"call@16","time":2223.937,"message":"  x-content-type-options: nosniff"}
+{"type":"log","callId":"call@16","time":2223.942,"message":"  x-frame-options: DENY"}
+{"type":"log","callId":"call@16","time":2223.947,"message":"  referrer-policy: strict-origin-when-cross-origin"}
+{"type":"log","callId":"call@16","time":2223.952,"message":"  permissions-policy: camera=(), microphone=(), geolocation=()"}
+{"type":"after","callId":"call@16","endTime":2224.65,"result":{"response":{"url":"http://127.0.0.1:8002/api/auth/signup","status":201,"statusText":"Created","headers":[{"name":"date","value":"Thu, 19 Nov 2026 13:22:07 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"1485"},{"name":"content-type","value":"application/json"},{"name":"x-request-id","value":"65698644be5146c7816c5bd31affcfba"},{"name":"x-tanzim-build","value":"gate6-rehearsal"},{"name":"x-tanzim-schema","value":"20261118_0021"},{"name":"x-content-type-options","value":"nosniff"},{"name":"x-frame-options","value":"DENY"},{"name":"referrer-policy","value":"strict-origin-when-cross-origin"},{"name":"permissions-policy","value":"camera=(), microphone=(), geolocation=()"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8002},"timing":{"startTime":1795094528063,"domainLookupStart":-1,"domainLookupEnd":-1,"connectStart":-1,"secureConnectionStart":-1,"connectEnd":-1,"requestStart":0.5090000000000146,"responseStart":273.08400000000006},"responseEndTiming":273.5049999999999,"fetchUid":"65ddbae1f2c49fe2bdb4428390ba0a0d"}}}
+{"type":"before","callId":"call@19","startTime":2230.211,"class":"APIRequestContext","method":"fetch","params":{"url":"http://127.0.0.1:8002/api/admin/users/6/subscription","method":"PATCH","headers":[{"name":"Authorization","value":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzk1Njk5MzI4fQ.EApg8Vxqph4MIr1EdfcbsxHTefPLJWTPkgiDfeA7Slg"},{"name":"X-Device-Fingerprint","value":"gate6-compat-admin-a77f8d5401"}],"jsonData":"{\"plan\":\"personal\",\"subscription_started_at\":\"2026-11-19T13:22:08.338Z\",\"subscription_expires_at\":\"2026-11-20T13:22:08.338Z\"}"},"stepId":"pw:api@41"}
+{"type":"log","callId":"call@19","time":2230.797,"message":"→ PATCH http://127.0.0.1:8002/api/admin/users/6/subscription"}
+{"type":"log","callId":"call@19","time":2230.81,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"}
+{"type":"log","callId":"call@19","time":2230.814,"message":"  accept: */*"}
+{"type":"log","callId":"call@19","time":2230.817,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@19","time":2230.82,"message":"  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzk1Njk5MzI4fQ.EApg8Vxqph4MIr1EdfcbsxHTefPLJWTPkgiDfeA7Slg"}
+{"type":"log","callId":"call@19","time":2230.823,"message":"  X-Device-Fingerprint: gate6-compat-admin-a77f8d5401"}
+{"type":"log","callId":"call@19","time":2230.826,"message":"  content-type: application/json"}
+{"type":"log","callId":"call@19","time":2230.829,"message":"  content-length: 125"}
+{"type":"log","callId":"call@19","time":2271.902,"message":"← 200 OK"}
+{"type":"log","callId":"call@19","time":2271.925,"message":"  date: Thu, 19 Nov 2026 13:22:07 GMT"}
+{"type":"log","callId":"call@19","time":2271.931,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@19","time":2271.936,"message":"  content-length: 978"}
+{"type":"log","callId":"call@19","time":2271.94,"message":"  content-type: application/json"}
+{"type":"log","callId":"call@19","time":2271.944,"message":"  x-request-id: 5c84d4b91f8a4276af49eb9608493c10"}
+{"type":"log","callId":"call@19","time":2271.948,"message":"  x-tanzim-build: gate6-rehearsal"}
+{"type":"log","callId":"call@19","time":2271.952,"message":"  x-tanzim-schema: 20261118_0021"}
+{"type":"log","callId":"call@19","time":2271.956,"message":"  x-content-type-options: nosniff"}
+{"type":"log","callId":"call@19","time":2271.96,"message":"  x-frame-options: DENY"}
+{"type":"log","callId":"call@19","time":2271.964,"message":"  referrer-policy: strict-origin-when-cross-origin"}
+{"type":"log","callId":"call@19","time":2271.968,"message":"  permissions-policy: camera=(), microphone=(), geolocation=()"}
+{"type":"after","callId":"call@19","endTime":2272.562,"result":{"response":{"url":"http://127.0.0.1:8002/api/admin/users/6/subscription","status":200,"statusText":"OK","headers":[{"name":"date","value":"Thu, 19 Nov 2026 13:22:07 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"978"},{"name":"content-type","value":"application/json"},{"name":"x-request-id","value":"5c84d4b91f8a4276af49eb9608493c10"},{"name":"x-tanzim-build","value":"gate6-rehearsal"},{"name":"x-tanzim-schema","value":"20261118_0021"},{"name":"x-content-type-options","value":"nosniff"},{"name":"x-frame-options","value":"DENY"},{"name":"referrer-policy","value":"strict-origin-when-cross-origin"},{"name":"permissions-policy","value":"camera=(), microphone=(), geolocation=()"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8002},"timing":{"startTime":1795094528343,"domainLookupStart":-1,"domainLookupEnd":-1,"connectStart":-1,"secureConnectionStart":-1,"connectEnd":-1,"requestStart":0.31300000000010186,"responseStart":41.16800000000012},"responseEndTiming":41.54900000000043,"fetchUid":"08b7b6e1f11df9d9d20d07357b6b1304"}}}
+{"type":"before","callId":"call@21","startTime":2274.656,"class":"APIRequestContext","method":"fetch","params":{"url":"http://127.0.0.1:8002/api/auth/industry","method":"PATCH","headers":[{"name":"Authorization","value":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2IiwiZXhwIjoxNzk1Njk5MzI4fQ.xHSCrtJTWYUYFOT3tsH1CCiUBleoKPUiaQBQgeR-1KA"},{"name":"X-Device-Fingerprint","value":"gate6-compat-owner-a77f8d5401"},{"name":"X-Client-Data-Schema","value":"3"}],"jsonData":"{\"industry_id\":25}"},"stepId":"pw:api@43"}
+{"type":"log","callId":"call@21","time":2275.13,"message":"→ PATCH http://127.0.0.1:8002/api/auth/industry"}
+{"type":"log","callId":"call@21","time":2275.141,"message":"  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"}
+{"type":"log","callId":"call@21","time":2275.153,"message":"  accept: */*"}
+{"type":"log","callId":"call@21","time":2275.156,"message":"  accept-encoding: gzip,deflate,br"}
+{"type":"log","callId":"call@21","time":2275.159,"message":"  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2IiwiZXhwIjoxNzk1Njk5MzI4fQ.xHSCrtJTWYUYFOT3tsH1CCiUBleoKPUiaQBQgeR-1KA"}
+{"type":"log","callId":"call@21","time":2275.163,"message":"  X-Device-Fingerprint: gate6-compat-owner-a77f8d5401"}
+{"type":"log","callId":"call@21","time":2275.166,"message":"  X-Client-Data-Schema: 3"}
+{"type":"log","callId":"call@21","time":2275.169,"message":"  content-type: application/json"}
+{"type":"log","callId":"call@21","time":2275.173,"message":"  content-length: 18"}
+{"type":"log","callId":"call@21","time":2316.004,"message":"← 200 OK"}
+{"type":"log","callId":"call@21","time":2316.041,"message":"  date: Thu, 19 Nov 2026 13:22:07 GMT"}
+{"type":"log","callId":"call@21","time":2316.05,"message":"  server: uvicorn"}
+{"type":"log","callId":"call@21","time":2316.055,"message":"  content-length: 1410"}
+{"type":"log","callId":"call@21","time":2316.061,"message":"  content-type: application/json"}
+{"type":"log","callId":"call@21","time":2316.066,"message":"  x-request-id: 8557c14c76534c19b3fc764f028197cb"}
+{"type":"log","callId":"call@21","time":2316.071,"message":"  x-tanzim-build: gate6-rehearsal"}
+{"type":"log","callId":"call@21","time":2316.076,"message":"  x-tanzim-schema: 20261118_0021"}
+{"type":"log","callId":"call@21","time":2316.085,"message":"  x-content-type-options: nosniff"}
+{"type":"log","callId":"call@21","time":2316.095,"message":"  x-frame-options: DENY"}
+{"type":"log","callId":"call@21","time":2316.106,"message":"  referrer-policy: strict-origin-when-cross-origin"}
+{"type":"log","callId":"call@21","time":2316.119,"message":"  permissions-policy: camera=(), microphone=(), geolocation=()"}
+{"type":"after","callId":"call@21","endTime":2317.059,"result":{"response":{"url":"http://127.0.0.1:8002/api/auth/industry","status":200,"statusText":"OK","headers":[{"name":"date","value":"Thu, 19 Nov 2026 13:22:07 GMT"},{"name":"server","value":"uvicorn"},{"name":"content-length","value":"1410"},{"name":"content-type","value":"application/json"},{"name":"x-request-id","value":"8557c14c76534c19b3fc764f028197cb"},{"name":"x-tanzim-build","value":"gate6-rehearsal"},{"name":"x-tanzim-schema","value":"20261118_0021"},{"name":"x-content-type-options","value":"nosniff"},{"name":"x-frame-options","value":"DENY"},{"name":"referrer-policy","value":"strict-origin-when-cross-origin"},{"name":"permissions-policy","value":"camera=(), microphone=(), geolocation=()"}],"serverAddr":{"ipAddress":"127.0.0.1","port":8002},"timing":{"startTime":1795094528387,"domainLookupStart":-1,"domainLookupEnd":-1,"connectStart":-1,"secureConnectionStart":-1,"connectEnd":-1,"requestStart":0.29399999999986903,"responseStart":40.86900000000014},"responseEndTiming":41.4409999999998,"fetchUid":"f7f028faf838f7c6bc1b4674e1a5c870"}}}

@@ -1,0 +1,146 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: catalog-previous-client-real.spec.ts >> previous client reads the restored published Catalog and protected reference image
+- Location: tests\e2e\catalog-previous-client-real.spec.ts:14:1
+
+# Error details
+
+```
+Error: expect(page).toHaveURL(expected) failed
+
+Expected pattern: /\/(dashboard|inventory)/
+Received string:  "http://127.0.0.1:4177/auth/login"
+Timeout: 5000ms
+
+Call log:
+  - Expect "toHaveURL" with timeout 5000ms
+    14 × locator resolved to <html lang="fa" dir="rtl" data-appearance="light" data-display-size="normal">…</html>
+       - unexpected value "http://127.0.0.1:4177/auth/login"
+
+```
+
+```yaml
+- region "اعلان‌های برنامه alt+T":
+  - list:
+    - listitem:
+      - button "بستن اعلان":
+        - img
+      - img
+      - text: برنامه برای استفاده آفلاین آماده است
+- main:
+  - region "ورود به تنظیم":
+    - text: تنظیم
+    - heading "ورود به تنظیم" [level=1]
+    - paragraph: با نام کاربری یا شماره موبایل وارد شوید و مدیریت موجودی، فروش و ابزارها را ادامه دهید.
+    - text: ورود امن و سریع به حساب کاربری
+    - region "فرم ورود":
+      - alert:
+        - paragraph: ورود ناموفق بود. اتصال اینترنت را بررسی و دوباره تلاش کنید.
+      - img
+      - text: نام کاربری یا شماره موبایل
+      - textbox "نام کاربری یا شماره موبایل":
+        - /placeholder: مثلاً HosseinKM2000 یا ۰۹۱۲۳۴۵۶۷۸۹
+        - text: gate6-compat-a77f8d5401
+      - paragraph: با نام کاربری ثبت‌شده یا شماره موبایل خود وارد شوید.
+      - img
+      - text: رمز عبور
+      - textbox "رمز عبور":
+        - /placeholder: رمز عبور خود را وارد کنید
+        - text: StrongPass123!
+      - button "Show password":
+        - img
+      - checkbox "مرا به خاطر بسپار"
+      - text: مرا به خاطر بسپار
+      - button "رمز عبور را فراموش کرده‌اید؟"
+      - button "ورود"
+    - paragraph:
+      - text: هنوز حساب ندارید؟
+      - link "ساخت حساب":
+        - /url: /auth/register
+    - paragraph: اطلاعات شما به‌صورت امن نگهداری می‌شود.
+```
+
+# Test source
+
+```ts
+  1  | import crypto from "node:crypto";
+  2  | 
+  3  | import { expect, test } from "@playwright/test";
+  4  | 
+  5  | const api = process.env.E2E_REAL_API_URL;
+  6  | const industryId = Number(process.env.E2E_CATALOG_INDUSTRY_ID);
+  7  | const adminPassword = process.env.E2E_ADMIN_PASSWORD;
+  8  | 
+  9  | test.skip(
+  10 |   !api || !Number.isSafeInteger(industryId) || industryId < 1 || !adminPassword,
+  11 |   "A restored Gate 6 API, Catalog industry and isolated admin credential are required",
+  12 | );
+  13 | 
+  14 | test("previous client reads the restored published Catalog and protected reference image", async ({ page, request }) => {
+  15 |   const suffix = crypto.randomBytes(5).toString("hex");
+  16 |   const adminDevice = `gate6-compat-admin-${suffix}`;
+  17 |   const adminLogin = await request.post(`${api}/auth/login`, { data: {
+  18 |     username: "HosseinKM2000",
+  19 |     password: adminPassword,
+  20 |     device_fingerprint: adminDevice,
+  21 |   } });
+  22 |   expect(adminLogin.ok()).toBeTruthy();
+  23 |   const admin = await adminLogin.json();
+  24 |   const adminHeaders = {
+  25 |     Authorization: `Bearer ${admin.access_token}`,
+  26 |     "X-Device-Fingerprint": adminDevice,
+  27 |   };
+  28 | 
+  29 |   const device = `gate6-compat-owner-${suffix}`;
+  30 |   const password = "StrongPass123!";
+  31 |   const phoneSeed = BigInt(`0x${suffix}`) % 1_000_000_000n;
+  32 |   const signup = await request.post(`${api}/auth/signup`, { data: {
+  33 |     username: `gate6-compat-${suffix}`,
+  34 |     password,
+  35 |     device_fingerprint: device,
+  36 |     phone: `09${phoneSeed.toString().padStart(9, "0")}`,
+  37 |   } });
+  38 |   expect(signup.status()).toBe(201);
+  39 |   const session = await signup.json();
+  40 |   const startedAt = new Date();
+  41 |   const subscription = await request.patch(`${api}/admin/users/${session.user.id}/subscription`, {
+  42 |     headers: adminHeaders,
+  43 |     data: {
+  44 |       plan: "personal",
+  45 |       subscription_started_at: startedAt.toISOString(),
+  46 |       subscription_expires_at: new Date(startedAt.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+  47 |     },
+  48 |   });
+  49 |   expect(subscription.ok()).toBeTruthy();
+  50 |   const selected = await request.patch(`${api}/auth/industry`, {
+  51 |     headers: {
+  52 |       Authorization: `Bearer ${session.access_token}`,
+  53 |       "X-Device-Fingerprint": device,
+  54 |       "X-Client-Data-Schema": "3",
+  55 |     },
+  56 |     data: { industry_id: industryId },
+  57 |   });
+  58 |   expect(selected.ok()).toBeTruthy();
+  59 | 
+  60 |   await page.goto("/auth/login");
+  61 |   await page.locator('input[name="username"]').fill(`gate6-compat-${suffix}`);
+  62 |   await page.locator('input[name="password"]').fill(password);
+  63 |   await page.locator('button[type="submit"]').click();
+> 64 |   await expect(page).toHaveURL(/\/(dashboard|inventory)/);
+     |                      ^ Error: expect(page).toHaveURL(expected) failed
+  65 |   await page.goto("/tools");
+  66 |   await page.locator('a[href="/tools/catalog"]').click();
+  67 |   await expect(page).toHaveURL(/\/tools\/catalog$/);
+  68 |   await expect(page.getByText("Gate 6 product R2")).toBeVisible();
+  69 |   const image = page.getByRole("img", { name: "Gate 6 product R2" });
+  70 |   await expect(image).toHaveAttribute("src", /^blob:/);
+  71 |   await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.naturalWidth)).toBeGreaterThan(0);
+  72 | });
+  73 | 
+```
