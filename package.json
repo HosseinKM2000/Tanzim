@@ -5,6 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:frontend": "vite",
+    "dev:backend": "backend\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --app-dir backend",
+    "dev:backend:debug": "backend\\.venv\\Scripts\\python.exe -m debugpy --listen 127.0.0.1:5678 -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --app-dir backend",
+    "dev:all": "node scripts/dev-runner.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "build": "tsc -b && vite build",
@@ -14,9 +18,9 @@
     "test:typecheck": "tsc --noEmit -p tsconfig.test.json",
     "test:watch": "vitest --project unit --project component",
     "test:coverage": "vitest run --coverage --project unit --project component",
-    "test:backend": ".venv\\Scripts\\python.exe -m pytest -c backend\\pytest.ini backend\\tests --ignore=backend\\tests\\test_postgresql.py",
-    "test:backend:postgres": ".venv\\Scripts\\python.exe -m pytest -c backend\\pytest.ini backend\\tests\\test_postgresql.py",
-    "test:backend:postgres:local": ".venv\\Scripts\\python.exe backend\\run_local_postgres_tests.py",
+    "test:backend": "backend\\.venv\\Scripts\\python.exe -m pytest -c backend\\pytest.ini backend\\tests --ignore=backend\\tests\\test_postgresql.py",
+    "test:backend:postgres": "backend\\.venv\\Scripts\\python.exe -m pytest -c backend\\pytest.ini backend\\tests\\test_postgresql.py",
+    "test:backend:postgres:local": "backend\\.venv\\Scripts\\python.exe backend\\run_local_postgres_tests.py",
     "test:e2e": "playwright test",
     "capture:gallery": "node scripts/capture-ui-layout-gallery.mjs",
     "test:regression": "npm run test && npm run test:typecheck && npm run test:backend && npm run build && npm run lint"

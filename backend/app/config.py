@@ -124,8 +124,8 @@ if not settings.DATABASE_URL:
     raise RuntimeError(
         "DATABASE_URL is required; configure the PostgreSQL connection explicitly"
     )
-if settings.DATABASE_URL.startswith("sqlite") and settings.ENVIRONMENT != "test":
-    raise RuntimeError("SQLite is supported only when ENVIRONMENT=test")
+if settings.DATABASE_URL.startswith("sqlite") and settings.ENVIRONMENT not in {"test", "development"}:
+    raise RuntimeError("SQLite is supported only when ENVIRONMENT is test or development")
 if settings.ENVIRONMENT in {"production", "prod"} and settings.SECRET_KEY == "dev-secret-change-me":
     raise RuntimeError("SECRET_KEY must be configured before production startup")
 if (settings.TAXONOMY_VERSION_OVERRIDE or settings.QA_PROPOSED_TAXONOMY_ENABLED) and settings.ENVIRONMENT not in {"qa", "test"}:
